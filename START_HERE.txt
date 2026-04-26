@@ -1,0 +1,49 @@
+╔══════════════════════════════════════════════════════════════╗
+║              🌟 MS. SMILE ENGLISH - PUBLIC TEST              ║
+║                   Chạy public bằng ngrok                     ║
+╚══════════════════════════════════════════════════════════════╝
+
+📖 ĐỌC HƯỚNG DẪN CHI TIẾT:
+   → Mở file: QUICK_START.md
+
+⚡ CHẠY NHANH (2 bước):
+
+   Bước 1: Cài ngrok (chỉ 1 lần)
+   ─────────────────────────────────────────
+   • Download: https://ngrok.com/download
+   • Copy ngrok.exe vào thư mục này
+   • HOẶC cài bằng: choco install ngrok
+
+   Bước 2: Chạy server
+   ─────────────────────────────────────────
+   python run_public.py
+   
+   → Đợi 10 giây
+   → Copy link public hiện ra
+   → Gửi cho bạn bè!
+
+🎯 KẾT QUẢ:
+   • Link public: https://xxxx.ngrok.io
+   • Dùng được trên mobile, 4G, bất kỳ đâu
+   • Không cần cài gì thêm
+
+🔧 TEST THỦ CÔNG:
+   
+   Terminal 1: python app.py
+   Terminal 2: ngrok http 5000
+   
+   Xem URL tại: http://127.0.0.1:4040
+
+⚠️ LƯU Ý:
+   • Link thay đổi mỗi lần chạy lại
+   • Free tier: 40 connections/phút
+   • Chỉ dùng cho demo/test
+
+📞 CẦN HỖ TRỢ?
+   • Kiểm tra ngrok: ngrok version
+   • Kiểm tra Python: python --version
+   • Xem log chi tiết trong terminal
+
+═══════════════════════════════════════════════════════════════
+Sẵn sàng demo cho bạn bè! 🚀
+═══════════════════════════════════════════════════════════════

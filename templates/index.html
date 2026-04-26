@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="logo">
+            <span class="logo-icon">👩‍🏫</span>
+            <h1>Ms. Smile English</h1>
+        </div>
+        <div class="header-actions">
+            <button id="situationBtn" class="btn btn-situation">
+                <i class="fas fa-life-ring"></i> Tình huống thực tế
+            </button>
+            <button id="roleplayBtn" class="btn btn-roleplay">
+                <i class="fas fa-theater-masks"></i> Luyện hội thoại
+            </button>
+            <button id="lessonBtn" class="btn btn-lesson">
+                <i class="fas fa-book-open"></i> Bài học hôm nay
+            </button>
+            <button id="statsBtn" class="btn btn-stats">
+                <i class="fas fa-chart-line"></i> Lịch sử
+            </button>
+            <button id="dashboardBtn" class="btn btn-dashboard hidden">
+                <i class="fas fa-tachometer-alt"></i> Tiến độ
+            </button>
+            <button id="profileBtn" class="btn btn-profile hidden">
+                <i class="fas fa-user-cog"></i> Hồ sơ
+            </button>
+            <button id="loginBtn" class="btn btn-login">
+                <i class="fas fa-sign-in-alt"></i> Đăng nhập
+            </button>
+            <button id="registerBtn" class="btn btn-register">
+                <i class="fas fa-user-plus"></i> Đăng ký
+            </button>
+            <button id="logoutBtn" class="btn btn-logout hidden">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Teacher Avatar Section -->
+        <div class="teacher-section">
+            <div class="teacher-avatar">
+                <div class="avatar-container" id="aiAvatar">
+                    <div class="avatar-face">
+                        <div class="eyes">
+                            <div class="eye left" id="eyeLeft"></div>
+                            <div class="eye right" id="eyeRight"></div>
+                        </div>
+                        <div class="mouth" id="avatarMouth">
+                            <div class="mouth-inner"></div>
+                        </div>
+                        <div class="blush left"></div>
+                        <div class="blush right"></div>
+                    </div>
+                    <div class="avatar-hair"></div>
+                    <div class="avatar-body">
+                        <div class="collar"></div>
+                    </div>
+                </div>
+                <div class="teacher-name">Ms. Smile</div>
+                <div class="teacher-status" id="teacherStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Online</span>
+                </div>
+                <div class="speech-status hidden" id="speechStatus">
+                    <span class="sound-wave">🔊</span>
+                    <span class="speech-text">Đang nói...</span>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button id="startLessonBtn" class="action-btn pulse">
+                    <i class="fas fa-play"></i>
+                    <span>Bắt đầu học</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div class="chat-section">
+            <div class="chat-header">
+                <span class="chat-title">💬 Chat với Ms. Smile</span>
+                <button id="clearChatBtn" class="btn-icon" title="Xóa cuộc trò chuyện">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+            
+            <div id="chatMessages" class="chat-messages">
+                <!-- Welcome Message -->
+                <div class="message message-ai">
+                    <div class="message-avatar">👩‍🏫</div>
+                    <div class="message-content">
+                        <p>Xin chào em! 🌟</p>
+                        <p>Cô là Ms. Smile, cô giáo tiếng Anh của em đây! 😊</p>
+                        <p>Hôm nay em muốn học gì nào? Cô có thể:</p>
+                        <ul>
+                            <li>💬 Chat và sửa lỗi cho em</li>
+                            <li>📚 Cho em bài học mới</li>
+                            <li>🎯 Luyện phát âm cùng em</li>
+                        </ul>
+                        <p>Em cứ nhập tiếng Việt hoặc tiếng Anh nhé! Cô sẽ giúp em! 💪</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="input-container">
+                    <button id="micBtn" class="input-btn mic-btn" title="Nhấn để nói">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        class="message-input" 
+                        placeholder="Nhập tin nhắn..."
+                        autocomplete="off"
+                    >
+                    <button id="sendBtn" class="input-btn send-btn" title="Gửi">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <!-- TTS Controls -->
+                <div class="tts-controls" id="ttsControls">
+                    <button class="btn-tts btn-tts-listen" id="replayTTSBtn" title="🔊 Nghe lại">
+                        <i class="fas fa-volume-up"></i> Nghe lại
+                    </button>
+                    <button class="btn-tts btn-tts-speak" id="recordAgainBtn" title="🎤 Nói lại">
+                        <i class="fas fa-microphone-alt"></i> Nói lại
+                    </button>
+                </div>
+                
+                <!-- Voice Selector -->
+                <div class="voice-selector" id="voiceSelector">
+                    <label>🎙️ Giọng đọc:</label>
+                    <select id="ttsVoice">
+                        <option value="default">Mặc định (US Female)</option>
+                        <option value="uk">UK Female</option>
+                        <option value="us-male">US Male</option>
+                    </select>
+                </div>
+            </div>
+            <div id="recordingIndicator" class="recording-indicator hidden">
+                <span class="recording-dot"></span>
+                <span>Đang nghe em nói...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lesson Modal -->
+    <div id="lessonModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📚 Bài học hôm nay</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="lessonLoading" class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Cô đang chuẩn bị bài học cho em... 📝</p>
+                </div>
+                <div id="lessonContent" class="lesson-content hidden">
+                    <!-- Lesson content will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div id="statsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📊 Lịch sử học tập</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="statsContent">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📚</div>
+                            <div class="stat-value" id="statLessons">0</div>
+                            <div class="stat-label">Bài học</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💬</div>
+                            <div class="stat-value" id="statChats">0</div>
+                            <div class="stat-label">Tin nhắn</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-value" id="statSpeaking">0</div>
+                            <div class="stat-label">Luyện nói</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">📅</div>
+                            <div class="stat-value" id="statDays">0</div>
+                            <div class="stat-label">Ngày học</div>
+                        </div>
+                    </div>
+                    <div id="commonMistakes" class="mistakes-section">
+                        <h3>⚠️ Lỗi thường gặp</h3>
+                        <ul id="mistakesList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Speaking Practice Modal -->
+    <div id="speakingModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎯 Luyện nói</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="speakingContent">
+                    <p class="instruction">Nghe cô đọc rồi em thử nói lại nhé!</p>
+                    <div class="practice-sentence">
+                        <p id="practiceText"></p>
+                        <button id="playPracticeBtn" class="btn btn-audio">
+                            <i class="fas fa-volume-up"></i> Nghe cô đọc
+                        </button>
+                    </div>
+                    <div class="speaking-controls">
+                        <button id="recordPracticeBtn" class="btn btn-record">
+                            <i class="fas fa-microphone"></i> Bấm để nói
+                        </button>
+                    </div>
+                    <div id="speakingResult" class="speaking-result hidden">
+                        <!-- Result will be shown here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Roleplay Modal -->
+    <div id="roleplayModal" class="modal hidden">
+        <div class="modal-content roleplay-content">
+            <div class="modal-header">
+                <h2>🎭 Luyện hội thoại thực tế</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Role Selection -->
+                <div id="roleplaySetup" class="roleplay-setup">
+                    <p class="subtitle">Chọn người đối thoại và tình huống để luyện nói! 🎪</p>
+                    
+                    <div class="form-group">
+                        <label>Chọn vai đối thoại:</label>
+                        <div class="role-grid">
+                            <button type="button" class="role-btn" data-role="teacher">
+                                <span class="role-icon">👩‍🏫</span>
+                                <span class="role-name">Cô giáo</span>
+                                <span class="role-desc">Ms. Johnson - encouraging & patient</span>
+                            </button>
+                            <button type="button" class="role-btn" data-role="friend">
+                                <span class="role-icon">🧑</span>
+                                <span class="role-name">Bạn nước ngoài</span>
+                                <span class="role-desc">Alex - casual & friendly</span>
+                            </button>
+                            <button type="button" class="role-btn" data-role="customer">
+                                <span class="role-icon">👔</span>
+                                <span class="role-name">Khách hàng</span>
+                                <span class="role-desc">Mr. Smith - professional</span>
+                            </button>
+                            <button type="button" class="role-btn" data-role="colleague">
+                                <span class="role-icon">👩‍💼</span>
+                                <span class="role-name">Đồng nghiệp</span>
+                                <span class="role-desc">Sarah - helpful teammate</span>
+                            </button>
+                            <button type="button" class="role-btn" data-role="interviewer">
+                                <span class="role-icon">🎤</span>
+                                <span class="role-name">Người phỏng vấn</span>
+                                <span class="role-desc">Ms. Davis - formal HR</span>
+                            </button>
+                            <button type="button" class="role-btn" data-role="salesperson">
+                                <span class="role-icon">🛍️</span>
+                                <span class="role-name">Nhân viên bán hàng</span>
+                                <span class="role-desc">Tom - enthusiastic</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Chọn tình huống:</label>
+                        <select id="roleplaySituation" class="situation-select">
+                            <option value="greeting">👋 Chào hỏi lần đầu</option>
+                            <option value="self_intro">😊 Giới thiệu bản thân</option>
+                            <option value="directions">🗺️ Hỏi đường</option>
+                            <option value="shopping">🛒 Mua hàng</option>
+                            <option value="cafe">☕ Gọi món cà phê</option>
+                            <option value="interview">💼 Phỏng vấn xin việc</option>
+                            <option value="customer_service">🤝 Nói chuyện với khách hàng</option>
+                            <option value="workplace">🏭 Giao tiếp công việc</option>
+                        </select>
+                    </div>
+                    
+                    <button id="startRoleplayBtn" class="btn btn-primary btn-full">
+                        🎬 Bắt đầu luyện hội thoại!
+                    </button>
+                </div>
+                
+                <!-- Active Roleplay (hidden initially) -->
+                <div id="activeRoleplay" class="active-roleplay hidden">
+                    <div class="roleplay-info">
+                        <span id="roleplayRoleName">Role</span> • 
+                        <span id="roleplaySituationName">Situation</span>
+                    </div>
+                    
+                    <div id="roleplayMessages" class="roleplay-messages">
+                        <!-- Messages will appear here -->
+                    </div>
+                    
+                    <div class="roleplay-input-area">
+                        <div class="input-container">
+                            <button id="roleplayMicBtn" class="input-btn mic-btn" title="Nói bằng giọng nói">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <input 
+                                type="text" 
+                                id="roleplayInput" 
+                                placeholder="Nhập câu trả lời tiếng Anh của em..."
+                                autocomplete="off"
+                            >
+                            <button id="roleplaySendBtn" class="input-btn send-btn" title="Gửi">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="roleplayAnalysis" class="roleplay-analysis hidden">
+                        <!-- Analysis will appear here -->
+                    </div>
+                    
+                    <div class="roleplay-controls">
+                        <button id="listenAIBtn" class="btn btn-audio">
+                            <i class="fas fa-volume-up"></i> Nghe AI nói
+                        </button>
+                        <button id="suggestAnswerBtn" class="btn btn-lesson">
+                            <i class="fas fa-lightbulb"></i> Gợi ý câu trả lời
+                        </button>
+                        <button id="correctMeBtn" class="btn btn-primary">
+                            <i class="fas fa-check-circle"></i> Sửa câu của tôi
+                        </button>
+                        <button id="sayNaturallyBtn" class="btn btn-stats">
+                            <i class="fas fa-comment-dots"></i> Nói tự nhiên hơn
+                        </button>
+                        <button id="endRoleplayBtn" class="btn btn-secondary">
+                            <i class="fas fa-stop"></i> Kết thúc
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Situation Advisor Modal -->
+    <div id="situationModal" class="modal hidden">
+        <div class="modal-content situation-content">
+            <div class="modal-header">
+                <h2>🆘 Tình huống thực tế</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Input Section -->
+                <div id="situationInputSection" class="situation-input-section">
+                    <p class="subtitle">Em đang gặp tình huống gì? Cô giúp em xử lý! 💪</p>
+                    
+                    <div class="form-group">
+                        <label for="situationInput">Mô tả tình huống (tiếng Việt hoặc tiếng Anh):</label>
+                        <textarea 
+                            id="situationInput" 
+                            placeholder="Ví dụ: Tôi đang gặp khách nước ngoài hỏi giá sản phẩm nhưng tôi không biết trả lời sao..."
+                            rows="4"
+                        ></textarea>
+                    </div>
+                    
+                    <button id="analyzeSituationBtn" class="btn btn-primary btn-full">
+                        <i class="fas fa-magic"></i> Hướng dẫn cách trả lời
+                    </button>
+                    
+                    <div class="situation-examples">
+                        <p style="color: #666; font-size: 0.9rem; margin-top: 15px;">💡 Ví dụ tình huống:</p>
+                        <div class="example-chips">
+                            <button class="example-chip" data-example="Khách hàng hỏi giá sản phẩm mà tôi không biết giá">💰 Khách hỏi giá</button>
+                            <button class="example-chip" data-example="Tôi làm đổ cà phê lên khách và cần xin lỗi">☕ Xin lỗi khách</button>
+                            <button class="example-chip" data-example="Khách phàn nàn sản phẩm bị lỗi">🔧 Khách phàn nàn</button>
+                            <button class="example-chip" data-example="Tôi cần hỏi đường đến nhà ga người nước ngoài">🗺️ Hỏi đường</button>
+                            <button class="example-chip" data-example="Khách hàng muốn gặp quản lý">👔 Gọi quản lý</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Result Section (hidden initially) -->
+                <div id="situationResult" class="situation-result hidden">
+                    <div id="situationAnalysis" class="situation-analysis">
+                        <!-- Analysis will appear here -->
+                    </div>
+                    
+                    <div class="situation-controls">
+                        <button id="simpleSentenceBtn" class="btn btn-lesson">
+                            <i class="fas fa-comment"></i> Cho câu đơn giản
+                        </button>
+                        <button id="naturalSentenceBtn" class="btn btn-stats">
+                            <i class="fas fa-comments"></i> Cho câu tự nhiên hơn
+                        </button>
+                        <button id="practiceSituationBtn" class="btn btn-primary">
+                            <i class="fas fa-microphone"></i> Luyện lại tình huống này
+                        </button>
+                        <button id="newSituationBtn" class="btn btn-secondary">
+                            <i class="fas fa-plus"></i> Tình huống khác
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Practice Section (hidden initially) -->
+                <div id="situationPracticeSection" class="situation-practice hidden">
+                    <div class="practice-prompt">
+                        <p id="practicePromptText">Bây giờ em thử trả lời bằng tiếng Anh nhé!</p>
+                    </div>
+                    
+                    <div class="input-container">
+                        <button id="situationPracticeMicBtn" class="input-btn mic-btn" title="Nói bằng giọng nói">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <input 
+                            type="text" 
+                            id="situationPracticeInput" 
+                            placeholder="Nhập câu trả lời tiếng Anh của em..."
+                            autocomplete="off"
+                        >
+                        <button id="situationPracticeSendBtn" class="input-btn send-btn" title="Gửi">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    
+                    <div id="situationPracticeFeedback" class="situation-practice-feedback hidden">
+                        <!-- Practice feedback will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div id="onboardingModal" class="modal hidden">
+        <div class="modal-content onboarding-content">
+            <div class="modal-header">
+                <h2>👋 Chào mừng em đến với Ms. Smile English!</h2>
+                <p class="subtitle">Để cô giúp em học tốt hơn, cô cần biết một chút về em nhé 😊</p>
+            </div>
+            <div class="modal-body">
+                <form id="onboardingForm" class="onboarding-form">
+                    <div class="form-group">
+                        <label for="userName">Tên của em là gì? *</label>
+                        <input type="text" id="userName" name="name" placeholder="Ví dụ: Tuấn, Hoa, Minh..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userAge">Tuổi hoặc lớp đang học?</label>
+                        <input type="text" id="userAge" name="age" placeholder="Ví dụ: 25 tuổi, lớp 9...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userLevel">Trình độ tiếng Anh hiện tại của em? *</label>
+                        <select id="userLevel" name="level" required>
+                            <option value="beginner">🌱 Mất gốc (chưa biết gì)</option>
+                            <option value="elementary">🌿 Cơ bản (biết ít từ vựng)</option>
+                            <option value="intermediate">🌳 Trung bình (giao tiếp được)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userGoal">Em học tiếng Anh để làm gì? *</label>
+                        <select id="userGoal" name="goal" required>
+                            <option value="communication">💬 Giao tiếp hàng ngày</option>
+                            <option value="work">💼 Đi làm / công việc</option>
+                            <option value="travel">✈️ Du lịch nước ngoài</option>
+                            <option value="interview">🎯 Phỏng vấn xin việc</option>
+                            <option value="student">📚 Là học sinh / sinh viên</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userJob">Nghề nghiệp hoặc ngành học?</label>
+                        <input type="text" id="userJob" name="job" placeholder="Ví dụ: Kế toán, IT, Marketing...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userField">Lĩnh vực quan tâm?</label>
+                        <input type="text" id="userField" name="field" placeholder="Ví dụ: Công nghệ, Y tế, Giáo dục...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userTime">Thời gian học mỗi ngày? *</label>
+                        <select id="userTime" name="daily_time" required>
+                            <option value="10">⏱️ 10 phút (siêu nhanh)</option>
+                            <option value="15">⏱️ 15 phút (khuyến nghị)</option>
+                            <option value="30">⏱️ 30 phút (học nhiều)</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        🚀 Bắt đầu học cùng cô!
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Settings Modal -->
+    <div id="profileModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Hồ sơ của em</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm" class="onboarding-form">
+                    <!-- Same fields as onboarding -->
+                    <div class="form-group">
+                        <label>Tên</label>
+                        <input type="text" id="profileName" name="name">
+                    </div>
+                    <div class="form-group">
+                        <label>Trình độ</label>
+                        <select id="profileLevel" name="level">
+                            <option value="beginner">Mất gốc</option>
+                            <option value="elementary">Cơ bản</option>
+                            <option value="intermediate">Trung bình</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mục tiêu</label>
+                        <select id="profileGoal" name="goal">
+                            <option value="communication">Giao tiếp</option>
+                            <option value="work">Đi làm</option>
+                            <option value="travel">Du lịch</option>
+                            <option value="interview">Phỏng vấn</option>
+                            <option value="student">Học sinh</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Thời gian học/ngày</label>
+                        <select id="profileTime" name="daily_time">
+                            <option value="10">10 phút</option>
+                            <option value="15">15 phút</option>
+                            <option value="30">30 phút</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">💾 Lưu thay đổi</button>
+                </form>
+                <hr style="margin: 20px 0;">
+                <button id="resetProfileBtn" class="btn btn-secondary btn-full">🔄 Học lại từ đầu (reset)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TTS Speed Control -->
+    <div id="ttsControl" class="tts-control hidden">
+        <label>Tốc độ đọc:</label>
+        <select id="ttsSpeed">
+            <option value="0.7">🐢 Chậm</option>
+            <option value="1.0" selected>🚶 Bình thường</option>
+            <option value="1.3">🚀 Nhanh</option>
+        </select>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <div class="toast-content">
+            <span id="toastIcon"></span>
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔐 Đăng nhập</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Email hoặc Số điện thoại</label>
+                        <input type="text" id="loginEmail" placeholder="email@example.com hoặc 0901234567" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mật khẩu</label>
+                        <input type="password" id="loginPassword" placeholder="••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Đăng nhập</button>
+                </form>
+                <p class="auth-switch">Chưa có tài khoản? <a href="#" id="switchToRegister">Đăng ký ngay</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal (Step 1: Account) -->
+    <div id="registerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📝 Đăng ký - Bước 1/2</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="regEmail" placeholder="email@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input type="tel" id="regPhone" placeholder="0901234567">
+                    </div>
+                    <div class="form-group">
+                        <label>Tên hiển thị *</label>
+                        <input type="text" id="regName" placeholder="Tên của bạn" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mật khẩu *</label>
+                        <input type="password" id="regPassword" placeholder="Ít nhất 6 ký tự" minlength="6" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Tiếp tục →</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Setup Modal (Step 2) -->
+    <div id="profileSetupModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📝 Hoàn thiện hồ sơ - Bước 2/2</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="profileSetupForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Tuổi</label>
+                        <select id="profileAge">
+                            <option value="18-25">18-25</option>
+                            <option value="26-35">26-35</option>
+                            <option value="36-45">36-45</option>
+                            <option value="46+">46+</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nghề nghiệp *</label>
+                        <select id="profileJob" required>
+                            <option value="">Chọn nghề nghiệp</option>
+                            <option value="sales">Sales / Kinh doanh</option>
+                            <option value="engineer">Engineer / Kỹ sư</option>
+                            <option value="cafe">Cafe / Dịch vụ</option>
+                            <option value="office">Office / Văn phòng</option>
+                            <option value="student">Student / Sinh viên</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Có thường xuyên gặp người nước ngoài?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="meetForeigners" value="true" checked> Có</label>
+                            <label><input type="radio" name="meetForeigners" value="false"> Không</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Thường dùng tiếng Anh trong lĩnh vực gì?</label>
+                        <input type="text" id="profileUsage" placeholder="Ví dụ: Giao tiếp khách hàng, họp online...">
+                    </div>
+                    <div class="form-group">
+                        <label>Mục tiêu học *</label>
+                        <select id="profileGoal" required>
+                            <option value="">Chọn mục tiêu</option>
+                            <option value="daily">Giao tiếp hàng ngày</option>
+                            <option value="work">Công việc</option>
+                            <option value="travel">Du lịch</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Trình độ tiếng Anh</label>
+                        <select id="profileLevel">
+                            <option value="beginner">Mới bắt đầu</option>
+                            <option value="elementary">Sơ cấp</option>
+                            <option value="intermediate">Trung cấp</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Hoàn tất đăng ký 🎉</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Modal -->
+    <div id="dashboardModal" class="modal hidden">
+        <div class="modal-content dashboard-content">
+            <div class="modal-header">
+                <h2>📊 Tiến độ của tôi</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="dashboardContent">
+                    <!-- Streak Card -->
+                    <div class="dashboard-section">
+                        <h3>🔥 Streak hiện tại</h3>
+                        <div class="streak-display">
+                            <span id="dashboardStreak" class="streak-number">0</span>
+                            <span class="streak-label">ngày liên tiếp</span>
+                        </div>
+                        <p class="streak-sub">Dài nhất: <span id="longestStreak">0</span> ngày</p>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="stats-grid dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon">📚</div>
+                            <div class="stat-value" id="dashTotalDays">0</div>
+                            <div class="stat-label">Ngày đã học</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💬</div>
+                            <div class="stat-value" id="dashSentences">0</div>
+                            <div class="stat-label">Câu đã luyện</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-value" id="dashSituations">0</div>
+                            <div class="stat-label">Tình huống</div>
+                        </div>
+                    </div>
+
+                    <!-- Scores -->
+                    <div class="dashboard-section">
+                        <h3>📈 Điểm trung bình</h3>
+                        <div class="scores-display">
+                            <div class="score-item">
+                                <span class="score-label">Grammar</span>
+                                <div class="score-bar">
+                                    <div id="grammarScoreBar" class="score-fill" style="width: 0%"></div>
+                                </div>
+                                <span id="grammarScore" class="score-value">0/100</span>
+                            </div>
+                            <div class="score-item">
+                                <span class="score-label">Natural</span>
+                                <div class="score-bar">
+                                    <div id="naturalScoreBar" class="score-fill" style="width: 0%"></div>
+                                </div>
+                                <span id="naturalScore" class="score-value">0/100</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Common Errors -->
+                    <div class="dashboard-section">
+                        <h3>⚠️ Lỗi hay gặp</h3>
+                        <div id="commonErrorsList" class="errors-list">
+                            <p class="empty-text">Chưa có dữ liệu. Hãy luyện tập thêm!</p>
+                        </div>
+                    </div>
+
+                    <!-- Practiced Situations -->
+                    <div class="dashboard-section">
+                        <h3>🎭 Tình huống đã luyện</h3>
+                        <div id="practicedSituationsList" class="situations-list">
+                            <p class="empty-text">Chưa có tình huống nào. Thử ngay!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
