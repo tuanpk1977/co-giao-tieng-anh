@@ -79,22 +79,70 @@ class AIService:
         if not self.api_key:
             raise ValueError("QWEN_API_KEY chưa được cấu hình!")
     
-    def chat(self, user_message: str, conversation_history: List[Dict] = None, mode: str = "conversation") -> str:
+    def chat(self, user_message: str, conversation_history: List[Dict] = None, mode: str = "conversation", user_profile: Dict = None) -> str:
         """
         Gửi message đến AI và nhận phản hồi
         
         Args:
             user_message: Tin nhắn của người dùng
             conversation_history: Lịch sử cuộc trò chuyện (optional)
+            user_profile: Profile người dùng (level, occupation) để cá nhân hóa phản hồi
             
         Returns:
             Phản hồi từ AI
         """
         if conversation_history is None:
             conversation_history = []
+        
+        # Xây dựng system prompt với user context
+        system_prompt = SYSTEM_PROMPT
+        
+        # BẮT BUỘC: Quy tắc format song ngữ
+        bilingual_format = """
+
+🔴 QUY TẮC BẮT BUỘC - FORMAT TRẢ LỜI SONG NGỮ:
+
+AI LUÔN LUÔN trả lời theo format sau, KHÔNG được bỏ qua:
+
+🇺🇸 English:
+<câu tiếng Anh tự nhiên, ngắn, phù hợp hội thoại>
+
+🇻🇳 Tiếng Việt:
+<dịch nghĩa dễ hiểu>
+
+📘 Giải thích:
+- Từ vựng chính: giải thích các từ quan trọng
+- Cấu trúc câu: cấu trúc ngữ pháp đã dùng
+- Gợi ý câu nói: cách nói tự nhiên hơn nếu có
+
+QUY TẮC XỬ LÝ:
+- Nếu user viết tiếng Việt → chuyển ý sang tiếng Anh tự nhiên, rồi giải thích bằng tiếng Việt
+- Nếu user viết tiếng Anh sai → sửa nhẹ, giải thích lỗi bằng tiếng Việt
+- Nếu user viết tiếng Anh đúng → khen, giải thích từ vựng và cấu trúc
+- Luôn dùng giọng cô giáo thân thiện, dễ thương
+
+⚠️ KHÔNG được trả lời chỉ 1 ngôn ngữ. BẮT BUỘC song ngữ Anh-Việt với format trên!
+"""
+        system_prompt += bilingual_format
+        
+        # Thêm context về user profile nếu có
+        if user_profile:
+            level = user_profile.get('level', 'beginner')
+            occupation = user_profile.get('occupation', '')
             
+            context = f"""
+
+👤 THÔNG TIN HỌC VIÊN:
+- Trình độ: {level}
+"""
+            if occupation:
+                context += f"- Nghề nghiệp: {occupation}\n"
+                context += f"- Tập trung dùng từ vựng liên quan đến: {occupation}\n"
+            
+            system_prompt += context
+        
         # Xây dựng messages
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": system_prompt}]
         messages.extend(conversation_history)
         messages.append({"role": "user", "content": user_message})
         
@@ -108,16 +156,35 @@ class AIService:
         
         # Gọi provider tương ứng
         if self.provider == "demo":
-            return self._call_demo(messages, user_message)
+            ai_response = self._call_demo(messages, user_message)
         elif self.provider == "openai":
-            return self._call_openai(messages)
+            ai_response = self._call_openai(messages)
         elif self.provider == "gemini":
-            return self._call_gemini(messages)
+            ai_response = self._call_gemini(messages)
         elif self.provider == "qwen":
-            return self._call_qwen(messages)
+            ai_response = self._call_qwen(messages)
         else:
             print(f"[WARN] Provider '{self.provider}' không xác định, dùng demo mode")
-            return self._call_demo(messages, user_message)
+            ai_response = self._call_demo(messages, user_message)
+        
+        # Ép format song ngữ nếu AI không tuân thủ
+        has_english = 'US English:' in ai_response or '🇺🇸 English:' in ai_response
+        has_vietnamese = 'VN Tiếng Việt:' in ai_response or '🇻🇳 Tiếng Việt:' in ai_response
+        has_explanation = '📘 Giải thích:' in ai_response
+        
+        if not (has_english and has_vietnamese and has_explanation):
+            print(f"[WARN] AI response không đúng format, tự bọc lại...")
+            # Tự động bọc lại đúng format
+            ai_response = f"""US English:
+{ai_response}
+
+VN Tiếng Việt:
+[Cần dịch tiếng Việt chính xác]
+
+📘 Giải thích:
+Phản hồi chưa đúng format song ngữ."""
+        
+        return ai_response
     
     def _call_openai(self, messages: List[Dict]) -> str:
         """Gọi OpenAI API - Dùng HTTP REST API trực tiếp (Python 3.14 compatible)"""
@@ -158,50 +225,156 @@ class AIService:
             return "Cô đang hơi mệt 😅 Em thử lại giúp cô nhé!"
     
     def _call_demo(self, messages: List[Dict], user_message: str = "") -> str:
-        """Demo mode - trả về câu trả lời mẫu để test UI"""
+        """Demo mode - trả về câu trả lời mẫu theo format SONG NGỮ để test UI"""
         import random
         
-        demo_responses = [
-            """✅ Giỏi lắm em! 👏
-
-💡 Cô có thêm gợi ý: Em có thể nói đầy đủ hơn: "Nice to meet you too!"
-
-❓ Câu hỏi tiếp theo: Where are you from? 😊""",
-            
-            """❌ Gần đúng rồi!
-
-✔ Đúng phải nói: "My name is Tuấn"
-
-💡 Cách tự nhiên hơn: "I'm Tuấn" (ngắn gọn và tự nhiên)
-
-❓ Thử lại giúp cô: What's your name? 📝""",
-            
-            """🌟 Tuyệt vời! Em đang tiến bộ rất nhanh!
-
-💡 Gợi ý nhỏ: Khi hỏi tuổi, em có thể hỏi lại: "How old are you?"
-
-❓ Bây giờ em thử nói: "I am 25 years old" nhé! 💪""",
-            
-            """👋 Xin chào em! Cô là Ms. Smile!
-
-Hôm nay em muốn học gì nào? Cô có thể:
-💬 Chat và sửa lỗi cho em
-📚 Cho em bài học mới  
-🎯 Luyện phát âm cùng em
-
-❓ Em thử giới thiệu bản thân bằng tiếng Anh nhé! 😊"""
-        ]
-        
-        # Chọn response dựa trên nội dung user input
         user_lower = user_message.lower()
+        
+        # Case 1: User chào / xin chào
         if "hello" in user_lower or "xin chào" in user_lower:
-            return demo_responses[3]
+            return """🇺🇸 English:
+Hello! I'm Ms. Smile. Welcome to our English class! � What would you like to learn today?
+
+🇻🇳 Tiếng Việt:
+Xin chào! Cô là Ms. Smile. Chào mừng em đến với lớp học tiếng Anh! 😊 Hôm nay em muốn học gì?
+
+📘 Giải thích:
+- Hello: Xin chào
+- Welcome: Chào mừng
+- Would like: muốn (lịch sự)
+
+- Cấu trúc:
+  What would you like to + verb?
+
+- Gợi ý nói:
+  What do you want to learn? (cách nói thông dụng hơn)
+"""
+        
+        # Case 2: User nói về tên
         elif "name" in user_lower or "tên" in user_lower:
-            return demo_responses[1]
+            return """🇺🇸 English:
+Oh nice to meet you! 😊 My name is Ms. Smile. What's your name?
+
+🇻🇳 Tiếng Việt:
+Rất vui được gặp em! � Tên cô là Ms. Smile. Em tên gì?
+
+📘 Giải thích:
+- Nice to meet you: Rất vui được gặp (bạn/em)
+- What's your name: Bạn/em tên gì?
+
+- Cấu trúc:
+  My name is + [tên]
+  What's your name?
+
+- Gợi ý nói:
+  I'm Ms. Smile. (ngắn gọn hơn)
+"""
+        
+        # Case 3: User nói "nice to meet you"
         elif "nice" in user_lower or "meet" in user_lower:
-            return demo_responses[0]
+            return """�🇸 English:
+Nice to meet you too! 👏 Where are you from? Tell me a little about yourself!
+
+🇻🇳 Tiếng Việt:
+Cô cũng rất vui được gặp em! 👏 Em đến từ đâu? Kể cô nghe chút về em nhé!
+
+� Giải thích:
+- Nice to meet you too: Cũng rất vui được gặp bạn
+- Where are you from: Bạn đến từ đâu?
+- Tell me: Kể cho tôi nghe
+
+- Cấu trúc:
+  Nice to meet you + too
+  Where are you from?
+
+- Gợi ý nói:
+  I'm from Vietnam. (Tôi đến từ Việt Nam)
+  I come from Ho Chi Minh City.
+"""
+        
+        # Case 4: User viết tiếng Việt (gặp khách nước ngoài)
+        elif "khách" in user_lower or "foreign" in user_lower or "mình" in user_lower:
+            return """🇺🇸 English:
+I often meet foreign clients at work. What industry are you in?
+
+�🇳 Tiếng Việt:
+Tôi thường gặp khách nước ngoài trong công việc. Em làm trong ngành gì?
+
+📘 Giải thích:
+- foreign clients: khách hàng nước ngoài
+- often: thường xuyên
+- at work: trong công việc
+- industry: ngành nghề
+
+- Cấu trúc:
+  I often + verb + object
+
+- Gợi ý nói:
+  I meet foreign clients every day.
+  I work with international customers.
+"""
+        
+        # Case 5: User viết sai tiếng Anh (I very like English)
+        elif "very" in user_lower and "like" in user_lower:
+            return """🇺🇸 English:
+I like English very much! 😊 What do you like most about it?
+
+🇻🇳 Tiếng Việt:
+Tôi thích tiếng Anh rất nhiều! 😊 Em thích điều gì nhất về tiếng Anh?
+
+📘 Giải thích:
+- Lỗi: "I very like English" ❌
+- Đúng: "I like English very much" ✅
+- very much: rất nhiều (đứng sau động từ)
+
+- Cấu trúc:
+  I like + noun + very much
+
+- Gợi ý nói:
+  I really like English.
+  I love English!
+"""
+        
+        # Default: trả lời ngẫu nhiên theo format song ngữ
         else:
-            return random.choice(demo_responses)
+            default_responses = [
+                """🇺🇸 English:
+Oh that's interesting! Tell me more about it. 😊
+
+🇻🇳 Tiếng Việt:
+Ôi thật thú vị! Kể cô nghe thêm nhé. 😊
+
+📘 Giải thích:
+- interesting: thú vị
+- tell me more: kể cho tôi nghe thêm
+
+- Cấu trúc:
+  That's + adjective
+
+- Gợi ý nói:
+  Can you tell me more?
+  I'd love to hear more!
+""",
+                """🇺🇸 English:
+Good job! 👏 You're doing great. Keep practicing!
+
+🇻🇳 Tiếng Việt:
+Làm tốt lắm! 👏 Em đang làm rất tốt. Tiếp tục luyện tập nhé!
+
+📘 Giải thích:
+- Good job: Làm tốt lắm
+- doing great: đang làm tốt
+- keep practicing: tiếp tục luyện tập
+
+- Cấu trúc:
+  You're doing + adjective
+
+- Gợi ý nói:
+  Keep up the good work!
+  You're improving!
+"""
+            ]
+            return random.choice(default_responses)
     
     def _call_qwen(self, messages: List[Dict]) -> str:
         """Gọi Qwen API (Alibaba DashScope)"""

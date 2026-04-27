@@ -34,6 +34,13 @@
             <button id="profileBtn" class="btn btn-profile hidden">
                 <i class="fas fa-user-cog"></i> Hồ sơ
             </button>
+            
+            <!-- User Badge -->
+            <div id="userBadge" class="user-badge guest-badge">
+                <i class="fas fa-user-circle"></i>
+                <span id="userBadgeText">Khách dùng thử</span>
+            </div>
+            
             <button id="loginBtn" class="btn btn-login">
                 <i class="fas fa-sign-in-alt"></i> Đăng nhập
             </button>
@@ -608,6 +615,57 @@
                     <button type="submit" class="btn btn-primary btn-block">Đăng nhập</button>
                 </form>
                 <p class="auth-switch">Chưa có tài khoản? <a href="#" id="switchToRegister">Đăng ký ngay</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Freemium Limit Modal -->
+    <div id="limitModal" class="modal hidden">
+        <div class="modal-content limit-modal">
+            <div class="modal-header">
+                <h2>⏰ Đã hết lượt dùng thử</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="limit-info">
+                    <div class="limit-icon">🎁</div>
+                    <h3>Bạn đã dùng hết lượt miễn phí hôm nay!</h3>
+                    <div class="limit-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">💬 Chat:</span>
+                            <span class="stat-value" id="chatLimitDisplay">5/5</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🆘 Tình huống:</span>
+                            <span class="stat-value" id="situationLimitDisplay">1/1</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🎭 Hội thoại:</span>
+                            <span class="stat-value" id="roleplayLimitDisplay">1/1</span>
+                        </div>
+                    </div>
+                    <p class="limit-message">
+                        Đăng ký miễn phí để lưu tiến độ, cá nhân hóa bài học và học tiếp mỗi ngày!
+                    </p>
+                    <ul class="benefits-list">
+                        <li>✅ Không giới hạn chat và luyện tập</li>
+                        <li>✅ Lưu lịch sử học và lỗi sai</li>
+                        <li>✅ Theo dõi điểm grammar/naturalness</li>
+                        <li>✅ Cá nhân hóa bài học theo trình độ</li>
+                        <li>✅ Nhắc học mỗi ngày</li>
+                    </ul>
+                </div>
+                <div class="limit-actions">
+                    <button id="limitRegisterBtn" class="btn btn-primary btn-block">
+                        <i class="fas fa-user-plus"></i> Đăng ký miễn phí
+                    </button>
+                    <button id="limitLoginBtn" class="btn btn-secondary btn-block">
+                        <i class="fas fa-sign-in-alt"></i> Đã có tài khoản? Đăng nhập
+                    </button>
+                    <button class="modal-close-btn btn btn-text">
+                        Tiếp tục dùng thử mai
+                    </button>
+                </div>
             </div>
         </div>
     </div>

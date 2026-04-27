@@ -11,10 +11,23 @@ const state = {
     isRecording: false,
     recognition: null,
     synthesis: window.speechSynthesis,
+    ttsEnabled: true,
+    ttsSpeed: 1.0,
+    currentUser: null,
+    profile: null,
+    userToken: null,
+    
+    // Freemium
+    isGuest: true,
+    guestLimits: {
+        chat: 0,
+        situation: 0,
+        roleplay: 0,
+        lastReset: null
+    },
     currentLesson: null,
     currentPracticeIndex: 0,
     userProfile: null,
-    ttsSpeed: 1.0,
     isSpeaking: false,
     
     // Roleplay state
@@ -96,6 +109,16 @@ const elements = {
     dashboardModal: document.getElementById('dashboardModal'),
     dashboardContent: document.getElementById('dashboardContent'),
     
+    // Freemium
+    userBadge: document.getElementById('userBadge'),
+    userBadgeText: document.getElementById('userBadgeText'),
+    limitModal: document.getElementById('limitModal'),
+    chatLimitDisplay: document.getElementById('chatLimitDisplay'),
+    situationLimitDisplay: document.getElementById('situationLimitDisplay'),
+    roleplayLimitDisplay: document.getElementById('roleplayLimitDisplay'),
+    limitRegisterBtn: document.getElementById('limitRegisterBtn'),
+    limitLoginBtn: document.getElementById('limitLoginBtn'),
+    
     // TTS & Avatar
     aiAvatar: document.getElementById('aiAvatar'),
     avatarMouth: document.getElementById('avatarMouth'),
@@ -162,6 +185,10 @@ function initializeApp() {
     setupEventListeners();
     initializeSpeechRecognition();
     initializeTTS();
+    
+    // Load freemium limits and update badge
+    loadGuestLimits();
+    updateUserBadge();
     loadInitialData();
     checkOnboarding();
     
@@ -329,6 +356,21 @@ function setupEventListeners() {
         populateProfileForm();
         openModal('profileModal');
     });
+    
+    // Freemium limit modal buttons
+    if (elements.limitRegisterBtn) {
+        elements.limitRegisterBtn.addEventListener('click', () => {
+            closeModal('limitModal');
+            openModal('registerModal');
+        });
+    }
+    
+    if (elements.limitLoginBtn) {
+        elements.limitLoginBtn.addEventListener('click', () => {
+            closeModal('limitModal');
+            openModal('loginModal');
+        });
+    }
     
     // Onboarding form
     if (elements.onboardingForm) {
@@ -625,6 +667,16 @@ async function sendMessage() {
     const message = elements.messageInput.value.trim();
     if (!message) return;
     
+    // Kiểm tra freemium limit cho guest
+    if (state.isGuest) {
+        const check = checkGuestLimit('chat');
+        if (!check.allowed) {
+            showLimitModal();
+            return;
+        }
+        incrementGuestLimit('chat');
+    }
+    
     // Thêm tin nhắn người dùng vào chat
     addMessage(message, 'user');
     elements.messageInput.value = '';
@@ -648,12 +700,26 @@ async function sendMessage() {
         hideTypingIndicator();
         
         if (data.success) {
-            addMessage(data.response, 'ai');
+            // Lấy reply từ data.reply (ưu tiên) hoặc data.response (fallback)
+            let botReply = data.reply || data.response || data.message || data.text || 'Không có phản hồi';
+            
+            // Kiểm tra format song ngữ
+            const hasEnglish = botReply.includes('English:') || botReply.includes('🇺🇸');
+            const hasVietnamese = botReply.includes('Tiếng Việt:') || botReply.includes('🇻🇳');
+            const hasExplanation = botReply.includes('Giải thích:') || botReply.includes('📘');
+            
+            // Nếu không đúng format, tự bọc lại
+            if (!hasEnglish || !hasVietnamese || !hasExplanation) {
+                console.log('[CHAT] Format không đúng, tự bọc lại:', botReply);
+                botReply = `US English:\n${botReply}\n\nVN Tiếng Việt:\n[Cần dịch tiếng Việt]\n\n📘 Giải thích:\nPhản hồi chưa đúng format song ngữ. Cần kiểm tra AI response.`;
+            }
+            
+            addMessage(botReply, 'ai');
             
             // Cập nhật conversation history
             state.conversationHistory.push(
                 { role: 'user', content: message },
-                { role: 'assistant', content: data.response }
+                { role: 'assistant', content: botReply }
             );
             
             // Giới hạn history để tránh quá dài
@@ -1272,6 +1338,16 @@ async function startRoleplay() {
         return;
     }
     
+    // Kiểm tra freemium limit cho guest
+    if (state.isGuest) {
+        const check = checkGuestLimit('roleplay');
+        if (!check.allowed) {
+            showLimitModal();
+            return;
+        }
+        incrementGuestLimit('roleplay');
+    }
+    
     state.roleplaySituation = elements.roleplaySituation.value;
     
     try {
@@ -1696,6 +1772,16 @@ async function analyzeSituation() {
         return;
     }
     
+    // Kiểm tra freemium limit cho guest
+    if (state.isGuest) {
+        const check = checkGuestLimit('situation');
+        if (!check.allowed) {
+            showLimitModal();
+            return;
+        }
+        incrementGuestLimit('situation');
+    }
+    
     // Show loading
     showToast('⏳', 'Cô đang phân tích tình huống...');
     
@@ -1959,7 +2045,9 @@ async function handleLogin(e) {
         
         if (data.success) {
             state.currentUser = data.user;
+            state.isGuest = false;
             updateAuthUI();
+            updateUserBadge();
             closeModal('loginModal');
             showToast('✅', `Chào mừng ${data.user.name}!`);
         } else {
@@ -2046,7 +2134,10 @@ async function handleProfileSetup(e) {
 function logout() {
     state.currentUser = null;
     state.pendingUserId = null;
+    state.isGuest = true;
     updateAuthUI();
+    updateUserBadge();
+    loadGuestLimits(); // Reset guest limits
     showToast('👋', 'Đã đăng xuất. Hẹn gặp lại!');
 }
 
@@ -2226,6 +2317,125 @@ function initializeTTS() {
 }
 
 let englishVoices = [];
+
+// ==========================================
+// Freemium Functions
+// ==========================================
+const FREEMIUM_LIMITS = {
+    chat: 5,
+    situation: 1,
+    roleplay: 1
+};
+
+function loadGuestLimits() {
+    const today = new Date().toDateString();
+    const saved = localStorage.getItem('ms_smile_guest_limits');
+    
+    if (saved) {
+        const data = JSON.parse(saved);
+        if (data.lastReset === today) {
+            state.guestLimits = data;
+            return;
+        }
+    }
+    
+    // Reset nếu qua ngày mới
+    state.guestLimits = {
+        chat: 0,
+        situation: 0,
+        roleplay: 0,
+        lastReset: today
+    };
+    saveGuestLimits();
+}
+
+function saveGuestLimits() {
+    localStorage.setItem('ms_smile_guest_limits', JSON.stringify(state.guestLimits));
+}
+
+function checkGuestLimit(type) {
+    // Nếu đã đăng nhập, không giới hạn
+    if (!state.isGuest && state.currentUser) {
+        return { allowed: true, remaining: Infinity };
+    }
+    
+    // Kiểm tra và reset nếu qua ngày mới
+    const today = new Date().toDateString();
+    if (state.guestLimits.lastReset !== today) {
+        state.guestLimits = {
+            chat: 0,
+            situation: 0,
+            roleplay: 0,
+            lastReset: today
+        };
+        saveGuestLimits();
+    }
+    
+    const current = state.guestLimits[type] || 0;
+    const limit = FREEMIUM_LIMITS[type];
+    const remaining = limit - current;
+    
+    return {
+        allowed: remaining > 0,
+        remaining: remaining,
+        used: current,
+        limit: limit
+    };
+}
+
+function incrementGuestLimit(type) {
+    if (!state.isGuest && state.currentUser) return true;
+    
+    const check = checkGuestLimit(type);
+    if (!check.allowed) {
+        showLimitModal();
+        return false;
+    }
+    
+    state.guestLimits[type]++;
+    saveGuestLimits();
+    return true;
+}
+
+function showLimitModal() {
+    const check = {
+        chat: checkGuestLimit('chat'),
+        situation: checkGuestLimit('situation'),
+        roleplay: checkGuestLimit('roleplay')
+    };
+    
+    // Update display
+    if (elements.chatLimitDisplay) {
+        elements.chatLimitDisplay.textContent = `${check.chat.used}/${check.chat.limit}`;
+    }
+    if (elements.situationLimitDisplay) {
+        elements.situationLimitDisplay.textContent = `${check.situation.used}/${check.situation.limit}`;
+    }
+    if (elements.roleplayLimitDisplay) {
+        elements.roleplayLimitDisplay.textContent = `${check.roleplay.used}/${check.roleplay.limit}`;
+    }
+    
+    // Show modal
+    if (elements.limitModal) {
+        elements.limitModal.classList.remove('hidden');
+    }
+}
+
+function updateUserBadge() {
+    if (!elements.userBadge || !elements.userBadgeText) return;
+    
+    if (state.currentUser) {
+        // Đã đăng nhập
+        elements.userBadge.classList.remove('guest-badge');
+        elements.userBadge.classList.add('user-badge');
+        elements.userBadgeText.textContent = state.currentUser.name || 'User';
+    } else {
+        // Khách
+        elements.userBadge.classList.remove('user-badge');
+        elements.userBadge.classList.add('guest-badge');
+        elements.userBadgeText.textContent = 'Khách dùng thử';
+    }
+}
 
 function loadVoices() {
     const voices = speechSynthesis.getVoices();

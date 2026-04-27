@@ -3,6 +3,9 @@ Ms. Smile English - Main Flask Application
 Backend API cho ứng dụng học tiếng Anh
 """
 
+# VERSION - để track deploy
+APP_VERSION = "bilingual-v2-2026-04-27"
+
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os
@@ -46,7 +49,43 @@ def health_check():
     """Kiểm tra trạng thái server"""
     return jsonify({
         "status": "ok",
-        "message": "Ms. Smile English is running! 🌟"
+        "message": "Ms. Smile English is running! ",
+        "version": APP_VERSION
+    })
+
+@app.route('/version')
+def version():
+    """Trả về version hiện tại - BILINGUAL V5"""
+    return jsonify({
+        "app": "Ms Smile English",
+        "version": "bilingual-v5",
+        "bilingual": True,
+        "status": "running",
+        "features": ["bilingual", "vn_en_explain", "song_ngu"],
+        "deployed_at": "2026-04-27",
+        "railway": "active"
+    })
+
+@app.route('/api/test-bilingual', methods=['GET'])
+def test_bilingual():
+    """Test endpoint trả về response song ngữ mẫu"""
+    test_reply = """US English:
+I am from Vietnam.
+
+VN Tiếng Việt:
+Tôi đến từ Việt Nam.
+
+📘 Giải thích:
+- from: đến từ
+- Vietnam viết liền, không viết VietNam
+- Cấu trúc: I am from + country
+- Gợi ý: Tôi đến từ + tên quốc gia"""
+    return jsonify({
+        "success": True,
+        "reply": test_reply,
+        "response": test_reply,
+        "test": True,
+        "version": APP_VERSION
     })
 
 @app.route('/api/profile', methods=['GET', 'POST'])
@@ -128,10 +167,15 @@ def chat():
     }
     """
     try:
+        print(f"\n[CHAT API v{APP_VERSION}] Received request")
+        
         data = request.json
         user_message = data.get('message', '').strip()
         user_id = data.get('user_id')
         conversation_history = data.get('history', [])
+        
+        print(f"[CHAT] User message: {user_message[:50]}...")
+        print(f"[CHAT] User ID: {user_id}")
         
         if not user_message:
             return jsonify({
@@ -142,43 +186,52 @@ def chat():
         # Lấy AI service
         service = get_ai_service()
         
-        # Build profile info - ưu tiên user từ DB, fallback về local profile
-        profile_info = None
+        # DEBUG LOG
+        import config as app_config
+        print(f"[CHAT DEBUG] Provider: {app_config.AI_PROVIDER}")
+        print(f"[CHAT DEBUG] Bilingual format: ENABLED")
+        
+        # Build user profile cho AI context
+        user_profile = None
         if user_id:
             from services.user_service import get_user_service
             user_service = get_user_service()
             user = user_service.get_user(user_id)
             if user:
                 profile = user.get_profile_for_ai()
-                profile_info = f"""
-THÔNG TIN NGƯỜI DÙNG:
-- Trình độ: {profile['level']}
-- Công việc: {profile['job']}
-- Mục tiêu: {profile['goal']}
-- Thường xuyên gặp người nước ngoài: {'Có' if profile['meet_foreigners'] else 'Không'}
-
-Hãy điều chỉnh ngôn ngữ và nội dung phù hợp với profile này.
-"""
+                user_profile = {
+                    'level': profile['level'],
+                    'occupation': profile['job'],
+                    'goal': profile['goal'],
+                    'meet_foreigners': profile['meet_foreigners']
+                }
         
-        if not profile_info:
+        if not user_profile:
             # Fallback to local profile
-            profile_info = get_profile_for_prompt()
+            local_profile = get_profile_for_prompt()
+            if local_profile:
+                user_profile = {
+                    'level': local_profile.get('level', 'beginner'),
+                    'occupation': local_profile.get('job', ''),
+                    'goal': local_profile.get('goal', ''),
+                    'meet_foreigners': local_profile.get('meet_foreigners', False)
+                }
         
-        if profile_info:
-            # Tạo messages mới với profile context
-            from config import SYSTEM_PROMPT
-            enhanced_system = SYSTEM_PROMPT + "\n\n" + profile_info
-            messages = [{"role": "system", "content": enhanced_system}]
-            messages.extend(conversation_history)
-            messages.append({"role": "user", "content": user_message})
-            
-            # Override the chat method để dùng enhanced messages
-            ai_response = service._call_openai(messages) if service.provider == "openai" else \
-                         service._call_demo(messages, user_message) if service.provider == "demo" else \
-                         service.chat(user_message, conversation_history)
+        # Gọi AI với user profile để cá nhân hóa
+        ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
+        
+        # Log response chi tiết
+        print(f"[CHAT DEBUG] === RESPONSE ===")
+        print(f"[CHAT DEBUG] response_preview: {ai_response[:200]}")
+        has_english = '🇺🇸 English:' in ai_response
+        has_vietnamese = '🇻🇳 Tiếng Việt:' in ai_response
+        has_explanation = '📘 Giải thích:' in ai_response
+        print(f"[CHAT DEBUG] Format check - English: {has_english}, Vietnamese: {has_vietnamese}, Explanation: {has_explanation}")
+        
+        if not (has_english and has_vietnamese and has_explanation):
+            print(f"[CHAT DEBUG] ❌ WRONG FORMAT - Missing bilingual sections!")
         else:
-            # Gọi AI bình thường
-            ai_response = service.chat(user_message, conversation_history)
+            print(f"[CHAT DEBUG] ✅ CORRECT FORMAT - Bilingual OK")
         
         # Lưu vào lịch sử
         try:
@@ -187,11 +240,17 @@ Hãy điều chỉnh ngôn ngữ và nội dung phù hợp với profile này.
         except Exception as e:
             print(f"Lỗi lưu lịch sử: {e}")
         
-        return jsonify({
+        # Log JSON response trước khi return
+        response_data = {
             "success": True,
+            "reply": ai_response,
             "response": ai_response,
-            "timestamp": get_timestamp()
-        })
+            "timestamp": get_timestamp(),
+            "version": APP_VERSION
+        }
+        print(f"[API CHAT RESPONSE JSON] {response_data}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         return jsonify({

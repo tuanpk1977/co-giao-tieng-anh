@@ -1548,6 +1548,129 @@ body {
 }
 
 /* ==========================================
+   User Badge & Freemium Styles
+   ========================================== */
+.user-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-right: 10px;
+}
+
+.user-badge i {
+    font-size: 1.1rem;
+}
+
+.guest-badge {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+}
+
+.user-badge {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.limit-modal .modal-content {
+    max-width: 500px;
+}
+
+.limit-info {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.limit-icon {
+    font-size: 4rem;
+    margin-bottom: 15px;
+}
+
+.limit-info h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+}
+
+.limit-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: var(--radius-md);
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: white;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.stat-label {
+    font-weight: 500;
+    color: var(--text-light);
+}
+
+.stat-value {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.limit-message {
+    font-size: 1rem;
+    color: #555;
+    margin: 20px 0;
+    line-height: 1.6;
+}
+
+.benefits-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    text-align: left;
+}
+
+.benefits-list li {
+    padding: 8px 0;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.limit-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.limit-actions .btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-text:hover {
+    color: var(--primary-color);
+}
+
+/* ==========================================
    Avatar Animations & TTS
    ========================================== */
 
