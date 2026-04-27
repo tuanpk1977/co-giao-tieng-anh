@@ -193,34 +193,34 @@ def chat():
         
         try:
             # Build user profile cho AI context
-        user_profile = None
-        if user_id:
-            from services.user_service import get_user_service
-            user_service = get_user_service()
-            user = user_service.get_user(user_id)
-            if user:
-                profile = user.get_profile_for_ai()
-                user_profile = {
-                    'level': profile['level'],
-                    'occupation': profile['job'],
-                    'goal': profile['goal'],
-                    'meet_foreigners': profile['meet_foreigners']
-                }
-        
-        if not user_profile:
-            # Fallback to local profile
-            local_profile = get_profile_for_prompt()
-            if local_profile:
-                user_profile = {
-                    'level': local_profile.get('level', 'beginner'),
-                    'occupation': local_profile.get('job', ''),
-                    'goal': local_profile.get('goal', ''),
-                    'meet_foreigners': local_profile.get('meet_foreigners', False)
-                }
-        
-        # Gọi AI với user profile để cá nhân hóa
-        ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
-        
+            user_profile = None
+            if user_id:
+                from services.user_service import get_user_service
+                user_service = get_user_service()
+                user = user_service.get_user(user_id)
+                if user:
+                    profile = user.get_profile_for_ai()
+                    user_profile = {
+                        'level': profile['level'],
+                        'occupation': profile['job'],
+                        'goal': profile['goal'],
+                        'meet_foreigners': profile['meet_foreigners']
+                    }
+            
+            if not user_profile:
+                # Fallback to local profile
+                local_profile = get_profile_for_prompt()
+                if local_profile:
+                    user_profile = {
+                        'level': local_profile.get('level', 'beginner'),
+                        'occupation': local_profile.get('job', ''),
+                        'goal': local_profile.get('goal', ''),
+                        'meet_foreigners': local_profile.get('meet_foreigners', False)
+                    }
+            
+            # Gọi AI với user profile để cá nhân hóa
+            ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
+            
         except Exception as e:
             print(f"[CHAT ERROR] Exception caught: {str(e)}")
             import traceback
