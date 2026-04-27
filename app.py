@@ -191,7 +191,8 @@ def chat():
         print(f"[CHAT DEBUG] Provider: {app_config.AI_PROVIDER}")
         print(f"[CHAT DEBUG] Bilingual format: ENABLED")
         
-        # Build user profile cho AI context
+        try:
+            # Build user profile cho AI context
         user_profile = None
         if user_id:
             from services.user_service import get_user_service
@@ -219,6 +220,18 @@ def chat():
         
         # Gọi AI với user profile để cá nhân hóa
         ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
+        
+        except Exception as e:
+            print(f"[CHAT ERROR] Exception caught: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            ai_response = f"""❌ Lỗi hệ thống: {str(e)}
+
+VN Tiếng Việt:
+Hệ thống gặp lỗi khi xử lý. Vui lòng thử lại sau.
+
+📘 Giải thích:
+Lỗi: {str(e)}"""
         
         # Log response chi tiết
         print(f"[CHAT DEBUG] === RESPONSE ===")

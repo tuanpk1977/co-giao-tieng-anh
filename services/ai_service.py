@@ -154,18 +154,35 @@ QUY TẮC XỬ LÝ:
             self.conversation_state["current_topic"] = "new"
             self.conversation_state["user_responses_count"] = 0
         
-        # Gọi provider tương ứng
-        if self.provider == "demo":
-            ai_response = self._call_demo(messages, user_message)
-        elif self.provider == "openai":
-            ai_response = self._call_openai(messages)
-        elif self.provider == "gemini":
-            ai_response = self._call_gemini(messages)
-        elif self.provider == "qwen":
-            ai_response = self._call_qwen(messages)
-        else:
-            print(f"[WARN] Provider '{self.provider}' không xác định, dùng demo mode")
-            ai_response = self._call_demo(messages, user_message)
+        # Gọi provider tương ứng với try/except để log lỗi chi tiết
+        try:
+            if self.provider == "demo":
+                ai_response = self._call_demo(messages, user_message)
+            elif self.provider == "openai":
+                ai_response = self._call_openai(messages)
+            elif self.provider == "gemini":
+                ai_response = self._call_gemini(messages)
+            elif self.provider == "qwen":
+                ai_response = self._call_qwen(messages)
+            else:
+                print(f"[WARN] Provider '{self.provider}' không xác định, dùng demo mode")
+                ai_response = self._call_demo(messages, user_message)
+            
+            print(f"[CHAT SUCCESS] Response length: {len(ai_response)} chars")
+            
+        except Exception as e:
+            print(f"[CHAT ERROR] Provider: {self.provider}, Error: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            return f"""❌ Lỗi hệ thống: {str(e)}
+
+VN Tiếng Việt:
+Hệ thống gặp lỗi khi gọi AI. Vui lòng thử lại sau.
+
+📘 Giải thích:
+- Lỗi: {str(e)}
+- Provider: {self.provider}
+- Vui lòng kiểm tra API key hoặc thử lại sau."""
         
         # Ép format song ngữ nếu AI không tuân thủ
         has_english = 'US English:' in ai_response or '🇺🇸 English:' in ai_response
@@ -216,13 +233,17 @@ Phản hồi chưa đúng format song ngữ."""
             else:
                 error_data = response.json() if response.text else {}
                 error_msg = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
-                print(f"[API] ❌ OpenAI error: {error_msg}")
-                return "Cô đang hơi mệt 😅 Em thử lại giúp cô nhé!"
+                print(f"[API] ❌ OpenAI HTTP error: {error_msg}")
+                print(f"[API] Response status: {response.status_code}")
+                print(f"[API] Response text: {response.text[:500]}")
+                raise Exception(f"OpenAI API error: {error_msg}")
             
         except Exception as e:
             elapsed = time.time() - start_time
-            print(f"[API] ❌ OpenAI error after {elapsed:.2f}s: {e}")
-            return "Cô đang hơi mệt 😅 Em thử lại giúp cô nhé!"
+            print(f"[API] ❌ OpenAI exception after {elapsed:.2f}s: {e}")
+            import traceback
+            print(traceback.format_exc())
+            raise e
     
     def _call_demo(self, messages: List[Dict], user_message: str = "") -> str:
         """Demo mode - trả về câu trả lời mẫu theo format SONG NGỮ để test UI"""
