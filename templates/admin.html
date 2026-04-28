@@ -165,6 +165,34 @@
             <div class="admin-section-title"><i class="fas fa-users"></i><h2>Thống kê Affiliate</h2></div>
             <div id="affiliateStats"></div>
         </div>
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-id-card"></i><h2>Danh sach dai ly va ma gioi thieu</h2></div>
+            <p style="margin: 0 0 14px; color: #555;">
+                Admin cap quyen dai ly cho user, sau do copy <strong>Ma dai ly</strong> dua cho ho.
+                Hoc vien moi nhap ma nay o o ma gioi thieu khi dang ky. Hoa hong chi phat sinh khi thanh toan duoc admin duyet.
+            </p>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Ten</th>
+                            <th>Ma dai ly</th>
+                            <th>Trang thai</th>
+                            <th>Da gioi thieu</th>
+                            <th>Doanh thu</th>
+                            <th>Hoa hong cho tra</th>
+                            <th>Thao tac</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agentsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-coins"></i><h2>Hoa hong gan day</h2></div>
+            <div id="commissionList"></div>
+        </div>
     </div>
 
     <!-- Plans Tab -->
@@ -338,6 +366,25 @@
             `).join('');
         }
 
+        function renderUserTable(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.name || ''}</td>
+                    <td>${user.email || user.phone || '-'}</td>
+                    <td>${user.plan_name || ''}</td>
+                    <td>${getStatusBadge(user.status)}</td>
+                    <td>${formatDate(user.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">Sua</button>
+                        ${user.role !== 'admin' ? `<button class="btn btn-sm btn-success" onclick="grantAgent(${user.id})">Cap dai ly</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Xoa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
         async function loadPayments() {
             try {
                 const response = await fetch('/api/admin/payments');
@@ -432,6 +479,64 @@
             }
         }
 
+        async function loadAffiliate() {
+            try {
+                const [statsResponse, agentsResponse, commissionsResponse] = await Promise.all([
+                    fetch('/api/admin/affiliate/stats'),
+                    fetch('/api/admin/agents'),
+                    fetch('/api/admin/affiliate/commissions')
+                ]);
+                const statsData = await statsResponse.json();
+                const agentsData = await agentsResponse.json();
+                const commissionsData = await commissionsResponse.json();
+
+                if (statsData.success) {
+                    document.getElementById('affiliateStats').innerHTML = `
+                        <p><strong>Tong affiliate:</strong> ${statsData.stats.total_affiliates}</p>
+                        <p><strong>Dang active:</strong> ${statsData.stats.active_affiliates}</p>
+                        <p><strong>Tong hoa hong:</strong> ${formatMoney(statsData.stats.total_commissions)} VND</p>
+                        <p><strong>Chua thanh toan:</strong> ${formatMoney(statsData.stats.pending_commissions)} VND</p>
+                    `;
+                }
+
+                const agentsBody = document.getElementById('agentsTableBody');
+                if (agentsBody && agentsData.success) {
+                    agentsBody.innerHTML = agentsData.agents.length ? agentsData.agents.map(agent => `
+                        <tr>
+                            <td>${agent.agent_id}</td>
+                            <td>${agent.agent_name || ''}</td>
+                            <td>
+                                <code>${agent.agent_code || ''}</code>
+                                <button class="btn btn-sm btn-outline" onclick="copyText('${agent.agent_code || ''}')">Copy</button>
+                            </td>
+                            <td>${agent.agent_status || ''}</td>
+                            <td>${agent.total_referred || 0}</td>
+                            <td>${formatMoney(agent.total_revenue || 0)} VND</td>
+                            <td>${formatMoney(agent.pending_commission || 0)} VND</td>
+                            <td>
+                                <button class="btn btn-sm btn-success" onclick="approveAgent(${agent.agent_id})">Duyet</button>
+                                <button class="btn btn-sm btn-danger" onclick="suspendAgent(${agent.agent_id})">Tam dung</button>
+                            </td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="8">Chua co dai ly.</td></tr>';
+                }
+
+                const commissionList = document.getElementById('commissionList');
+                if (commissionList && commissionsData.success) {
+                    commissionList.innerHTML = commissionsData.commissions.length ? commissionsData.commissions.slice(0, 20).map(c => `
+                        <div class="admin-list-item">
+                            <strong>Commission #${c.id}</strong>
+                            <div>Dai ly user ${c.affiliate_user_id} gioi thieu user ${c.referred_user_id}</div>
+                            <div>Thanh toan #${c.payment_id}: ${formatMoney(c.amount_vnd)} VND - Hoa hong: ${formatMoney(c.commission_amount)} VND</div>
+                            <div>Trang thai: ${c.status}</div>
+                        </div>
+                    `).join('') : '<p>Chua co hoa hong.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading affiliate:', error);
+            }
+        }
+
         async function loadPlans() {
             try {
                 const response = await fetch('/api/admin/plans');
@@ -463,6 +568,55 @@
         });
 
         // Action functions
+        async function grantAgent(userId) {
+            try {
+                const response = await fetch(`/api/admin/agents/${userId}/grant`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Da cap dai ly. Ma dai ly: ${data.referral_code}`);
+                    loadUsers();
+                    loadAffiliate();
+                } else {
+                    alert(data.error || 'Khong cap duoc dai ly');
+                }
+            } catch (error) {
+                console.error('Error granting agent:', error);
+            }
+        }
+
+        async function approveAgent(userId) {
+            try {
+                const response = await fetch(`/api/admin/agents/${userId}/approve`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    loadAffiliate();
+                } else {
+                    alert(data.error || 'Khong duyet duoc dai ly');
+                }
+            } catch (error) {
+                console.error('Error approving agent:', error);
+            }
+        }
+
+        async function suspendAgent(userId) {
+            try {
+                const response = await fetch(`/api/admin/agents/${userId}/suspend`, { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    loadAffiliate();
+                } else {
+                    alert(data.error || 'Khong tam dung duoc dai ly');
+                }
+            } catch (error) {
+                console.error('Error suspending agent:', error);
+            }
+        }
+
+        function copyText(text) {
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => alert(`Da copy ma: ${text}`));
+        }
+
         async function editUser(userId) {
             // TODO: Implement user editing modal
             alert('Chức năng chỉnh sửa người dùng đang được phát triển');
