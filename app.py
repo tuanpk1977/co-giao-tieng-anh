@@ -14,6 +14,7 @@ import os
 from services.ai_service import get_ai_service
 from services.roleplay_service import get_roleplay_service, ROLES, SITUATIONS
 from services.situation_advisor import get_situation_advisor
+from services.user_service import get_user_service
 from utils.history import get_history_manager
 from utils.user_profile import (
     load_profile, save_profile, update_profile, is_onboarded,
@@ -24,7 +25,18 @@ app = Flask(__name__,
     template_folder='templates',
     static_folder='static'
 )
-CORS(app)
+
+# Import config after app creation to avoid circular import
+import config as app_config
+
+# CORS configuration
+CORS(app, origins=app_config.ALLOWED_ORIGINS, supports_credentials=True)
+
+# Session configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SESSION_COOKIE_DOMAIN'] = app_config.COOKIE_DOMAIN if app_config.COOKIE_DOMAIN else None
+app.config['SESSION_COOKIE_SECURE'] = app_config.SESSION_COOKIE_SECURE
+app.config['SESSION_COOKIE_SAMESITE'] = app_config.SESSION_COOKIE_SAMESITE
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///ms_smile.db')
@@ -44,13 +56,19 @@ def index():
     """Trang chủ - Render giao diện chính"""
     return render_template('index.html')
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Kiểm tra trạng thái server"""
+@app.route('/api/health/domain', methods=['GET'])
+def health_domain():
+    """Endpoint kiểm tra cấu hình domain production"""
     return jsonify({
-        "status": "ok",
-        "message": "Ms. Smile English is running! ",
-        "version": APP_VERSION
+        "success": True,
+        "app": "Ms. Smile English",
+        "app_base_url": app_config.APP_BASE_URL,
+        "frontend_url": app_config.FRONTEND_URL,
+        "allowed_origins": app_config.ALLOWED_ORIGINS,
+        "cookie_domain": app_config.COOKIE_DOMAIN,
+        "session_secure": app_config.SESSION_COOKIE_SECURE,
+        "session_samesite": app_config.SESSION_COOKIE_SAMESITE,
+        "version": "domain-ready-v1"
     })
 
 @app.route('/version')
@@ -194,11 +212,34 @@ def chat():
         try:
             # Build user profile cho AI context
             user_profile = None
+            user_service = None
             if user_id:
-                from services.user_service import get_user_service
                 user_service = get_user_service()
                 user = user_service.get_user(user_id)
                 if user:
+                    if user.is_locked or user.status == 'banned':
+                        return jsonify({
+                            'success': False,
+                            'error': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.',
+                            'message': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.'
+                        }), 403
+                    if user.status == 'expired':
+                        return jsonify({
+                            'success': False,
+                            'error': 'Tài khoản đã hết hạn. Vui lòng gia hạn để tiếp tục.',
+                            'message': 'Tài khoản đã hết hạn. Vui lòng gia hạn để tiếp tục.'
+                        }), 403
+                    plan = user_service.get_plan(user.plan_name)
+                    if plan:
+                        usage = user_service.get_usage_log(user.id)
+                        if usage.chat_count >= plan.chat_limit:
+                            return jsonify({
+                                'success': False,
+                                'error': 'Bạn đã đạt đến giới hạn chat của gói hiện tại.',
+                                'message': 'Bạn đã đạt đến giới hạn chat của gói hiện tại.',
+                                'plan': plan.to_dict(),
+                                'usage': usage.to_dict()
+                            }), 403
                     profile = user.get_profile_for_ai()
                     user_profile = {
                         'level': profile['level'],
@@ -206,7 +247,7 @@ def chat():
                         'goal': profile['goal'],
                         'meet_foreigners': profile['meet_foreigners']
                     }
-            
+
             if not user_profile:
                 # Fallback to local profile
                 local_profile = get_profile_for_prompt()
@@ -260,6 +301,17 @@ Lỗi kỹ thuật: {str(e)}"""
         except Exception as e:
             print(f"Lỗi lưu lịch sử: {e}")
         
+        # Track usage for logged-in users
+        try:
+            if user_id and user_service and user:
+                user_service.increment_usage(
+                    user_id=user.id,
+                    chat_increment=1,
+                    estimated_cost=0.02
+                )
+        except Exception as e:
+            print(f"[CHAT LOG] Failed to update usage: {e}")
+
         # Log JSON response trước khi return
         response_data = {
             "success": True,
@@ -447,6 +499,153 @@ def get_timestamp():
     """Lấy timestamp hiện tại"""
     from datetime import datetime
     return datetime.now().isoformat()
+
+
+def is_admin_user(user_id):
+    if not user_id:
+        return False
+    user = get_user_service().get_user(user_id)
+    return user is not None and user.role == 'admin'
+
+
+@app.route('/api/plans', methods=['GET'])
+def get_plans():
+    """Get available subscription plans"""
+    try:
+        from services.user_service import get_user_service
+        user_service = get_user_service()
+        plans = [plan.to_dict() for plan in user_service.get_all_plans()]
+        return jsonify({"success": True, "plans": plans})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/payment/request', methods=['POST'])
+def create_payment_request():
+    """Create a new payment request for a plan"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        plan_name = data.get('plan_name')
+        if not user_id or not plan_name:
+            return jsonify({"success": False, "error": "user_id và plan_name là bắt buộc"}), 400
+        user_service = get_user_service()
+        success, result = user_service.create_payment_request(user_id, plan_name)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/summary', methods=['GET'])
+def admin_summary():
+    admin_id = request.args.get('admin_id', type=int)
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    user_service = get_user_service()
+    return jsonify({"success": True, "summary": user_service.get_admin_summary()})
+
+
+@app.route('/api/admin/users', methods=['GET'])
+def admin_users():
+    admin_id = request.args.get('admin_id', type=int)
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    user_service = get_user_service()
+    users = [u.to_dict() for u in user_service.get_all_users()]
+    return jsonify({"success": True, "users": users})
+
+
+@app.route('/api/admin/feedback', methods=['GET'])
+def admin_feedback():
+    admin_id = request.args.get('admin_id', type=int)
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    user_service = get_user_service()
+    feedbacks = [f.to_dict() for f in user_service.get_feedbacks(status=request.args.get('status', 'new'))]
+    return jsonify({"success": True, "feedbacks": feedbacks})
+
+
+@app.route('/api/admin/feedback/<int:feedback_id>/status', methods=['POST'])
+def admin_update_feedback_status(feedback_id):
+    data = request.get_json() or {}
+    admin_id = data.get('admin_id')
+    status = data.get('status')
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    if status not in ['new', 'reviewed', 'resolved']:
+        return jsonify({"success": False, "error": "Invalid status"}), 400
+    user_service = get_user_service()
+    success, result = user_service.update_feedback_status(feedback_id, status)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/payment/requests', methods=['GET'])
+def admin_payment_requests():
+    admin_id = request.args.get('admin_id', type=int)
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    user_service = get_user_service()
+    requests = [r.to_dict() for r in user_service.get_payment_requests()]
+    return jsonify({"success": True, "requests": requests})
+
+
+@app.route('/api/admin/payment/<int:payment_id>/approve', methods=['POST'])
+def admin_approve_payment(payment_id):
+    data = request.get_json() or {}
+    admin_id = data.get('admin_id')
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    user_service = get_user_service()
+    success, result = user_service.approve_payment(payment_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/user/feedback', methods=['POST'])
+def submit_feedback():
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    category = data.get('category', 'general')
+    content = data.get('content', '')
+    rating = data.get('rating', 0)
+    if not content:
+        return jsonify({"success": False, "error": "Nội dung phản hồi là bắt buộc"}), 400
+    user_service = get_user_service()
+    feedback = user_service.create_feedback(user_id, category, content, rating)
+    return jsonify({"success": True, "feedback": feedback.to_dict()})
+
+
+@app.route('/api/user/reminder/check', methods=['GET'])
+def check_reminder():
+    user_id = request.args.get('user_id', type=int)
+    user_service = get_user_service()
+    user = user_service.get_user(user_id)
+    if not user:
+        return jsonify({"success": False, "error": "User không tồn tại"}), 404
+    if not user.reminder_enabled:
+        return jsonify({"success": True, "reminder": None})
+    from datetime import datetime
+    current_hour = datetime.utcnow().strftime('%H:%M')
+    due = current_hour >= user.reminder_hour
+    return jsonify({
+        "success": True,
+        "reminder": {
+            "enabled": user.reminder_enabled,
+            "hour": user.reminder_hour,
+            "message": user.reminder_message,
+            "due": due
+        }
+    })
+
+
+@app.route('/admin')
+def admin_page():
+    return render_template('admin.html')
 
 def init_services():
     """Khởi tạo các service với debug logging"""
@@ -987,7 +1186,21 @@ def record_activity():
 
 
 @app.route('/api/admin/send-reminders', methods=['POST'])
-@app.route("/health")
+def admin_send_reminders():
+    data = request.get_json() or {}
+    admin_id = data.get('admin_id')
+    if not is_admin_user(admin_id):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    try:
+        from services.reminder_service import get_reminder_service
+        reminder_service = get_reminder_service()
+        reminder_service.check_and_send_reminders()
+        return jsonify({"success": True, "message": "Reminders checked and sent"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/health')
 def health():
     """Health check endpoint for Render"""
     return jsonify({
@@ -995,19 +1208,6 @@ def health():
         "app": "Ms. Smile English",
         "version": "1.0.0"
     })
-
-
-def send_reminders():
-    """Admin endpoint to trigger reminder emails"""
-    try:
-        from services.reminder_service import get_reminder_service
-        reminder_service = get_reminder_service()
-        reminder_service.check_and_send_reminders()
-        
-        return jsonify({"success": True, "message": "Reminders checked and sent"})
-        
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == '__main__':

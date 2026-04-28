@@ -150,6 +150,81 @@ app.run(debug=True, host='0.0.0.0', port=5001)
 
 MIT License - Free to use and modify!
 
+## 🌐 Chuyển sang Domain Riêng (Production Deployment)
+
+### Chuẩn bị Domain
+
+1. **Mua domain** (ví dụ: `ms-smileenglish.com`)
+   - Các nhà cung cấp: Namecheap, GoDaddy, Porkbun, etc.
+   - Giá khoảng 10-20$/năm
+
+2. **Trỏ DNS CNAME về Railway**
+   - Trong Railway dashboard: Settings → Domains
+   - Add custom domain: `ms-smileenglish.com`
+   - Railway sẽ cung cấp CNAME record
+   - Trong DNS provider: Thêm CNAME record trỏ về Railway
+
+### Cấu hình Environment Variables trên Railway
+
+Trong Railway dashboard → Variables, thêm:
+
+```bash
+# Domain Configuration
+APP_BASE_URL=https://ms-smileenglish.com
+FRONTEND_URL=https://ms-smileenglish.com
+ALLOWED_ORIGINS=https://ms-smileenglish.com,https://www.ms-smileenglish.com
+COOKIE_DOMAIN=.ms-smileenglish.com
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=Lax
+
+# Payment URLs (cho future payment integration)
+PAYMENT_RETURN_URL=https://ms-smileenglish.com/payment/success
+PAYMENT_CANCEL_URL=https://ms-smileenglish.com/payment/cancel
+PAYMENT_WEBHOOK_URL=https://ms-smileenglish.com/api/payment/webhook
+
+# Admin Account
+ADMIN_EMAIL=your-admin-email@gmail.com
+ADMIN_PASSWORD=your-secure-admin-password
+ADMIN_NAME=Ms Smile Admin
+
+# Secret Key (quan trọng cho security)
+SECRET_KEY=your-very-secure-random-secret-key-here
+```
+
+### Kiểm tra Domain Setup
+
+Sau khi cấu hình, truy cập:
+- `https://ms-smileenglish.com/api/health/domain`
+
+Response thành công:
+```json
+{
+  "success": true,
+  "app": "Ms. Smile English",
+  "app_base_url": "https://ms-smileenglish.com",
+  "frontend_url": "https://ms-smileenglish.com",
+  "allowed_origins": ["https://ms-smileenglish.com", "https://www.ms-smileenglish.com"],
+  "cookie_domain": ".ms-smileenglish.com",
+  "session_secure": true,
+  "session_samesite": "Lax",
+  "version": "domain-ready-v1"
+}
+```
+
+### Lưu ý Quan trọng
+
+- ✅ **Không hardcode URL**: Tất cả API calls dùng relative path `/api/...`
+- ✅ **CORS configured**: Chỉ cho phép origins từ `ALLOWED_ORIGINS`
+- ✅ **Session secure**: Cookies hoạt động với domain riêng
+- ✅ **Admin access**: Chỉ user có role `admin` mới vào `/admin`
+- ✅ **Payment ready**: URLs chuẩn bị sẵn cho future payment gateway
+
+---
+
+## 📄 License
+
+MIT License - Free to use and modify!
+
 ---
 
 **Made with 💖 by Ms. Smile**

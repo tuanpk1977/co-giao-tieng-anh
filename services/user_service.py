@@ -3,7 +3,11 @@ User authentication and profile management service
 """
 from datetime import datetime, date, timedelta
 from typing import Dict, Optional, Tuple
-from models import db, User, UserProgress, LearningSession, CommonError, UserActivity
+from models import (
+    db, User, UserProgress, LearningSession, CommonError, UserActivity,
+    Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback
+)
+import config
 
 class UserService:
     """Service for user management"""
@@ -35,7 +39,16 @@ class UserService:
         user = User(
             email=email,
             phone=phone,
-            name=name or 'User'
+            name=name or 'User',
+            role='user',
+            status='trial',
+            plan_name='free_trial',
+            plan_start=datetime.utcnow(),
+            trial_end=datetime.utcnow() + timedelta(days=config.FREE_TRIAL_DAYS),
+            reminder_enabled=True,
+            reminder_hour='20:00',
+            reminder_message='Hôm nay em học 5 phút với Ms. Smile nhé 😊',
+            is_locked=False
         )
         user.set_password(password)
         
@@ -62,6 +75,11 @@ class UserService:
         if not user:
             return False, {'error': 'Tài khoản không tồn tại'}
         
+        if user.is_locked or user.status == 'banned':
+            return False, {'error': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.'}
+        
+        self._refresh_user_status(user)
+        
         if not user.check_password(password):
             return False, {'error': 'Mật khẩu không đúng'}
         
@@ -70,6 +88,26 @@ class UserService:
         db.session.commit()
         
         return True, {'user': user.to_dict(), 'message': 'Đăng nhập thành công'}
+
+    def _refresh_user_status(self, user: User):
+        now = datetime.utcnow()
+        changed = False
+        if user.status == 'trial' and user.trial_end and now > user.trial_end:
+            user.status = 'expired'
+            changed = True
+        if user.status == 'active' and user.plan_end and now > user.plan_end:
+            user.status = 'expired'
+            changed = True
+        if changed:
+            db.session.commit()
+        return user
+
+    def get_user(self, user_id: int) -> Optional[User]:
+        """Get user by ID"""
+        user = User.query.get(user_id)
+        if user:
+            self._refresh_user_status(user)
+        return user
     
     def setup_profile(self, user_id: int, profile_data: Dict) -> Tuple[bool, Dict]:
         """Setup user profile after registration"""
@@ -88,13 +126,143 @@ class UserService:
         
         return True, {'user': user.to_dict(), 'message': 'Cập nhật profile thành công'}
     
-    def get_user(self, user_id: int) -> Optional[User]:
-        """Get user by ID"""
-        return User.query.get(user_id)
-    
     def get_user_progress(self, user_id: int) -> Optional[UserProgress]:
         """Get user progress"""
         return UserProgress.query.filter_by(user_id=user_id).first()
+
+    def get_all_plans(self):
+        return Plan.query.filter_by(enabled=True).all()
+
+    def get_all_users(self):
+        return User.query.order_by(User.created_at.desc()).all()
+
+    def get_plan(self, plan_name: str) -> Optional[Plan]:
+        return Plan.query.filter_by(name=plan_name).first()
+
+    def get_usage_log(self, user_id: int, date_obj=None) -> UsageLog:
+        if date_obj is None:
+            date_obj = datetime.utcnow().date()
+        log = UsageLog.query.filter_by(user_id=user_id, date=date_obj).first()
+        if not log:
+            log = UsageLog(user_id=user_id, date=date_obj, ai_provider=config.AI_PROVIDER)
+            db.session.add(log)
+            db.session.commit()
+        return log
+
+    def increment_usage(self, user_id: int, chat_increment=0, lesson_increment=0, speaking_increment=0, estimated_cost=0.0):
+        log = self.get_usage_log(user_id)
+        log.chat_count += chat_increment
+        log.lesson_count += lesson_increment
+        log.speaking_count += speaking_increment
+        log.estimated_cost += estimated_cost
+        db.session.commit()
+        return log
+
+    def create_payment_request(self, user_id: int, plan_name: str):
+        plan = self.get_plan(plan_name)
+        if not plan:
+            return False, {'error': 'Plan không tồn tại'}
+
+        reference_code = f"MSE-{user_id}-{plan_name}-{int(datetime.utcnow().timestamp())}"
+        payment_request = PaymentRequest(
+            user_id=user_id,
+            plan_name=plan_name,
+            amount=plan.price,
+            currency=plan.currency,
+            status='pending',
+            reference_code=reference_code
+        )
+        db.session.add(payment_request)
+        db.session.commit()
+
+        return True, {'payment_request': payment_request.to_dict()}
+
+    def approve_payment(self, payment_id: int):
+        payment = PaymentRequest.query.get(payment_id)
+        if not payment:
+            return False, {'error': 'Payment request không tồn tại'}
+        if payment.status != 'pending':
+            return False, {'error': 'Payment request đã xử lý'}
+
+        user = self.get_user(payment.user_id)
+        plan = self.get_plan(payment.plan_name)
+        if not user or not plan:
+            return False, {'error': 'User hoặc plan không hợp lệ'}
+
+        payment.status = 'approved'
+        payment.approved_at = datetime.utcnow()
+        db.session.commit()
+
+        history = PaymentHistory(
+            user_id=user.id,
+            plan_name=plan.name,
+            amount=payment.amount,
+            currency=payment.currency,
+            status='approved'
+        )
+        db.session.add(history)
+
+        user.plan_name = plan.name
+        user.status = 'active'
+        user.plan_start = datetime.utcnow()
+        user.plan_end = datetime.utcnow() + timedelta(days=30)
+        user.trial_end = None
+        db.session.commit()
+
+        return True, {'message': 'Payment approved and subscription activated', 'payment': payment.to_dict()}
+
+    def get_payment_requests(self, status='pending'):
+        return PaymentRequest.query.filter_by(status=status).all()
+
+    def get_payment_history(self, user_id: int):
+        return PaymentHistory.query.filter_by(user_id=user_id).all()
+
+    def create_feedback(self, user_id: int, category: str, content: str, rating: int):
+        feedback = Feedback(
+            user_id=user_id,
+            category=category,
+            content=content,
+            rating=rating,
+            status='new'
+        )
+        db.session.add(feedback)
+        db.session.commit()
+        return feedback
+
+    def get_feedbacks(self, status='new'):
+        return Feedback.query.filter_by(status=status).order_by(Feedback.created_at.desc()).all()
+
+    def update_feedback_status(self, feedback_id: int, status: str):
+        feedback = Feedback.query.get(feedback_id)
+        if not feedback:
+            return False, {'error': 'Feedback không tồn tại'}
+        feedback.status = status
+        feedback.updated_at = datetime.utcnow()
+        db.session.commit()
+        return True, {'feedback': feedback.to_dict()}
+
+    def get_admin_summary(self):
+        total_users = User.query.count()
+        trials = User.query.filter_by(status='trial').count()
+        active = User.query.filter_by(status='active').count()
+        expired = User.query.filter_by(status='expired').count()
+        banned = User.query.filter_by(status='banned').count()
+        pending_payments = PaymentRequest.query.filter_by(status='pending').count()
+        new_feedback = Feedback.query.filter_by(status='new').count()
+        today = datetime.utcnow().date()
+        total_chat_today = UsageLog.query.filter_by(date=today).with_entities(db.func.sum(UsageLog.chat_count)).scalar() or 0
+        estimated_cost = UsageLog.query.filter_by(date=today).with_entities(db.func.sum(UsageLog.estimated_cost)).scalar() or 0.0
+        return {
+            'total_users': total_users,
+            'trial_users': trials,
+            'active_users': active,
+            'expired_users': expired,
+            'banned_users': banned,
+            'pending_payments': pending_payments,
+            'new_feedback': new_feedback,
+            'total_chat_today': total_chat_today,
+            'estimated_cost_today': round(estimated_cost, 2)
+        }
     
     def update_streak(self, user_id: int):
         """Update study streak"""

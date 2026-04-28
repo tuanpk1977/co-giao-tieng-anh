@@ -95,3 +95,57 @@ TÙY CHỌN (Email):
 ═══════════════════════════════════════════════════════════════
 Sẵn sàng deploy! 🚀
 ═══════════════════════════════════════════════════════════════
+
+🌐 CHUYỂN SANG DOMAIN RIÊNG (Production Ready)
+═══════════════════════════════════════════════════════════════
+
+✅ APP ĐÃ CHUẨN BỊ SẴN CHO DOMAIN RIÊNG!
+
+📋 ENVIRONMENT VARIABLES CHO DOMAIN:
+─────────────────────────────────────────
+# Domain Configuration (thay thế Railway URL)
+APP_BASE_URL=https://ms-smileenglish.com
+FRONTEND_URL=https://ms-smileenglish.com
+ALLOWED_ORIGINS=https://ms-smileenglish.com,https://www.ms-smileenglish.com
+COOKIE_DOMAIN=.ms-smileenglish.com
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=Lax
+
+# Payment URLs (chuẩn bị cho future)
+PAYMENT_RETURN_URL=https://ms-smileenglish.com/payment/success
+PAYMENT_CANCEL_URL=https://ms-smileenglish.com/payment/cancel
+PAYMENT_WEBHOOK_URL=https://ms-smileenglish.com/api/payment/webhook
+
+# Admin Account
+ADMIN_EMAIL=tuanpk1977@gmail.com
+ADMIN_PASSWORD=026869@
+
+📖 HƯỚNG DẪN CHUYỂN DOMAIN:
+─────────────────────────────────────────
+1. Mua domain (ms-smileenglish.com)
+2. Trong Railway: Settings → Domains → Add custom domain
+3. Thêm CNAME record trong DNS provider
+4. Set environment variables như trên
+5. Test: https://ms-smileenglish.com/api/health/domain
+
+⚡ TEST DOMAIN SETUP:
+─────────────────────────────────────────
+curl https://ms-smileenglish.com/api/health/domain
+
+Response OK:
+{
+  "success": true,
+  "app_base_url": "https://ms-smileenglish.com",
+  "cookie_domain": ".ms-smileenglish.com",
+  "session_secure": true
+}
+
+✅ TÍNH NĂNG ĐÃ CHUẨN BỊ:
+─────────────────────────────────────────
+✓ Không hardcode URL trong code
+✓ CORS chỉ cho phép domain riêng
+✓ Session/cookie hoạt động với domain
+✓ Admin dashboard bảo mật
+✓ Payment URLs sẵn sàng
+✓ Relative API paths (/api/...)
+✓ Domain health check endpoint

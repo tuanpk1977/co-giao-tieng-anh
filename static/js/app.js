@@ -106,6 +106,7 @@ const elements = {
     profileSetupForm: document.getElementById('profileSetupForm'),
     switchToRegister: document.getElementById('switchToRegister'),
     dashboardBtn: document.getElementById('dashboardBtn'),
+    adminBtn: document.getElementById('adminBtn'),
     dashboardModal: document.getElementById('dashboardModal'),
     dashboardContent: document.getElementById('dashboardContent'),
     
@@ -535,6 +536,16 @@ function setupEventListeners() {
     
     if (elements.dashboardBtn) {
         elements.dashboardBtn.addEventListener('click', showDashboard);
+    }
+    if (elements.adminBtn) {
+        elements.adminBtn.addEventListener('click', () => {
+            const userId = state.currentUser?.id;
+            if (userId) {
+                window.location.href = `/admin?admin_id=${userId}`;
+            } else {
+                showToast('⚠️', 'Chỉ admin mới có thể truy cập trang này.');
+            }
+        });
     }
     
     // Auth forms
@@ -2429,11 +2440,29 @@ function updateUserBadge() {
         elements.userBadge.classList.remove('guest-badge');
         elements.userBadge.classList.add('user-badge');
         elements.userBadgeText.textContent = state.currentUser.name || 'User';
+        if (elements.dashboardBtn) elements.dashboardBtn.classList.remove('hidden');
+        if (elements.profileBtn) elements.profileBtn.classList.remove('hidden');
+        if (elements.logoutBtn) elements.logoutBtn.classList.remove('hidden');
+        if (elements.loginBtn) elements.loginBtn.classList.add('hidden');
+        if (elements.registerBtn) elements.registerBtn.classList.add('hidden');
+        if (elements.adminBtn) {
+            if (state.currentUser.role === 'admin') {
+                elements.adminBtn.classList.remove('hidden');
+            } else {
+                elements.adminBtn.classList.add('hidden');
+            }
+        }
     } else {
         // Khách
         elements.userBadge.classList.remove('user-badge');
         elements.userBadge.classList.add('guest-badge');
         elements.userBadgeText.textContent = 'Khách dùng thử';
+        if (elements.dashboardBtn) elements.dashboardBtn.classList.add('hidden');
+        if (elements.profileBtn) elements.profileBtn.classList.add('hidden');
+        if (elements.logoutBtn) elements.logoutBtn.classList.add('hidden');
+        if (elements.loginBtn) elements.loginBtn.classList.remove('hidden');
+        if (elements.registerBtn) elements.registerBtn.classList.remove('hidden');
+        if (elements.adminBtn) elements.adminBtn.classList.add('hidden');
     }
 }
 

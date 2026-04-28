@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ms. Smile Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { padding: 20px; background: #f7f9fc; }
+        .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .admin-card { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 1rem; box-shadow: 0 1px 12px rgba(0,0,0,0.05); }
+        .admin-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
+        .admin-list { max-height: 320px; overflow-y: auto; }
+        .admin-list-item { border-bottom: 1px solid #ececec; padding: 10px 0; }
+        .admin-list-item:last-child { border-bottom: none; }
+        .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+        .admin-actions button { flex: 1 1 160px; }
+        .admin-input-group { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+        .admin-input-group input { width: 120px; padding: 10px; border: 1px solid #d4d7dc; border-radius: 8px; }
+        .admin-section-title { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div>
+            <h1>Admin Dashboard</h1>
+            <p>Quản lý người dùng, thanh toán, phản hồi và thống kê.</p>
+        </div>
+        <div>
+            <a class="btn btn-secondary" href="/">← Về trang chính</a>
+        </div>
+    </div>
+
+    <div class="admin-input-group">
+        <label for="adminIdInput">Admin ID:</label>
+        <input id="adminIdInput" type="number" value="1" min="1">
+        <button id="loadAdminBtn" class="btn btn-primary">Tải dữ liệu</button>
+    </div>
+
+    <div id="adminStatus" class="admin-card">
+        <p>Nhập admin ID và nhấn "Tải dữ liệu" để xem thông tin.</p>
+    </div>
+
+    <div class="admin-grid">
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-users"></i><h2>Người dùng</h2></div>
+            <div id="userList" class="admin-list"></div>
+        </div>
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-money-check-dollar"></i><h2>Yêu cầu thanh toán</h2></div>
+            <div id="paymentRequests" class="admin-list"></div>
+        </div>
+    </div>
+
+    <div class="admin-grid">
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-comments"></i><h2>Phản hồi</h2></div>
+            <div id="feedbackList" class="admin-list"></div>
+        </div>
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-chart-bar"></i><h2>Tổng quan</h2></div>
+            <div id="summaryBox"></div>
+        </div>
+    </div>
+
+    <script>
+        const adminStatus = document.getElementById('adminStatus');
+        const userList = document.getElementById('userList');
+        const paymentRequests = document.getElementById('paymentRequests');
+        const feedbackList = document.getElementById('feedbackList');
+        const summaryBox = document.getElementById('summaryBox');
+        const adminIdInput = document.getElementById('adminIdInput');
+        const loadAdminBtn = document.getElementById('loadAdminBtn');
+
+        function formatDate(timestamp) {
+            return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
+        }
+
+        async function loadAdminData() {
+            const adminId = Number(adminIdInput.value);
+            if (!adminId) return;
+            adminStatus.innerHTML = '<p>Đang tải dữ liệu...</p>';
+
+            try {
+                const [summaryRes, usersRes, paymentsRes, feedbackRes] = await Promise.all([
+                    fetch(`/api/admin/summary?admin_id=${adminId}`),
+                    fetch(`/api/admin/users?admin_id=${adminId}`),
+                    fetch(`/api/admin/payment/requests?admin_id=${adminId}`),
+                    fetch(`/api/admin/feedback?admin_id=${adminId}`)
+                ]);
+
+                const summary = await summaryRes.json();
+                const users = await usersRes.json();
+                const payments = await paymentsRes.json();
+                const feedback = await feedbackRes.json();
+
+                if (!summary.success) throw new Error(summary.error || 'Unauthorized');
+                if (!users.success) throw new Error(users.error || 'Không thể tải người dùng');
+
+                summaryBox.innerHTML = `
+                    <p><strong>Tổng số người dùng:</strong> ${summary.summary.total_users}</p>
+                    <p><strong>Trial:</strong> ${summary.summary.trial_users}</p>
+                    <p><strong>Active:</strong> ${summary.summary.active_users}</p>
+                    <p><strong>Expired:</strong> ${summary.summary.expired_users}</p>
+                    <p><strong>Đang chờ thanh toán:</strong> ${summary.summary.pending_payments}</p>
+                    <p><strong>Phản hồi mới:</strong> ${summary.summary.new_feedback}</p>
+                    <p><strong>Chat hôm nay:</strong> ${summary.summary.total_chat_today}</p>
+                    <p><strong>Chi phí ước tính:</strong> ${summary.summary.estimated_cost_today} VND</p>
+                `;
+
+                userList.innerHTML = users.users.map(user => `
+                    <div class="admin-list-item">
+                        <strong>${user.name}</strong> (${user.email || user.phone || 'No contact'})
+                        <div>Gói: ${user.plan_name} - ${user.status}</div>
+                    </div>
+                `).join('');
+
+                paymentRequests.innerHTML = payments.requests.length ? payments.requests.map(req => `
+                    <div class="admin-list-item">
+                        <strong>${req.reference_code}</strong>
+                        <div>${req.plan_name} - ${req.amount} ${req.currency}</div>
+                        <div>Trạng thái: ${req.status}</div>
+                        <div>Người dùng: ${req.user_id}</div>
+                    </div>
+                `).join('') : '<p>Không có yêu cầu thanh toán mới.</p>';
+
+                feedbackList.innerHTML = feedback.feedbacks.length ? feedback.feedbacks.map(item => `
+                    <div class="admin-list-item">
+                        <strong>Loại:</strong> ${item.category}
+                        <div>${item.content}</div>
+                        <div>Rating: ${item.rating}</div>
+                        <div>Trạng thái: ${item.status}</div>
+                        <div>Thời gian: ${formatDate(item.created_at)}</div>
+                    </div>
+                `).join('') : '<p>Không có phản hồi mới.</p>';
+
+                adminStatus.innerHTML = `<p>Đã tải dữ liệu admin ID <strong>${adminId}</strong>.</p>`;
+            } catch (error) {
+                adminStatus.innerHTML = `<p class="error">Lỗi: ${error.message}</p>`;
+            }
+        }
+
+        loadAdminBtn.addEventListener('click', loadAdminData);
+    </script>
+</body>
+</html>

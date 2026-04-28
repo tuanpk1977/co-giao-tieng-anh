@@ -48,6 +48,98 @@ MODEL_SETTINGS = {
 }
 
 # ==========================================
+# GÓI HỌC VÀ GHIMCHI PHÍ
+# ==========================================
+FREE_TRIAL_DAYS = 7
+
+PLAN_DEFINITIONS = [
+    {
+        "name": "free_trial",
+        "title": "Free trial",
+        "price": 0,
+        "currency": "VND",
+        "chat_limit": 10,
+        "lesson_limit": 1,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": "Dùng thử miễn phí 7 ngày"
+    },
+    {
+        "name": "basic",
+        "title": "Basic",
+        "price": 49000,
+        "currency": "VND",
+        "chat_limit": 30,
+        "lesson_limit": 2,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": "49.000đ/tháng"
+    },
+    {
+        "name": "pro",
+        "title": "Pro",
+        "price": 99000,
+        "currency": "VND",
+        "chat_limit": 100,
+        "lesson_limit": 5,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": "99.000đ/tháng"
+    },
+    {
+        "name": "family",
+        "title": "Family",
+        "price": 199000,
+        "currency": "VND",
+        "chat_limit": 999,
+        "lesson_limit": 999,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": "199.000đ/tháng"
+    }
+]
+
+
+def get_plan_definitions():
+    return PLAN_DEFINITIONS
+
+
+def get_plan_by_name(name):
+    return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
+
+
+# ==========================================
+# DOMAIN & DEPLOYMENT CONFIGURATION
+# ==========================================
+# Cấu hình domain để chuyển từ Railway sang domain riêng
+
+# Base URL của app (dùng cho internal redirects, webhooks)
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
+
+# Frontend URL (dùng cho CORS, redirects)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5000")
+
+# Allowed origins cho CORS (comma-separated)
+ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS", "http://localhost:5000,http://127.0.0.1:5000")
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
+
+# Cookie domain (để trống cho localhost, set .domain.com cho production)
+COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
+
+# Session cookie settings
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+
+# Payment URLs (chuẩn bị cho future payment integration)
+PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/success")
+PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
+PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
+
+# ==========================================
 # SYSTEM PROMPT - MS. SMILE (Song Ngữ)
 # ==========================================
 SYSTEM_PROMPT = """Bạn là Ms. Smile (Cô Giáo Tiếng Anh), một cô giáo dễ thương, chuyên dạy người Việt GIAO TIẾP tiếng Anh theo phương pháp SONG NGỮ.
