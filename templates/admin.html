@@ -11,138 +11,496 @@
         body { padding: 20px; background: #f7f9fc; }
         .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
         .admin-card { background: #fff; border-radius: 14px; padding: 20px; margin-bottom: 1rem; box-shadow: 0 1px 12px rgba(0,0,0,0.05); }
+        .admin-tabs { display: flex; border-bottom: 1px solid #e1e5e9; margin-bottom: 1rem; }
+        .admin-tab { padding: 12px 20px; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .admin-tab.active { border-bottom-color: #007bff; color: #007bff; font-weight: 600; }
+        .admin-tab:hover { background: #f8f9fa; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .admin-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
-        .admin-list { max-height: 320px; overflow-y: auto; }
-        .admin-list-item { border-bottom: 1px solid #ececec; padding: 10px 0; }
+        .admin-list { max-height: 400px; overflow-y: auto; }
+        .admin-list-item { border-bottom: 1px solid #ececec; padding: 12px 0; }
         .admin-list-item:last-child { border-bottom: none; }
         .admin-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
-        .admin-actions button { flex: 1 1 160px; }
+        .admin-actions button { flex: 1 1 140px; }
         .admin-input-group { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
         .admin-input-group input { width: 120px; padding: 10px; border: 1px solid #d4d7dc; border-radius: 8px; }
         .admin-section-title { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .status-trial { background: #fff3cd; color: #856404; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-expired { background: #f8d7da; color: #721c24; }
+        .status-banned { background: #e2e3e5; color: #383d41; }
+        .feedback-status-new { background: #cce5ff; color: #004085; }
+        .feedback-status-reviewed { background: #d1ecf1; color: #0c5460; }
+        .feedback-status-resolved { background: #d4edda; color: #155724; }
+        .search-box { margin-bottom: 1rem; }
+        .search-box input { width: 100%; padding: 10px; border: 1px solid #d4d7dc; border-radius: 8px; }
+        .table-responsive { overflow-x: auto; }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th, .admin-table td { padding: 12px; text-align: left; border-bottom: 1px solid #ececec; }
+        .admin-table th { background: #f8f9fa; font-weight: 600; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .profit-loss { font-size: 18px; font-weight: 700; margin: 10px 0; }
+        .profit { color: #28a745; }
+        .loss { color: #dc3545; }
     </style>
 </head>
 <body>
     <div class="admin-header">
         <div>
-            <h1>Admin Dashboard</h1>
-            <p>Quản lý người dùng, thanh toán, phản hồi và thống kê.</p>
+            <h1><i class="fas fa-crown"></i> Admin Dashboard</h1>
+            <p>Quản lý toàn diện hệ thống Ms. Smile English</p>
         </div>
         <div>
             <a class="btn btn-secondary" href="/">← Về trang chính</a>
+            <button id="logoutBtn" class="btn btn-outline">Đăng xuất</button>
         </div>
     </div>
 
-    <div class="admin-input-group">
-        <label for="adminIdInput">Admin ID:</label>
-        <input id="adminIdInput" type="number" value="1" min="1">
-        <button id="loadAdminBtn" class="btn btn-primary">Tải dữ liệu</button>
+    <!-- Admin Tabs -->
+    <div class="admin-tabs">
+        <div class="admin-tab active" data-tab="overview">Tổng quan</div>
+        <div class="admin-tab" data-tab="users">Người dùng</div>
+        <div class="admin-tab" data-tab="payments">Thanh toán</div>
+        <div class="admin-tab" data-tab="costs">Chi phí AI</div>
+        <div class="admin-tab" data-tab="feedback">Phản hồi</div>
+        <div class="admin-tab" data-tab="affiliate">Affiliate</div>
+        <div class="admin-tab" data-tab="plans">Gói dịch vụ</div>
     </div>
 
-    <div id="adminStatus" class="admin-card">
-        <p>Nhập admin ID và nhấn "Tải dữ liệu" để xem thông tin.</p>
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active">
+        <div class="admin-grid">
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-users"></i><h2>Thống kê người dùng</h2></div>
+                <div id="userStats"></div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-chart-line"></i><h2>Lợi nhuận hôm nay</h2></div>
+                <div id="profitStats"></div>
+            </div>
+        </div>
+        <div class="admin-grid">
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-robot"></i><h2>AI Usage hôm nay</h2></div>
+                <div id="aiStats"></div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-comments"></i><h2>Phản hồi mới</h2></div>
+                <div id="feedbackStats"></div>
+            </div>
+        </div>
     </div>
 
-    <div class="admin-grid">
+    <!-- Users Tab -->
+    <div id="users" class="tab-content">
         <div class="admin-card">
-            <div class="admin-section-title"><i class="fas fa-users"></i><h2>Người dùng</h2></div>
-            <div id="userList" class="admin-list"></div>
+            <div class="admin-section-title"><i class="fas fa-users"></i><h2>Quản lý người dùng</h2></div>
+            <div class="search-box">
+                <input type="text" id="userSearch" placeholder="Tìm kiếm theo tên, email, hoặc số điện thoại...">
+            </div>
+            <div class="table-responsive">
+                <table class="admin-table" id="userTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên</th>
+                            <th>Liên hệ</th>
+                            <th>Gói</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày tạo</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
         </div>
+    </div>
+
+    <!-- Payments Tab -->
+    <div id="payments" class="tab-content">
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-money-check-dollar"></i><h2>Yêu cầu thanh toán</h2></div>
-            <div id="paymentRequests" class="admin-list"></div>
+            <div id="paymentRequests"></div>
         </div>
     </div>
 
-    <div class="admin-grid">
+    <!-- AI Costs Tab -->
+    <div id="costs" class="tab-content">
         <div class="admin-card">
-            <div class="admin-section-title"><i class="fas fa-comments"></i><h2>Phản hồi</h2></div>
-            <div id="feedbackList" class="admin-list"></div>
+            <div class="admin-section-title"><i class="fas fa-robot"></i><h2>Chi phí AI & Lợi nhuận</h2></div>
+            <div id="costAnalytics"></div>
         </div>
+    </div>
+
+    <!-- Feedback Tab -->
+    <div id="feedback" class="tab-content">
         <div class="admin-card">
-            <div class="admin-section-title"><i class="fas fa-chart-bar"></i><h2>Tổng quan</h2></div>
-            <div id="summaryBox"></div>
+            <div class="admin-section-title"><i class="fas fa-comments"></i><h2>Quản lý phản hồi</h2></div>
+            <div class="table-responsive">
+                <table class="admin-table" id="feedbackTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Người dùng</th>
+                            <th>Loại</th>
+                            <th>Nội dung</th>
+                            <th>Rating</th>
+                            <th>Trạng thái</th>
+                            <th>Thời gian</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Affiliate Tab -->
+    <div id="affiliate" class="tab-content">
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-users"></i><h2>Thống kê Affiliate</h2></div>
+            <div id="affiliateStats"></div>
+        </div>
+    </div>
+
+    <!-- Plans Tab -->
+    <div id="plans" class="tab-content">
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-cog"></i><h2>Quản lý gói dịch vụ</h2></div>
+            <div id="plansManagement"></div>
         </div>
     </div>
 
     <script>
-        const adminStatus = document.getElementById('adminStatus');
-        const userList = document.getElementById('userList');
-        const paymentRequests = document.getElementById('paymentRequests');
-        const feedbackList = document.getElementById('feedbackList');
-        const summaryBox = document.getElementById('summaryBox');
-        const adminIdInput = document.getElementById('adminIdInput');
-        const loadAdminBtn = document.getElementById('loadAdminBtn');
+        // Tab switching
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+                loadTabData(tab.dataset.tab);
+            });
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
+
+        // Global variables
+        let allUsers = [];
+        let allFeedback = [];
 
         function formatDate(timestamp) {
             return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
         }
 
-        async function loadAdminData() {
-            const adminId = Number(adminIdInput.value);
-            if (!adminId) return;
-            adminStatus.innerHTML = '<p>Đang tải dữ liệu...</p>';
+        function getStatusBadge(status) {
+            const badges = {
+                'trial': 'status-trial',
+                'active': 'status-active', 
+                'expired': 'status-expired',
+                'banned': 'status-banned'
+            };
+            return `<span class="status-badge ${badges[status] || 'status-trial'}">${status}</span>`;
+        }
 
-            try {
-                const [summaryRes, usersRes, paymentsRes, feedbackRes] = await Promise.all([
-                    fetch(`/api/admin/summary?admin_id=${adminId}`),
-                    fetch(`/api/admin/users?admin_id=${adminId}`),
-                    fetch(`/api/admin/payment/requests?admin_id=${adminId}`),
-                    fetch(`/api/admin/feedback?admin_id=${adminId}`)
-                ]);
+        function getFeedbackStatusBadge(status) {
+            const badges = {
+                'new': 'feedback-status-new',
+                'reviewed': 'feedback-status-reviewed',
+                'resolved': 'feedback-status-resolved'
+            };
+            return `<span class="status-badge ${badges[status] || 'feedback-status-new'}">${status}</span>`;
+        }
 
-                const summary = await summaryRes.json();
-                const users = await usersRes.json();
-                const payments = await paymentsRes.json();
-                const feedback = await feedbackRes.json();
-
-                if (!summary.success) throw new Error(summary.error || 'Unauthorized');
-                if (!users.success) throw new Error(users.error || 'Không thể tải người dùng');
-
-                summaryBox.innerHTML = `
-                    <p><strong>Tổng số người dùng:</strong> ${summary.summary.total_users}</p>
-                    <p><strong>Trial:</strong> ${summary.summary.trial_users}</p>
-                    <p><strong>Active:</strong> ${summary.summary.active_users}</p>
-                    <p><strong>Expired:</strong> ${summary.summary.expired_users}</p>
-                    <p><strong>Đang chờ thanh toán:</strong> ${summary.summary.pending_payments}</p>
-                    <p><strong>Phản hồi mới:</strong> ${summary.summary.new_feedback}</p>
-                    <p><strong>Chat hôm nay:</strong> ${summary.summary.total_chat_today}</p>
-                    <p><strong>Chi phí ước tính:</strong> ${summary.summary.estimated_cost_today} VND</p>
-                `;
-
-                userList.innerHTML = users.users.map(user => `
-                    <div class="admin-list-item">
-                        <strong>${user.name}</strong> (${user.email || user.phone || 'No contact'})
-                        <div>Gói: ${user.plan_name} - ${user.status}</div>
-                    </div>
-                `).join('');
-
-                paymentRequests.innerHTML = payments.requests.length ? payments.requests.map(req => `
-                    <div class="admin-list-item">
-                        <strong>${req.reference_code}</strong>
-                        <div>${req.plan_name} - ${req.amount} ${req.currency}</div>
-                        <div>Trạng thái: ${req.status}</div>
-                        <div>Người dùng: ${req.user_id}</div>
-                    </div>
-                `).join('') : '<p>Không có yêu cầu thanh toán mới.</p>';
-
-                feedbackList.innerHTML = feedback.feedbacks.length ? feedback.feedbacks.map(item => `
-                    <div class="admin-list-item">
-                        <strong>Loại:</strong> ${item.category}
-                        <div>${item.content}</div>
-                        <div>Rating: ${item.rating}</div>
-                        <div>Trạng thái: ${item.status}</div>
-                        <div>Thời gian: ${formatDate(item.created_at)}</div>
-                    </div>
-                `).join('') : '<p>Không có phản hồi mới.</p>';
-
-                adminStatus.innerHTML = `<p>Đã tải dữ liệu admin ID <strong>${adminId}</strong>.</p>`;
-            } catch (error) {
-                adminStatus.innerHTML = `<p class="error">Lỗi: ${error.message}</p>`;
+        async function loadTabData(tab) {
+            switch(tab) {
+                case 'overview':
+                    await loadOverview();
+                    break;
+                case 'users':
+                    await loadUsers();
+                    break;
+                case 'payments':
+                    await loadPayments();
+                    break;
+                case 'costs':
+                    await loadCosts();
+                    break;
+                case 'feedback':
+                    await loadFeedback();
+                    break;
+                case 'affiliate':
+                    await loadAffiliate();
+                    break;
+                case 'plans':
+                    await loadPlans();
+                    break;
             }
         }
 
-        loadAdminBtn.addEventListener('click', loadAdminData);
+        async function loadOverview() {
+            try {
+                const [summaryRes, analyticsRes] = await Promise.all([
+                    fetch('/api/admin/summary'),
+                    fetch('/api/admin/analytics/profit-loss')
+                ]);
+
+                const summary = await summaryRes.json();
+                const analytics = await analyticsRes.json();
+
+                if (summary.success) {
+                    document.getElementById('userStats').innerHTML = `
+                        <p><strong>Tổng số:</strong> ${summary.summary.total_users}</p>
+                        <p><strong>Trial:</strong> ${summary.summary.trial_users}</p>
+                        <p><strong>Active:</strong> ${summary.summary.active_users}</p>
+                        <p><strong>Expired:</strong> ${summary.summary.expired_users}</p>
+                    `;
+                }
+
+                if (analytics.success) {
+                    const profit = analytics.profit_loss;
+                    document.getElementById('profitStats').innerHTML = `
+                        <div class="profit-loss ${profit.net_profit >= 0 ? 'profit' : 'loss'}">
+                            ${profit.net_profit >= 0 ? '+' : ''}${profit.net_profit.toLocaleString()} VND
+                        </div>
+                        <p>Doanh thu: ${profit.total_revenue.toLocaleString()} VND</p>
+                        <p>Chi phí AI: ${profit.total_costs.toLocaleString()} VND</p>
+                    `;
+                }
+
+                // Load AI stats and feedback stats
+                const [aiRes, feedbackRes] = await Promise.all([
+                    fetch('/api/admin/analytics/ai-usage?period=today'),
+                    fetch('/api/admin/feedback')
+                ]);
+
+                const ai = await aiRes.json();
+                const feedback = await feedbackRes.json();
+
+                if (ai.success) {
+                    document.getElementById('aiStats').innerHTML = `
+                        <p><strong>Chat messages:</strong> ${ai.usage.total_messages}</p>
+                        <p><strong>Tokens used:</strong> ${ai.usage.total_tokens}</p>
+                        <p><strong>Estimated cost:</strong> ${ai.usage.estimated_cost} USD</p>
+                    `;
+                }
+
+                if (feedback.success) {
+                    const newFeedback = feedback.feedback.filter(f => f.status === 'new');
+                    document.getElementById('feedbackStats').innerHTML = `
+                        <p><strong>Tổng phản hồi:</strong> ${feedback.feedback.length}</p>
+                        <p><strong>Chưa xử lý:</strong> ${newFeedback.length}</p>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error loading overview:', error);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allUsers = data.users;
+                    renderUserTable(allUsers);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function renderUserTable(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.name}</td>
+                    <td>${user.email || user.phone || '—'}</td>
+                    <td>${user.plan_name}</td>
+                    <td>${getStatusBadge(user.status)}</td>
+                    <td>${formatDate(user.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">Sửa</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadPayments() {
+            try {
+                const response = await fetch('/api/admin/payments');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('paymentRequests').innerHTML = data.payments.length ? 
+                        data.payments.map(payment => `
+                            <div class="admin-list-item">
+                                <strong>${payment.reference_code}</strong>
+                                <div>${payment.plan_name} - ${payment.amount} ${payment.currency}</div>
+                                <div>Trạng thái: ${payment.status}</div>
+                                <div>Người dùng: ${payment.user_id}</div>
+                            </div>
+                        `).join('') : '<p>Không có yêu cầu thanh toán.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading payments:', error);
+            }
+        }
+
+        async function loadCosts() {
+            try {
+                const response = await fetch('/api/admin/analytics/costs');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('costAnalytics').innerHTML = `
+                        <h3>Chi phí theo thời gian</h3>
+                        <p><strong>Hôm nay:</strong> ${data.costs.today} USD</p>
+                        <p><strong>Tuần này:</strong> ${data.costs.week} USD</p>
+                        <p><strong>Tháng này:</strong> ${data.costs.month} USD</p>
+                        <h3>Lợi nhuận ước tính</h3>
+                        <p><strong>Hôm nay:</strong> ${data.profit.today} VND</p>
+                        <p><strong>Tuần này:</strong> ${data.profit.week} VND</p>
+                        <p><strong>Tháng này:</strong> ${data.profit.month} VND</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading costs:', error);
+            }
+        }
+
+        async function loadFeedback() {
+            try {
+                const response = await fetch('/api/admin/feedback');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allFeedback = data.feedback;
+                    renderFeedbackTable(allFeedback);
+                }
+            } catch (error) {
+                console.error('Error loading feedback:', error);
+            }
+        }
+
+        function renderFeedbackTable(feedback) {
+            const tbody = document.getElementById('feedbackTableBody');
+            tbody.innerHTML = feedback.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.user_id || 'Anonymous'}</td>
+                    <td>${item.category}</td>
+                    <td>${item.content.substring(0, 50)}${item.content.length > 50 ? '...' : ''}</td>
+                    <td>${'⭐'.repeat(item.rating)}</td>
+                    <td>${getFeedbackStatusBadge(item.status)}</td>
+                    <td>${formatDate(item.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="updateFeedbackStatus(${item.id}, 'reviewed')">Đã xem</button>
+                        <button class="btn btn-sm btn-success" onclick="updateFeedbackStatus(${item.id}, 'resolved')">Đã xử lý</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadAffiliate() {
+            try {
+                const response = await fetch('/api/admin/affiliate/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('affiliateStats').innerHTML = `
+                        <p><strong>Tổng affiliate:</strong> ${data.stats.total_affiliates}</p>
+                        <p><strong>Đang active:</strong> ${data.stats.active_affiliates}</p>
+                        <p><strong>Tổng hoa hồng:</strong> ${data.stats.total_commissions} VND</p>
+                        <p><strong>Chưa thanh toán:</strong> ${data.stats.pending_commissions} VND</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading affiliate:', error);
+            }
+        }
+
+        async function loadPlans() {
+            try {
+                const response = await fetch('/api/admin/plans');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('plansManagement').innerHTML = data.plans.map(plan => `
+                        <div class="admin-list-item">
+                            <strong>${plan.name}</strong>
+                            <div>Giá: ${plan.price} VND - Chat: ${plan.chat_limit}/ngày</div>
+                            <div>Situation: ${plan.situation_limit}/ngày - Roleplay: ${plan.roleplay_limit}/ngày</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading plans:', error);
+            }
+        }
+
+        // User search
+        document.getElementById('userSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allUsers.filter(user => 
+                user.name.toLowerCase().includes(query) ||
+                (user.email && user.email.toLowerCase().includes(query)) ||
+                (user.phone && user.phone.includes(query))
+            );
+            renderUserTable(filtered);
+        });
+
+        // Action functions
+        async function editUser(userId) {
+            // TODO: Implement user editing modal
+            alert('Chức năng chỉnh sửa người dùng đang được phát triển');
+        }
+
+        async function deleteUser(userId) {
+            if (confirm('Bạn có chắc muốn xóa người dùng này?')) {
+                try {
+                    const response = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                    const data = await response.json();
+                    if (data.success) {
+                        loadUsers();
+                        alert('Đã xóa người dùng');
+                    }
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                }
+            }
+        }
+
+        async function updateFeedbackStatus(feedbackId, status) {
+            try {
+                const response = await fetch(`/api/admin/feedback/${feedbackId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadFeedback();
+                }
+            } catch (error) {
+                console.error('Error updating feedback:', error);
+            }
+        }
+
+        // Load overview on page load
+        loadOverview();
     </script>
 </body>
 </html>

@@ -63,6 +63,7 @@ const elements = {
     statsBtn: document.getElementById('statsBtn'),
     startLessonBtn: document.getElementById('startLessonBtn'),
     profileBtn: document.getElementById('profileBtn'),
+    feedbackBtn: document.getElementById('feedbackBtn'),
     
     // Modals
     lessonModal: document.getElementById('lessonModal'),
@@ -70,6 +71,7 @@ const elements = {
     speakingModal: document.getElementById('speakingModal'),
     onboardingModal: document.getElementById('onboardingModal'),
     profileModal: document.getElementById('profileModal'),
+    feedbackModal: document.getElementById('feedbackModal'),
     
     // Modal content
     lessonLoading: document.getElementById('lessonLoading'),
@@ -92,6 +94,7 @@ const elements = {
     // Onboarding & Profile
     onboardingForm: document.getElementById('onboardingForm'),
     profileForm: document.getElementById('profileForm'),
+    feedbackForm: document.getElementById('feedbackForm'),
     resetProfileBtn: document.getElementById('resetProfileBtn'),
     
     // Auth
@@ -106,9 +109,18 @@ const elements = {
     profileSetupForm: document.getElementById('profileSetupForm'),
     switchToRegister: document.getElementById('switchToRegister'),
     dashboardBtn: document.getElementById('dashboardBtn'),
+    affiliateBtn: document.getElementById('affiliateBtn'),
     adminBtn: document.getElementById('adminBtn'),
     dashboardModal: document.getElementById('dashboardModal'),
     dashboardContent: document.getElementById('dashboardContent'),
+    affiliateModal: document.getElementById('affiliateModal'),
+    affiliateCode: document.getElementById('affiliateCode'),
+    affiliateLink: document.getElementById('affiliateLink'),
+    copyAffiliateLinkBtn: document.getElementById('copyAffiliateLinkBtn'),
+    affiliateReferredCount: document.getElementById('affiliateReferredCount'),
+    affiliatePaidCount: document.getElementById('affiliatePaidCount'),
+    affiliatePending: document.getElementById('affiliatePending'),
+    affiliatePaid: document.getElementById('affiliatePaid'),
     
     // Freemium
     userBadge: document.getElementById('userBadge'),
@@ -183,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
+    captureReferralCode();
     setupEventListeners();
     initializeSpeechRecognition();
     initializeTTS();
@@ -194,6 +207,63 @@ function initializeApp() {
     checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
+}
+
+function captureReferralCode() {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+        state.referralCode = ref;
+        localStorage.setItem('ms_smile_referral_code', ref);
+    } else {
+        const storedRef = localStorage.getItem('ms_smile_referral_code');
+        if (storedRef) {
+            state.referralCode = storedRef;
+        }
+    }
+}
+
+function openAffiliateModal() {
+    if (!state.currentUser) {
+        showToast('⚠️', 'Vui lòng đăng nhập để sử dụng tính năng giới thiệu.');
+        openModal('loginModal');
+        return;
+    }
+    loadAffiliateData();
+    openModal('affiliateModal');
+}
+
+async function loadAffiliateData() {
+    try {
+        const response = await fetch(`/api/user/affiliate?user_id=${state.currentUser.id}`);
+        const data = await response.json();
+        if (!data.success) {
+            showToast('❌', data.error || 'Không thể tải dữ liệu affiliate');
+            return;
+        }
+        const affiliate = data.affiliate || {};
+        const profile = affiliate.profile || {};
+        elements.affiliateCode.value = profile.affiliate_code || '';
+        elements.affiliateLink.value = profile.referral_link || '';
+        elements.affiliateReferredCount.textContent = (profile.total_referrals || 0).toString();
+        elements.affiliatePending.textContent = (profile.pending_commission || 0).toString();
+        elements.affiliatePaid.textContent = (profile.paid_commission || 0).toString();
+        const paidCount = (affiliate.commissions || []).filter(c => c.status === 'paid').length;
+        elements.affiliatePaidCount.textContent = paidCount.toString();
+    } catch (error) {
+        console.error('Affiliate load error:', error);
+        showToast('❌', 'Lỗi tải affiliate');
+    }
+}
+
+function copyAffiliateLink() {
+    if (!elements.affiliateLink || !elements.affiliateLink.value) return;
+    navigator.clipboard.writeText(elements.affiliateLink.value)
+        .then(() => showToast('✅', 'Đã sao chép link giới thiệu!'))
+        .catch((err) => {
+            console.error('Copy error:', err);
+            showToast('❌', 'Sao chép thất bại');
+        });
 }
 
 // ==========================================
@@ -260,8 +330,8 @@ async function saveOnboarding(formData) {
 
 async function updateProfile(formData) {
     try {
-        const response = await fetch('/api/profile', {
-            method: 'POST',
+        const response = await fetch('/api/user/profile', {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
@@ -269,9 +339,12 @@ async function updateProfile(formData) {
         const data = await response.json();
         
         if (data.success) {
-            state.userProfile = data.profile;
+            state.currentUser = data.user;
+            updateUserBadge();
             closeModal('profileModal');
             showToast('✅', 'Đã cập nhật hồ sơ!');
+        } else {
+            showToast('❌', data.error || 'Cập nhật thất bại');
         }
     } catch (error) {
         console.error('Lỗi update profile:', error);
@@ -293,6 +366,41 @@ async function resetProfile() {
     }
 }
 
+async function handleFeedbackSubmit(e) {
+    e.preventDefault();
+    
+    const category = document.getElementById('feedbackCategory').value;
+    const content = document.getElementById('feedbackContent').value;
+    const rating = document.querySelector('input[name="rating"]:checked')?.value || 0;
+    
+    if (!category || !content) {
+        showToast('❌', 'Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/user/submit-feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, content, rating: parseInt(rating) })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Reset form
+            document.getElementById('feedbackForm').reset();
+            closeModal('feedbackModal');
+            showToast('✅', 'Cảm ơn phản hồi của em! Chúng mình sẽ xem xét nhé.');
+        } else {
+            showToast('❌', data.error || 'Gửi phản hồi thất bại');
+        }
+    } catch (error) {
+        console.error('Feedback submit error:', error);
+        showToast('❌', 'Có lỗi xảy ra, thử lại nhé!');
+    }
+}
+
 function updateWelcomeMessage(name) {
     const welcomeMsg = document.querySelector('.message-ai .message-content');
     if (welcomeMsg && name) {
@@ -304,13 +412,23 @@ function updateWelcomeMessage(name) {
 }
 
 function populateProfileForm() {
-    if (!state.userProfile) return;
+    if (!state.currentUser) return;
     
-    const p = state.userProfile;
-    document.getElementById('profileName').value = p.name || '';
-    document.getElementById('profileLevel').value = p.level || 'beginner';
-    document.getElementById('profileGoal').value = p.goal || 'communication';
-    document.getElementById('profileTime').value = p.daily_time || '15';
+    const u = state.currentUser;
+    document.getElementById('profileName').value = u.name || '';
+    document.getElementById('profileEmail').value = u.email || '';
+    document.getElementById('profilePhone').value = u.phone || '';
+    document.getElementById('profileAge').value = u.age || '';
+    document.getElementById('profileJob').value = u.job || '';
+    document.getElementById('profileUsage').value = u.english_usage || '';
+    document.getElementById('profileGoal').value = u.goal || '';
+    document.getElementById('profileLevel').value = u.english_level || 'beginner';
+    
+    // Set radio button for meet_foreigners
+    const meetForeignersRadios = document.querySelectorAll('input[name="profileMeetForeigners"]');
+    meetForeignersRadios.forEach(radio => {
+        radio.checked = (radio.value === 'true') === u.meet_foreigners;
+    });
 }
 
 function setupEventListeners() {
@@ -358,6 +476,11 @@ function setupEventListeners() {
         openModal('profileModal');
     });
     
+    // Feedback button
+    elements.feedbackBtn.addEventListener('click', () => {
+        openModal('feedbackModal');
+    });
+    
     // Freemium limit modal buttons
     if (elements.limitRegisterBtn) {
         elements.limitRegisterBtn.addEventListener('click', () => {
@@ -395,10 +518,16 @@ function setupEventListeners() {
         elements.profileForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const formData = {
-                name: document.getElementById('profileName').value,
-                level: document.getElementById('profileLevel').value,
-                goal: document.getElementById('profileGoal').value,
-                daily_time: document.getElementById('profileTime').value
+                user_id: state.currentUser.id,
+                profile: {
+                    name: document.getElementById('profileName').value,
+                    age: document.getElementById('profileAge').value,
+                    job: document.getElementById('profileJob').value,
+                    meet_foreigners: document.querySelector('input[name="profileMeetForeigners"]:checked')?.value === 'true',
+                    english_usage: document.getElementById('profileUsage').value,
+                    goal: document.getElementById('profileGoal').value,
+                    level: document.getElementById('profileLevel').value
+                }
             };
             updateProfile(formData);
         });
@@ -411,6 +540,11 @@ function setupEventListeners() {
                 resetProfile();
             }
         });
+    }
+    
+    // Feedback form
+    if (elements.feedbackForm) {
+        elements.feedbackForm.addEventListener('submit', handleFeedbackSubmit);
     }
     
     // TTS speed
@@ -537,6 +671,9 @@ function setupEventListeners() {
     if (elements.dashboardBtn) {
         elements.dashboardBtn.addEventListener('click', showDashboard);
     }
+    if (elements.affiliateBtn) {
+        elements.affiliateBtn.addEventListener('click', openAffiliateModal);
+    }
     if (elements.adminBtn) {
         elements.adminBtn.addEventListener('click', () => {
             const userId = state.currentUser?.id;
@@ -546,6 +683,10 @@ function setupEventListeners() {
                 showToast('⚠️', 'Chỉ admin mới có thể truy cập trang này.');
             }
         });
+    }
+    
+    if (elements.copyAffiliateLinkBtn) {
+        elements.copyAffiliateLinkBtn.addEventListener('click', copyAffiliateLink);
     }
     
     // Auth forms
@@ -668,6 +809,28 @@ async function loadInitialData() {
         console.log('Server status:', data.message);
     } catch (error) {
         console.error('Không kết nối được server:', error);
+    }
+    
+    // Kiểm tra session hiện tại
+    try {
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+        
+        if (data.success) {
+            state.currentUser = data.user;
+            state.isGuest = false;
+            updateAuthUI();
+            updateUserBadge();
+            await loadUserProfile();
+            console.log('Restored session for user:', data.user.name);
+        } else {
+            state.isGuest = true;
+            loadGuestLimits();
+        }
+    } catch (error) {
+        console.error('Session check failed:', error);
+        state.isGuest = true;
+        loadGuestLimits();
     }
 }
 
@@ -2079,10 +2242,11 @@ async function handleRegister(e) {
     const password = document.getElementById('regPassword').value;
     
     try {
+        const referral_code = state.referralCode || null;
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, phone, name, password })
+            body: JSON.stringify({ email, phone, name, password, referral_code })
         });
         
         const data = await response.json();
@@ -2142,7 +2306,13 @@ async function handleProfileSetup(e) {
     }
 }
 
-function logout() {
+async function logout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+    
     state.currentUser = null;
     state.pendingUserId = null;
     state.isGuest = true;
@@ -2154,6 +2324,7 @@ function logout() {
 
 function updateAuthUI() {
     const isLoggedIn = !!state.currentUser;
+    const isAdmin = state.currentUser?.role === 'admin';
     
     // Toggle buttons
     if (elements.loginBtn) elements.loginBtn.classList.toggle('hidden', isLoggedIn);
@@ -2161,6 +2332,9 @@ function updateAuthUI() {
     if (elements.logoutBtn) elements.logoutBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.dashboardBtn) elements.dashboardBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.profileBtn) elements.profileBtn.classList.toggle('hidden', !isLoggedIn);
+    if (elements.feedbackBtn) elements.feedbackBtn.classList.toggle('hidden', !isLoggedIn);
+    if (elements.affiliateBtn) elements.affiliateBtn.classList.toggle('hidden', !isLoggedIn);
+    if (elements.adminBtn) elements.adminBtn.classList.toggle('hidden', !isAdmin);
 }
 
 // ==========================================

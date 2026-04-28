@@ -63,7 +63,13 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "description": "Dùng thử miễn phí 7 ngày"
+        "description": "Dùng thử miễn phí 7 ngày",
+        # PART 2: Quota limits for cost control
+        "chat_per_day": 5,
+        "chat_per_month": 100,
+        "max_tokens_per_chat": 1000,
+        "max_cost_per_day_vnd": 0.0,  # unlimited
+        "max_cost_per_month_vnd": 0.0
     },
     {
         "name": "basic",
@@ -75,7 +81,13 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "description": "49.000đ/tháng"
+        "description": "49.000đ/tháng",
+        # PART 2: Quota limits
+        "chat_per_day": 10,
+        "chat_per_month": 300,
+        "max_tokens_per_chat": 2000,
+        "max_cost_per_day_vnd": 30000.0,  # ~1 USD
+        "max_cost_per_month_vnd": 600000.0  # ~24 USD
     },
     {
         "name": "pro",
@@ -87,7 +99,13 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "description": "99.000đ/tháng"
+        "description": "99.000đ/tháng",
+        # PART 2: Quota limits
+        "chat_per_day": 30,
+        "chat_per_month": 900,
+        "max_tokens_per_chat": 4000,
+        "max_cost_per_day_vnd": 60000.0,  # ~2.4 USD
+        "max_cost_per_month_vnd": 1200000.0  # ~48 USD
     },
     {
         "name": "family",
@@ -99,7 +117,13 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "description": "199.000đ/tháng"
+        "description": "199.000đ/tháng",
+        # PART 2: Quota limits
+        "chat_per_day": 999,
+        "chat_per_month": 29970,
+        "max_tokens_per_chat": 8000,
+        "max_cost_per_day_vnd": 0.0,  # unlimited
+        "max_cost_per_month_vnd": 0.0
     }
 ]
 
@@ -108,8 +132,15 @@ def get_plan_definitions():
     return PLAN_DEFINITIONS
 
 
+APP_NAME = "Ms. Smile English"
+
+
 def get_plan_by_name(name):
     return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
+
+
+def get_model_config():
+    return MODEL_SETTINGS.get(AI_PROVIDER, MODEL_SETTINGS["openai"])
 
 
 # ==========================================
@@ -138,6 +169,43 @@ SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/success")
 PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
 PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
+
+# Affiliate marketing defaults
+AFFILIATE_COMMISSION_RATE = float(os.getenv("AFFILIATE_COMMISSION_RATE", "20.0"))
+AFFILIATE_REFERRAL_LINK_BASE = os.getenv("AFFILIATE_REFERRAL_LINK_BASE", APP_BASE_URL)
+AFFILIATE_COMMISSION_TYPE = os.getenv("AFFILIATE_COMMISSION_TYPE", "percent")
+AFFILIATE_COMMISSION_FIXED_AMOUNT = int(os.getenv("AFFILIATE_COMMISSION_FIXED_AMOUNT", "0"))
+
+# ==========================================
+# PART 1 & 3: AI Cost Calculation Configuration
+# ==========================================
+# Exchange rate USD to VND
+USD_TO_VND = float(os.getenv("USD_TO_VND", "25000.0"))
+
+# PART 1: Cost per token (in USD) for different models
+# Updated with current OpenAI pricing (as of 2024)
+MODEL_COSTS = {
+    "gpt-4o-mini": {
+        "input_per_1k_tokens": 0.00015,  # $0.15 per 1M input tokens
+        "output_per_1k_tokens": 0.0006,  # $0.60 per 1M output tokens
+    },
+    "gpt-4": {
+        "input_per_1k_tokens": 0.03,  # $30 per 1M input tokens
+        "output_per_1k_tokens": 0.06,  # $60 per 1M output tokens
+    },
+    "gpt-3.5-turbo": {
+        "input_per_1k_tokens": 0.0005,  # $0.50 per 1M input tokens
+        "output_per_1k_tokens": 0.0015,  # $1.50 per 1M output tokens
+    },
+}
+
+# PART 2: Rate limiting
+RATE_LIMIT_PER_SECOND = 1  # 1 request per 2 seconds (0.5 req/sec)
+RATE_LIMIT_WINDOW = 2  # seconds
+GUEST_CHAT_LIMIT_PER_DAY = int(os.getenv("GUEST_CHAT_LIMIT_PER_DAY", "3"))
+
+# PART 3: Admin account config
+ADMIN_AFFILIATE_CODE = os.getenv("ADMIN_AFFILIATE_CODE", "ADMIN_DEFAULT")  # Default admin referral code
 
 # ==========================================
 # SYSTEM PROMPT - MS. SMILE (Song Ngữ)

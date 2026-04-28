@@ -6,8 +6,9 @@ Backend API cho ứng dụng học tiếng Anh
 # VERSION - để track deploy
 APP_VERSION = "bilingual-v2-2026-04-27"
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
+from datetime import datetime
 import os
 
 # Import services
@@ -15,6 +16,8 @@ from services.ai_service import get_ai_service
 from services.roleplay_service import get_roleplay_service, ROLES, SITUATIONS
 from services.situation_advisor import get_situation_advisor
 from services.user_service import get_user_service
+from services.cost_service import get_cost_service  # PART 1 & 3: Cost tracking
+from services.quota_service import get_quota_service  # PART 2: Quota enforcement
 from utils.history import get_history_manager
 from utils.user_profile import (
     load_profile, save_profile, update_profile, is_onboarded,
@@ -201,6 +204,60 @@ def chat():
                 "error": "Vui lòng nhập tin nhắn"
             }), 400
         
+        # PART 2: Check quota before calling AI
+        user_service = get_user_service()
+        quota_service = get_quota_service()
+        cost_service = get_cost_service()
+        
+        user = None
+        plan_name = "free_trial"
+        limit_message = """US English:
+You have reached today's free limit. Please upgrade your plan to continue.
+
+VN Tiếng Việt:
+Em đã dùng hết lượt miễn phí hôm nay. Vui lòng nâng cấp gói để tiếp tục học.
+
+📘 Giải thích:
+Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
+        
+        if user_id:
+            user = user_service.get_user(user_id)
+            if user:
+                plan_name = user.plan_name or "free_trial"
+                
+                # Check if user is locked or expired
+                if user.is_locked or user.status == 'banned':
+                    return jsonify({
+                        'success': False,
+                        'error': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.',
+                        'message': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.'
+                    }), 403
+        else:
+            today_key = datetime.utcnow().date().isoformat()
+            if session.get('guest_chat_date') != today_key:
+                session['guest_chat_date'] = today_key
+                session['guest_chat_count'] = 0
+            if session.get('guest_chat_count', 0) >= app_config.GUEST_CHAT_LIMIT_PER_DAY:
+                return jsonify({
+                    'success': False,
+                    'error': limit_message,
+                    'message': limit_message,
+                    'limits': {
+                        'daily_chats': app_config.GUEST_CHAT_LIMIT_PER_DAY,
+                        'chats_remaining_today': 0
+                    }
+                }), 429
+
+        # PART 2: Check daily chat quota
+        quota_check = quota_service.check_can_chat(user_id, plan_name)
+        if not quota_check['allowed']:
+            return jsonify({
+                'success': False,
+                'error': limit_message,
+                'message': limit_message,
+                'limits': quota_check['limits']
+            }), 429  # 429 = Too Many Requests
+        
         # Lấy AI service
         service = get_ai_service()
         
@@ -212,34 +269,14 @@ def chat():
         try:
             # Build user profile cho AI context
             user_profile = None
-            user_service = None
             if user_id:
-                user_service = get_user_service()
-                user = user_service.get_user(user_id)
                 if user:
-                    if user.is_locked or user.status == 'banned':
-                        return jsonify({
-                            'success': False,
-                            'error': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.',
-                            'message': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.'
-                        }), 403
                     if user.status == 'expired':
                         return jsonify({
                             'success': False,
                             'error': 'Tài khoản đã hết hạn. Vui lòng gia hạn để tiếp tục.',
                             'message': 'Tài khoản đã hết hạn. Vui lòng gia hạn để tiếp tục.'
                         }), 403
-                    plan = user_service.get_plan(user.plan_name)
-                    if plan:
-                        usage = user_service.get_usage_log(user.id)
-                        if usage.chat_count >= plan.chat_limit:
-                            return jsonify({
-                                'success': False,
-                                'error': 'Bạn đã đạt đến giới hạn chat của gói hiện tại.',
-                                'message': 'Bạn đã đạt đến giới hạn chat của gói hiện tại.',
-                                'plan': plan.to_dict(),
-                                'usage': usage.to_dict()
-                            }), 403
                     profile = user.get_profile_for_ai()
                     user_profile = {
                         'level': profile['level'],
@@ -301,18 +338,34 @@ Lỗi kỹ thuật: {str(e)}"""
         except Exception as e:
             print(f"Lỗi lưu lịch sử: {e}")
         
-        # Track usage for logged-in users
+        # PART 1 & 3: Log AI usage and cost
         try:
-            if user_id and user_service and user:
-                user_service.increment_usage(
-                    user_id=user.id,
-                    chat_increment=1,
-                    estimated_cost=0.02
+            if user_id:
+                # Estimate tokens from messages
+                input_tokens = len(user_message) // 4 or 1
+                output_tokens = len(ai_response) // 4 or 1
+                
+                # Log usage
+                cost_service.log_usage(
+                    user_id=user_id,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    model=app_config.get_model_config().get("model", "gpt-4o-mini"),
+                    message_count=1,
+                    ai_provider=app_config.AI_PROVIDER
                 )
+                
+                # Update cost analytics for admin dashboard
+                cost_service.update_cost_analytics(user_id)
+                
+                print(f"[COST LOG] Logged {input_tokens + output_tokens} tokens for user {user_id}")
         except Exception as e:
-            print(f"[CHAT LOG] Failed to update usage: {e}")
+            print(f"[COST LOG] Failed to log cost: {e}")
 
         # Log JSON response trước khi return
+        if not user_id:
+            session['guest_chat_count'] = session.get('guest_chat_count', 0) + 1
+
         response_data = {
             "success": True,
             "reply": ai_response,
@@ -508,6 +561,16 @@ def is_admin_user(user_id):
     return user is not None and user.role == 'admin'
 
 
+def require_admin(request):
+    admin_id = session.get('user_id') or request.args.get('admin_id', type=int)
+    if request.method in ['POST', 'PATCH', 'DELETE']:
+        data = request.get_json(silent=True) or {}
+        admin_id = session.get('user_id') or data.get('admin_id', admin_id)
+    if not is_admin_user(admin_id):
+        return None, jsonify({"success": False, "error": "Unauthorized"}), 403
+    return admin_id, None, None
+
+
 @app.route('/api/plans', methods=['GET'])
 def get_plans():
     """Get available subscription plans"""
@@ -540,70 +603,861 @@ def create_payment_request():
 
 @app.route('/api/admin/summary', methods=['GET'])
 def admin_summary():
-    admin_id = request.args.get('admin_id', type=int)
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
     user_service = get_user_service()
     return jsonify({"success": True, "summary": user_service.get_admin_summary()})
 
 
 @app.route('/api/admin/users', methods=['GET'])
 def admin_users():
-    admin_id = request.args.get('admin_id', type=int)
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    search = request.args.get('search')
     user_service = get_user_service()
-    users = [u.to_dict() for u in user_service.get_all_users()]
+    users = [u.to_dict() for u in user_service.search_users(search)]
     return jsonify({"success": True, "users": users})
 
 
-@app.route('/api/admin/feedback', methods=['GET'])
-def admin_feedback():
-    admin_id = request.args.get('admin_id', type=int)
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-    user_service = get_user_service()
-    feedbacks = [f.to_dict() for f in user_service.get_feedbacks(status=request.args.get('status', 'new'))]
-    return jsonify({"success": True, "feedbacks": feedbacks})
-
-
-@app.route('/api/admin/feedback/<int:feedback_id>/status', methods=['POST'])
-def admin_update_feedback_status(feedback_id):
+@app.route('/api/admin/users/<int:user_id>/status', methods=['PATCH'])
+def admin_update_user_status(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
     data = request.get_json() or {}
-    admin_id = data.get('admin_id')
     status = data.get('status')
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-    if status not in ['new', 'reviewed', 'resolved']:
-        return jsonify({"success": False, "error": "Invalid status"}), 400
     user_service = get_user_service()
-    success, result = user_service.update_feedback_status(feedback_id, status)
+    success, result = user_service.update_user_status(user_id, status)
     if success:
         return jsonify({"success": True, **result})
     return jsonify({"success": False, **result}), 400
 
 
-@app.route('/api/admin/payment/requests', methods=['GET'])
-def admin_payment_requests():
-    admin_id = request.args.get('admin_id', type=int)
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
-    user_service = get_user_service()
-    requests = [r.to_dict() for r in user_service.get_payment_requests()]
-    return jsonify({"success": True, "requests": requests})
-
-
-@app.route('/api/admin/payment/<int:payment_id>/approve', methods=['POST'])
-def admin_approve_payment(payment_id):
+@app.route('/api/admin/users/<int:user_id>/extend-trial', methods=['PATCH'])
+def admin_extend_trial(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
     data = request.get_json() or {}
-    admin_id = data.get('admin_id')
-    if not is_admin_user(admin_id):
-        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    days = data.get('days', 7)
+    user_service = get_user_service()
+    success, result = user_service.extend_trial(user_id, int(days))
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/users/<int:user_id>/plan', methods=['PATCH'])
+def admin_change_user_plan(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    data = request.get_json() or {}
+    plan_name = data.get('plan_name')
+    user_service = get_user_service()
+    success, result = user_service.change_user_plan(user_id, plan_name)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+def admin_delete_user(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.delete_user(user_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/plans', methods=['GET'])
+def admin_get_plans():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    plans = [plan.to_dict() for plan in user_service.get_all_plans()]
+    return jsonify({"success": True, "plans": plans})
+
+
+@app.route('/api/admin/plans', methods=['POST'])
+def admin_create_plan():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    data = request.get_json() or {}
+    user_service = get_user_service()
+    success, result = user_service.create_plan(data)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/plans/<int:plan_id>', methods=['PATCH'])
+def admin_update_plan(plan_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    data = request.get_json() or {}
+    user_service = get_user_service()
+    success, result = user_service.update_plan(plan_id, data)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/plans/<int:plan_id>', methods=['DELETE'])
+def admin_delete_plan(plan_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.delete_plan(plan_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/payments', methods=['GET'])
+def admin_payments():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    status = request.args.get('status', 'pending')
+    user_service = get_user_service()
+    payments = [p.to_dict() for p in user_service.get_payment_requests(status=status)]
+    return jsonify({"success": True, "payments": payments})
+
+
+@app.route('/api/admin/payments/<int:payment_id>/approve', methods=['PATCH'])
+def admin_approve_payment(payment_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
     user_service = get_user_service()
     success, result = user_service.approve_payment(payment_id)
     if success:
         return jsonify({"success": True, **result})
     return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/payments/<int:payment_id>/reject', methods=['PATCH'])
+def admin_reject_payment(payment_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.reject_payment(payment_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/affiliate/summary', methods=['GET'])
+def admin_affiliate_summary():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    return jsonify({"success": True, "summary": user_service.get_affiliate_summary()})
+
+
+@app.route('/api/admin/affiliate/profiles', methods=['GET'])
+def admin_affiliate_profiles():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    profiles = [p.to_dict() for p in user_service.get_affiliate_profiles()]
+    return jsonify({"success": True, "profiles": profiles})
+
+
+@app.route('/api/admin/affiliate/commissions', methods=['GET'])
+def admin_affiliate_commissions():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    status = request.args.get('status')
+    user_service = get_user_service()
+    commissions = [c.to_dict() for c in user_service.get_affiliate_commissions(status=status)]
+    return jsonify({"success": True, "commissions": commissions})
+
+
+@app.route('/api/admin/affiliate/commissions/<int:commission_id>/approve', methods=['PATCH'])
+def admin_affiliate_commission_approve(commission_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.update_affiliate_commission_status(commission_id, 'approved')
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/affiliate/commissions/<int:commission_id>/paid', methods=['PATCH'])
+def admin_affiliate_commission_paid(commission_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.update_affiliate_commission_status(commission_id, 'paid')
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/affiliate/commissions/<int:commission_id>/cancel', methods=['PATCH'])
+def admin_affiliate_commission_cancel(commission_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    user_service = get_user_service()
+    success, result = user_service.update_affiliate_commission_status(commission_id, 'cancelled')
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+# ==========================================
+# AGENT / AFFILIATE MANAGEMENT (BenNha style)
+# ==========================================
+
+@app.route('/api/admin/agents', methods=['GET'])
+def admin_get_agents():
+    """Get all agents with stats"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    status = request.args.get('status')  # pending, approved, suspended
+    user_service = get_user_service()
+    agents = user_service.get_all_agents(status=status)
+    
+    return jsonify({"success": True, "agents": agents})
+
+
+@app.route('/api/admin/agents/<int:user_id>/grant', methods=['POST'])
+def admin_grant_agent(user_id):
+    """Grant agent status to a user"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.grant_agent_status(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/agents/<int:user_id>/approve', methods=['POST'])
+def admin_approve_agent(user_id):
+    """Approve agent status"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.approve_agent(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/agents/<int:user_id>/suspend', methods=['POST'])
+def admin_suspend_agent(user_id):
+    """Suspend agent status"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.suspend_agent(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/agents/<int:user_id>/revoke', methods=['DELETE'])
+def admin_revoke_agent(user_id):
+    """Revoke agent status"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.revoke_agent_status(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/agents/<int:user_id>/stats', methods=['GET'])
+def admin_agent_stats(user_id):
+    """Get agent statistics"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    stats = user_service.get_agent_stats(user_id)
+    
+    if not stats:
+        return jsonify({"success": False, "error": "Agent not found"}), 404
+    
+    return jsonify({"success": True, "stats": stats})
+
+
+@app.route('/api/admin/agents/<int:user_id>/referrals', methods=['GET'])
+def admin_agent_referrals(user_id):
+    """Get agent's referral history"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    agent = user_service.get_user(user_id)
+    if not agent or agent.role != 'agent':
+        return jsonify({"success": False, "error": "User is not an agent"}), 400
+    
+    referrals = user_service.get_referral_history(user_id)
+    
+    return jsonify({"success": True, "referrals": referrals})
+
+
+@app.route('/api/admin/users/search', methods=['GET'])
+def admin_search_users():
+    """Search users by name, email, phone, user_code, or referral_code"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    query = request.args.get('q', '')
+    user_service = get_user_service()
+    users = user_service.search_users_advanced(query)
+    
+    return jsonify({
+        "success": True,
+        "users": [u.to_dict() for u in users],
+        "total": len(users)
+    })
+
+
+@app.route('/api/admin/users/<int:user_id>/lock', methods=['PATCH'])
+def admin_lock_user(user_id):
+    """Lock/ban user account"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.lock_user(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/users/<int:user_id>/unlock', methods=['PATCH'])
+def admin_unlock_user(user_id):
+    """Unlock user account"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.unlock_user(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/users/<int:user_id>/reset-quota', methods=['PATCH'])
+def admin_reset_quota(user_id):
+    """Reset user quota"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    user_service = get_user_service()
+    success, result = user_service.reset_user_quota(user_id)
+    
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+# ==========================================
+# PART 3: ADMIN COST & PROFITABILITY DASHBOARD
+# ==========================================
+@app.route('/api/admin/analytics/summary', methods=['GET'])
+def admin_analytics_summary():
+    """
+    PART 3: Get overall cost and profitability summary for admin dashboard
+    
+    Returns:
+    {
+        "total_users": int,
+        "trial_users": int,
+        "paid_users": int,
+        "total_revenue_month": float,
+        "total_ai_cost_month": float,
+        "estimated_profit_month": float,
+        "users_with_loss": int,
+        "high_cost_users": int,
+        "avg_cost_per_user": float
+    }
+    """
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import User, CostAnalytics
+        from datetime import datetime
+        from sqlalchemy import func
+        
+        now = datetime.utcnow()
+        year, month = now.year, now.month
+        start = datetime(year, month, 1).date()
+        end = datetime(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1).date()
+        
+        # Count users by type
+        total_users = User.query.filter(User.role != 'admin').count()
+        trial_users = User.query.filter(User.plan_name == 'free_trial', User.role != 'admin').count()
+        paid_users = total_users - trial_users
+        
+        # Sum costs and revenue for this month
+        analytics = CostAnalytics.query.filter(
+            CostAnalytics.date >= start,
+            CostAnalytics.date < end
+        ).all()
+        
+        total_ai_cost_vnd = sum(a.ai_cost_vnd for a in analytics)
+        total_revenue_vnd = sum(a.revenue_vnd for a in analytics)
+        estimated_profit_vnd = total_revenue_vnd - total_ai_cost_vnd
+        
+        # Count unprofitable users
+        users_with_loss = len([a for a in analytics if not a.is_profitable])
+        high_cost_users = len([a for a in analytics if a.profit_loss_vnd < -50000])  # -50k threshold
+        
+        # Average cost per user
+        avg_cost_per_user = total_ai_cost_vnd / total_users if total_users > 0 else 0
+        
+        return jsonify({
+            "success": True,
+            "summary": {
+                "total_users": total_users,
+                "trial_users": trial_users,
+                "paid_users": paid_users,
+                "total_revenue_month_vnd": round(total_revenue_vnd, 0),
+                "total_ai_cost_month_vnd": round(total_ai_cost_vnd, 0),
+                "estimated_profit_month_vnd": round(estimated_profit_vnd, 0),
+                "users_with_loss": users_with_loss,
+                "high_cost_users": high_cost_users,
+                "avg_cost_per_user_vnd": round(avg_cost_per_user, 0)
+            }
+        })
+    except Exception as e:
+        print(f"[ADMIN] Error getting analytics summary: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/admin/analytics/users', methods=['GET'])
+def admin_analytics_users():
+    """
+    PART 3: Get cost analytics for each user (for admin dashboard profitability view)
+    
+    Query params:
+        sort_by: "cost" | "profit" | "name" (default: "cost")
+        limit: int (default: 50)
+    
+    Returns list of users with their cost/profit data
+    """
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import User, CostAnalytics
+        from datetime import datetime
+        from sqlalchemy import func
+        
+        sort_by = request.args.get('sort_by', 'cost')
+        limit = request.args.get('limit', 50, type=int)
+        
+        now = datetime.utcnow()
+        year, month = now.year, now.month
+        start = datetime(year, month, 1).date()
+        end = datetime(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1).date()
+        
+        # Get analytics grouped by user
+        analytics_by_user = db.session.query(
+            CostAnalytics.user_id,
+            func.sum(CostAnalytics.ai_cost_vnd).label('total_cost'),
+            func.sum(CostAnalytics.revenue_vnd).label('total_revenue'),
+            func.count(CostAnalytics.id).label('chat_days'),
+            func.sum(CostAnalytics.chat_count).label('total_chats')
+        ).filter(
+            CostAnalytics.date >= start,
+            CostAnalytics.date < end
+        ).group_by(CostAnalytics.user_id).all()
+        
+        users_data = []
+        for user_id, cost, revenue, chat_days, total_chats in analytics_by_user:
+            user = User.query.get(user_id)
+            if not user:
+                continue
+            
+            profit_loss = (revenue or 0) - (cost or 0)
+            profit_percentage = ((profit_loss / (revenue or 1)) * 100) if revenue else 0
+            
+            # Determine status and warning level
+            if profit_loss >= 0:
+                status = "profit"
+                warning_level = "green"
+            elif profit_loss > -50000:
+                status = "breakeven"
+                warning_level = "yellow"
+            else:
+                status = "loss"
+                warning_level = "red"
+            
+            users_data.append({
+                "user_id": user_id,
+                "user_name": user.name,
+                "user_email": user.email,
+                "plan": user.plan_name,
+                "ai_cost_vnd": round(cost or 0, 0),
+                "revenue_vnd": round(revenue or 0, 0),
+                "profit_loss_vnd": round(profit_loss, 0),
+                "profit_percentage": round(profit_percentage, 1),
+                "chats_this_month": total_chats or 0,
+                "days_active": chat_days or 0,
+                "status": status,
+                "warning_level": warning_level
+            })
+        
+        # Sort
+        if sort_by == "profit":
+            users_data.sort(key=lambda x: x['profit_loss_vnd'])
+        elif sort_by == "name":
+            users_data.sort(key=lambda x: x['user_name'])
+        else:  # sort_by == "cost"
+            users_data.sort(key=lambda x: x['ai_cost_vnd'], reverse=True)
+        
+        return jsonify({
+            "success": True,
+            "users": users_data[:limit],
+            "total_records": len(users_data)
+        })
+    except Exception as e:
+        print(f"[ADMIN] Error getting user analytics: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/admin/analytics/user/<int:user_id>', methods=['GET'])
+def admin_analytics_user_detail(user_id):
+    """
+    PART 3: Get detailed cost analytics for a specific user
+    
+    Returns:
+    {
+        "user": {...},
+        "plan_info": {...},
+        "today_stats": {...},
+        "month_stats": {...},
+        "cost_warning": {...},
+        "actions": [...]  # Recommended admin actions
+    }
+    """
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import User, UsageLog, CostAnalytics, Plan
+        from datetime import datetime, date
+        from services.cost_service import CostService
+        from services.quota_service import QuotaService
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        cost_service = get_cost_service()
+        quota_service = get_quota_service()
+        
+        # Get plan info
+        plan = Plan.query.filter_by(name=user.plan_name).first()
+        plan_info = plan.to_dict() if plan else {}
+        
+        # Today's stats
+        today = date.today()
+        today_cost_vnd = cost_service.get_daily_cost(user_id, today)
+        today_chats = cost_service.get_daily_chat_count(user_id, today)
+        
+        # Month's stats
+        now = datetime.utcnow()
+        month_cost_vnd = cost_service.get_monthly_cost(user_id, now.year, now.month)
+        month_chats = cost_service.get_monthly_chat_count(user_id, now.year, now.month)
+        
+        # Revenue
+        daily_revenue = plan.price / 30 if plan else 0  # Prorate
+        month_revenue = plan.price if plan else 0
+        
+        # Cost warnings
+        cost_warning = quota_service.get_cost_warning(user_id, today_cost_vnd, user.plan_name)
+        
+        # Recommended actions
+        actions = []
+        if today_cost_vnd > (plan.price * 0.7) if plan else False:
+            actions.append({
+                "priority": "high",
+                "action": "REDUCE_QUOTA",
+                "reason": "User is using 70%+ of daily budget"
+            })
+        if today_chats >= (plan_info.get("chat_per_day", 10)):
+            actions.append({
+                "priority": "medium",
+                "action": "LIMIT_CHATS",
+                "reason": "User has reached daily chat limit"
+            })
+        if not user.is_locked and month_cost_vnd > month_revenue and month_revenue > 0:
+            actions.append({
+                "priority": "high",
+                "action": "CONSIDER_LOCK",
+                "reason": "User is generating more cost than revenue this month"
+            })
+        
+        return jsonify({
+            "success": True,
+            "user": user.to_dict(),
+            "plan_info": plan_info,
+            "today_stats": {
+                "cost_vnd": round(today_cost_vnd, 0),
+                "chats": today_chats,
+                "remaining_quota": max(0, plan_info.get("chat_per_day", 10) - today_chats)
+            },
+            "month_stats": {
+                "cost_vnd": round(month_cost_vnd, 0),
+                "revenue_vnd": round(month_revenue, 0),
+                "profit_loss_vnd": round(month_revenue - month_cost_vnd, 0),
+                "chats": month_chats
+            },
+            "cost_warning": cost_warning,
+            "recommended_actions": actions
+        })
+    except Exception as e:
+        print(f"[ADMIN] Error getting user detail: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/admin/analytics/user/<int:user_id>/quota', methods=['PATCH'])
+def admin_update_user_quota(user_id):
+    """
+    PART 3: Admin can manually adjust quota limits for a specific user
+    """
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        data = request.get_json() or {}
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        # For now, adjust the plan - in future could have per-user quota overrides
+        # This is a simplified version - you'd need a UserQuotaOverride model for full flexibility
+        
+        return jsonify({
+            "success": True,
+            "message": "Quota adjustment feature coming soon"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==========================================
+# Additional Admin Analytics APIs
+# ==========================================
+
+@app.route('/api/admin/analytics/profit-loss', methods=['GET'])
+def admin_profit_loss():
+    """Get profit/loss analytics"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import CostAnalytics, PaymentHistory
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        
+        # Calculate for today
+        today = datetime.utcnow().date()
+        
+        # Total revenue from payments
+        total_revenue = db.session.query(func.sum(PaymentHistory.amount)).filter(
+            PaymentHistory.currency == 'VND',
+            PaymentHistory.status.in_(['approved', 'completed']),
+            func.date(PaymentHistory.created_at) == today
+        ).scalar() or 0
+        
+        # Total costs from AI usage
+        total_costs_vnd = db.session.query(func.sum(CostAnalytics.ai_cost_vnd)).filter(
+            CostAnalytics.date == today
+        ).scalar() or 0
+        net_profit = total_revenue - total_costs_vnd
+        
+        return jsonify({
+            "success": True,
+            "profit_loss": {
+                "total_revenue": int(total_revenue),
+                "total_costs": int(total_costs_vnd),
+                "net_profit": int(net_profit)
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/analytics/ai-usage', methods=['GET'])
+def admin_ai_usage():
+    """Get AI usage analytics"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        period = request.args.get('period', 'today')
+        from models import UsageLog
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        
+        if period == 'today':
+            start_date = datetime.utcnow().date()
+        elif period == 'week':
+            start_date = datetime.utcnow().date() - timedelta(days=7)
+        elif period == 'month':
+            start_date = datetime.utcnow().date() - timedelta(days=30)
+        else:
+            start_date = datetime.utcnow().date()
+        
+        # Count messages and tokens
+        usage = db.session.query(
+            func.count(UsageLog.id).label('total_messages'),
+            func.sum(UsageLog.estimated_tokens).label('total_tokens'),
+            func.sum(UsageLog.estimated_cost_usd).label('estimated_cost')
+        ).filter(
+            func.date(UsageLog.created_at) >= start_date
+        ).first()
+        
+        return jsonify({
+            "success": True,
+            "usage": {
+                "total_messages": usage.total_messages or 0,
+                "total_tokens": usage.total_tokens or 0,
+                "estimated_cost": float(usage.estimated_cost or 0)
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/analytics/costs', methods=['GET'])
+def admin_costs():
+    """Get cost analytics"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import CostAnalytics
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        
+        today = datetime.utcnow().date()
+        week_ago = today - timedelta(days=7)
+        month_ago = today - timedelta(days=30)
+        
+        costs = {}
+        for period, start_date in [('today', today), ('week', week_ago), ('month', month_ago)]:
+            cost = db.session.query(func.sum(CostAnalytics.ai_cost_vnd)).filter(
+                CostAnalytics.date >= start_date
+            ).scalar() or 0
+            costs[period] = float(cost)
+        
+        # Calculate profit (simplified - just costs for now)
+        profit = {k: v * -1 for k, v in costs.items()}  # Negative costs as profit
+        
+        return jsonify({
+            "success": True,
+            "costs": costs,
+            "profit": profit
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/affiliate/stats', methods=['GET'])
+def admin_affiliate_stats():
+    """Get affiliate statistics"""
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    
+    try:
+        from models import AffiliateProfile, AffiliateCommission
+        from sqlalchemy import func
+        
+        # Count affiliates
+        total_affiliates = AffiliateProfile.query.count()
+        active_affiliates = AffiliateProfile.query.filter(
+            AffiliateProfile.status.in_(['active', 'approved'])
+        ).count()
+        
+        # Sum commissions
+        total_commissions = db.session.query(func.sum(AffiliateCommission.commission_amount)).filter(
+            AffiliateCommission.status == 'paid'
+        ).scalar() or 0
+        
+        pending_commissions = db.session.query(func.sum(AffiliateCommission.commission_amount)).filter(
+            AffiliateCommission.status.in_(['pending', 'approved', 'unpaid'])
+        ).scalar() or 0
+        
+        return jsonify({
+            "success": True,
+            "stats": {
+                "total_affiliates": total_affiliates,
+                "active_affiliates": active_affiliates,
+                "total_commissions": int(total_commissions),
+                "pending_commissions": int(pending_commissions)
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/user/feedback', methods=['POST'])
@@ -645,6 +1499,11 @@ def check_reminder():
 
 @app.route('/admin')
 def admin_page():
+    # Check admin authentication
+    user_id = session.get('user_id')
+    user_role = session.get('user_role')
+    if not user_id or user_role != 'admin':
+        return jsonify({"success": False, "error": "Admin access required"}), 403
     return render_template('admin.html')
 
 def init_services():
@@ -1027,15 +1886,20 @@ def register():
         phone = data.get('phone')
         password = data.get('password')
         name = data.get('name')
+        referral_code = data.get('referral_code')
         
         from services.user_service import get_user_service
         user_service = get_user_service()
         
         success, result = user_service.register_user(
-            email=email, phone=phone, password=password, name=name
+            email=email, phone=phone, password=password, name=name,
+            referral_code=referral_code
         )
         
         if success:
+            session['user_id'] = result['user']['id']
+            session['user_email'] = result['user'].get('email')
+            session['user_role'] = result['user']['role']
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400
@@ -1061,10 +1925,47 @@ def login():
         )
         
         if success:
+            # Set session data for persistent login
+            session['user_id'] = result['user']['id']
+            session['user_email'] = result['user']['email']
+            session['user_role'] = result['user']['role']
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400
             
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/auth/me', methods=['GET'])
+def get_current_user():
+    """Get current logged in user from session"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "Not logged in"}), 401
+        
+        from services.user_service import get_user_service
+        user_service = get_user_service()
+        user = user_service.get_user(user_id)
+        
+        if not user:
+            # Clear invalid session
+            session.clear()
+            return jsonify({"success": False, "error": "User not found"}), 401
+        
+        return jsonify({"success": True, "user": user.to_dict()})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    """Logout user"""
+    try:
+        session.clear()
+        return jsonify({"success": True, "message": "Đã đăng xuất"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1083,10 +1984,65 @@ def setup_profile():
         success, result = user_service.setup_profile(user_id, profile)
         
         if success:
+            session['user_id'] = result['user']['id']
+            session['user_email'] = result['user'].get('email')
+            session['user_role'] = result['user']['role']
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400
             
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/profile', methods=['GET'])
+def get_user_profile():
+    try:
+        user_id = request.args.get('user_id', type=int)
+        user = get_user_service().get_user(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User không tồn tại"}), 404
+        return jsonify({"success": True, "user": user.to_dict()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/profile', methods=['PATCH'])
+def patch_user_profile():
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        profile_data = data.get('profile', {})
+        success, result = get_user_service().setup_profile(user_id, profile_data)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/usage', methods=['GET'])
+def user_usage():
+    try:
+        user_id = request.args.get('user_id', type=int)
+        if not user_id:
+            return jsonify({"success": False, "error": "user_id required"}), 400
+        user_service = get_user_service()
+        logs = [log.to_dict() for log in user_service.get_user_usage(user_id)]
+        return jsonify({"success": True, "usage": logs})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/affiliate', methods=['GET'])
+def user_affiliate():
+    try:
+        user_id = request.args.get('user_id', type=int)
+        if not user_id:
+            return jsonify({"success": False, "error": "user_id required"}), 400
+        user_service = get_user_service()
+        affiliate_data = user_service.get_user_affiliate(user_id)
+        return jsonify({"success": True, "affiliate": affiliate_data})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1116,6 +2072,92 @@ def get_progress():
             "progress": progress.to_dict() if progress else None,
             "common_errors": common_errors
         })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==========================================
+# Feedback APIs
+# ==========================================
+
+@app.route('/api/user/submit-feedback', methods=['POST'])
+def submit_user_feedback():
+    """Submit user feedback"""
+    try:
+        data = request.get_json()
+        user_id = session.get('user_id')  # Get from session
+        category = data.get('category')
+        content = data.get('content')
+        rating = data.get('rating', 0)
+        
+        if not category or not content:
+            return jsonify({"success": False, "error": "Category and content are required"}), 400
+        
+        from models import Feedback
+        feedback = Feedback(
+            user_id=user_id,
+            category=category,
+            content=content,
+            rating=rating
+        )
+        db.session.add(feedback)
+        db.session.commit()
+        
+        return jsonify({"success": True, "feedback": feedback.to_dict(), "message": "Cảm ơn phản hồi của em!"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/feedback', methods=['GET'])
+def get_admin_feedback():
+    """Get feedback (admin only)"""
+    try:
+        # Check admin permission
+        user_id = session.get('user_id')
+        user_role = session.get('user_role')
+        if not user_id or user_role != 'admin':
+            return jsonify({"success": False, "error": "Admin access required"}), 403
+        
+        from models import Feedback
+        feedback_list = Feedback.query.order_by(Feedback.created_at.desc()).all()
+        
+        return jsonify({
+            "success": True, 
+            "feedback": [f.to_dict() for f in feedback_list]
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/feedback/<int:feedback_id>', methods=['PATCH'])
+def update_admin_feedback_status(feedback_id):
+    """Update feedback status (admin only)"""
+    try:
+        # Check admin permission
+        user_id = session.get('user_id')
+        user_role = session.get('user_role')
+        if not user_id or user_role != 'admin':
+            return jsonify({"success": False, "error": "Admin access required"}), 403
+        
+        data = request.get_json()
+        status = data.get('status')
+        
+        if status not in ['new', 'reviewed', 'resolved']:
+            return jsonify({"success": False, "error": "Invalid status"}), 400
+        
+        from models import Feedback
+        feedback = Feedback.query.get(feedback_id)
+        if not feedback:
+            return jsonify({"success": False, "error": "Feedback not found"}), 404
+        
+        feedback.status = status
+        feedback.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({"success": True, "feedback": feedback.to_dict()})
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

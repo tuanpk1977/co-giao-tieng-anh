@@ -31,11 +31,17 @@
             <button id="dashboardBtn" class="btn btn-dashboard hidden">
                 <i class="fas fa-tachometer-alt"></i> Tiến độ
             </button>
+            <button id="affiliateBtn" class="btn btn-affiliate hidden">
+                <i class="fas fa-users"></i> Giới thiệu
+            </button>
             <button id="adminBtn" class="btn btn-admin hidden">
                 <i class="fas fa-user-shield"></i> Admin
             </button>
             <button id="profileBtn" class="btn btn-profile hidden">
                 <i class="fas fa-user-cog"></i> Hồ sơ
+            </button>
+            <button id="feedbackBtn" class="btn btn-feedback hidden">
+                <i class="fas fa-comments"></i> Phản hồi
             </button>
             
             <!-- User Badge -->
@@ -541,41 +547,112 @@
             </div>
             <div class="modal-body">
                 <form id="profileForm" class="onboarding-form">
-                    <!-- Same fields as onboarding -->
                     <div class="form-group">
                         <label>Tên</label>
                         <input type="text" id="profileName" name="name">
                     </div>
                     <div class="form-group">
-                        <label>Trình độ</label>
-                        <select id="profileLevel" name="level">
-                            <option value="beginner">Mất gốc</option>
-                            <option value="elementary">Cơ bản</option>
-                            <option value="intermediate">Trung bình</option>
+                        <label>Email</label>
+                        <input type="email" id="profileEmail" name="email" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input type="tel" id="profilePhone" name="phone" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Tuổi</label>
+                        <select id="profileAge">
+                            <option value="">Chọn tuổi</option>
+                            <option value="18-25">18-25</option>
+                            <option value="26-35">26-35</option>
+                            <option value="36-45">36-45</option>
+                            <option value="46+">46+</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Mục tiêu</label>
-                        <select id="profileGoal" name="goal">
-                            <option value="communication">Giao tiếp</option>
-                            <option value="work">Đi làm</option>
+                        <label>Nghề nghiệp</label>
+                        <select id="profileJob">
+                            <option value="">Chọn nghề nghiệp</option>
+                            <option value="sales">Sales / Kinh doanh</option>
+                            <option value="engineer">Engineer / Kỹ sư</option>
+                            <option value="cafe">Cafe / Dịch vụ</option>
+                            <option value="office">Office / Văn phòng</option>
+                            <option value="student">Student / Sinh viên</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Có thường xuyên gặp người nước ngoài?</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="profileMeetForeigners" value="true"> Có</label>
+                            <label><input type="radio" name="profileMeetForeigners" value="false"> Không</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Thường dùng tiếng Anh trong lĩnh vực gì?</label>
+                        <input type="text" id="profileUsage" placeholder="Ví dụ: Giao tiếp khách hàng, họp online...">
+                    </div>
+                    <div class="form-group">
+                        <label>Mục tiêu học</label>
+                        <select id="profileGoal">
+                            <option value="">Chọn mục tiêu</option>
+                            <option value="daily">Giao tiếp hàng ngày</option>
+                            <option value="work">Công việc</option>
                             <option value="travel">Du lịch</option>
-                            <option value="interview">Phỏng vấn</option>
-                            <option value="student">Học sinh</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thời gian học/ngày</label>
-                        <select id="profileTime" name="daily_time">
-                            <option value="10">10 phút</option>
-                            <option value="15">15 phút</option>
-                            <option value="30">30 phút</option>
+                        <label>Trình độ tiếng Anh</label>
+                        <select id="profileLevel">
+                            <option value="beginner">Mới bắt đầu</option>
+                            <option value="elementary">Sơ cấp</option>
+                            <option value="intermediate">Trung cấp</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">💾 Lưu thay đổi</button>
                 </form>
                 <hr style="margin: 20px 0;">
                 <button id="resetProfileBtn" class="btn btn-secondary btn-full">🔄 Học lại từ đầu (reset)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💬 Phản hồi & Góp ý</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackForm" class="auth-form">
+                    <div class="form-group">
+                        <label>Loại phản hồi *</label>
+                        <select id="feedbackCategory" required>
+                            <option value="">Chọn loại</option>
+                            <option value="bug">🐛 Báo lỗi</option>
+                            <option value="feature">✨ Đề xuất tính năng</option>
+                            <option value="improvement">🔧 Cải thiện</option>
+                            <option value="content">📚 Nội dung học</option>
+                            <option value="other">❓ Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nội dung *</label>
+                        <textarea id="feedbackContent" rows="4" placeholder="Em hãy chia sẻ ý kiến của em nhé..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Đánh giá (tùy chọn)</label>
+                        <div class="rating-stars">
+                            <input type="radio" id="star5" name="rating" value="5"><label for="star5">⭐</label>
+                            <input type="radio" id="star4" name="rating" value="4"><label for="star4">⭐</label>
+                            <input type="radio" id="star3" name="rating" value="3"><label for="star3">⭐</label>
+                            <input type="radio" id="star2" name="rating" value="2"><label for="star2">⭐</label>
+                            <input type="radio" id="star1" name="rating" value="1"><label for="star1">⭐</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">📤 Gửi phản hồi</button>
+                </form>
             </div>
         </div>
     </div>
@@ -842,6 +919,36 @@
                             <p class="empty-text">Chưa có tình huống nào. Thử ngay!</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Affiliate Modal -->
+    <div id="affiliateModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🤝 Giới thiệu bạn bè</h2>
+                <button class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="affiliate-card">
+                    <p>Chia sẻ mã và link giới thiệu để nhận hoa hồng khi bạn bè nâng cấp gói trả phí.</p>
+                    <div class="form-group">
+                        <label>Mã giới thiệu</label>
+                        <input id="affiliateCode" type="text" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Link giới thiệu</label>
+                        <input id="affiliateLink" type="text" readonly>
+                    </div>
+                    <button id="copyAffiliateLinkBtn" class="btn btn-primary btn-block">Sao chép link</button>
+                </div>
+                <div class="affiliate-stats">
+                    <div class="stat-item"><strong>Người đăng ký:</strong> <span id="affiliateReferredCount">0</span></div>
+                    <div class="stat-item"><strong>Đã thanh toán:</strong> <span id="affiliatePaidCount">0</span></div>
+                    <div class="stat-item"><strong>Hoa hồng chờ duyệt:</strong> <span id="affiliatePending">0</span> VND</div>
+                    <div class="stat-item"><strong>Hoa hồng đã nhận:</strong> <span id="affiliatePaid">0</span> VND</div>
                 </div>
             </div>
         </div>

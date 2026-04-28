@@ -20,7 +20,13 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    
+    # Fixed identifiers - NEVER change these
+    user_code = db.Column(db.String(50), unique=True, nullable=False)  # pair_id
+    referral_code = db.Column(db.String(50), unique=True, nullable=True)  # Agent code to share
+    referred_by = db.Column(db.String(50), nullable=True)  # Who referred this user
     
     # Profile info
     age = db.Column(db.Integer)
@@ -31,12 +37,21 @@ class User(db.Model):
     english_level = db.Column(db.String(20), default='beginner')
     
     # Subscription and payment info
-    role = db.Column(db.String(20), default='user')
-    status = db.Column(db.String(20), default='trial')
+    role = db.Column(db.String(20), default='user')  # user, agent, admin
+    status = db.Column(db.String(20), default='trial')  # trial, active, expired, banned
+    agent_status = db.Column(db.String(20), nullable=True)  # pending, approved, suspended (only if role=agent)
     plan_name = db.Column(db.String(50), default='free_trial')
+    
+    # Explicit subscription dates
+    trial_start = db.Column(db.DateTime)
+    trial_end = db.Column(db.DateTime)
+    subscription_start = db.Column(db.DateTime)
+    subscription_end = db.Column(db.DateTime)
+    
+    # Keep legacy fields for compatibility
     plan_start = db.Column(db.DateTime)
     plan_end = db.Column(db.DateTime)
-    trial_end = db.Column(db.DateTime)
+    
     reminder_enabled = db.Column(db.Boolean, default=True)
     reminder_hour = db.Column(db.String(5), default='20:00')
     reminder_message = db.Column(db.String(255), default='Hôm nay em học 5 phút với Ms. Smile nhé 😊')
@@ -51,6 +66,10 @@ class User(db.Model):
     payment_requests = db.relationship('PaymentRequest', backref='user', lazy=True)
     payment_history = db.relationship('PaymentHistory', backref='user', lazy=True)
     feedbacks = db.relationship('Feedback', backref='user', lazy=True)
+    affiliate_profile = db.relationship('AffiliateProfile', backref='user', lazy=True, uselist=False)
+    referrals_sent = db.relationship('Referral', foreign_keys='Referral.referrer_user_id', backref='referrer', lazy=True)
+    referrals_received = db.relationship('Referral', foreign_keys='Referral.referred_user_id', backref='referred', lazy=True)
+    commissions = db.relationship('AffiliateCommission', foreign_keys='AffiliateCommission.affiliate_user_id', backref='affiliate', lazy=True)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -61,6 +80,7 @@ class User(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'user_code': self.user_code,
             'email': self.email,
             'phone': self.phone,
             'name': self.name,
@@ -72,15 +92,21 @@ class User(db.Model):
             'english_level': self.english_level,
             'role': self.role,
             'status': self.status,
+            'agent_status': self.agent_status,
             'plan_name': self.plan_name,
-            'plan_start': self.plan_start.isoformat() if self.plan_start else None,
-            'plan_end': self.plan_end.isoformat() if self.plan_end else None,
+            'plan': self.plan_name,
+            'trial_start': self.trial_start.isoformat() if self.trial_start else None,
             'trial_end': self.trial_end.isoformat() if self.trial_end else None,
+            'subscription_start': self.subscription_start.isoformat() if self.subscription_start else None,
+            'subscription_end': self.subscription_end.isoformat() if self.subscription_end else None,
+            'referral_code': self.referral_code,
+            'referred_by': self.referred_by,
             'reminder_enabled': self.reminder_enabled,
             'reminder_hour': self.reminder_hour,
             'reminder_message': self.reminder_message,
             'is_locked': self.is_locked,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None
         }
     
@@ -127,6 +153,13 @@ class Plan(db.Model):
     can_save_history = db.Column(db.Boolean, default=True)
     enabled = db.Column(db.Boolean, default=True)
     description = db.Column(db.String(255), default='')
+    
+    # PART 2: Quota limits for cost control
+    chat_per_day = db.Column(db.Integer, default=10)
+    chat_per_month = db.Column(db.Integer, default=300)
+    max_tokens_per_chat = db.Column(db.Integer, default=2000)
+    max_cost_per_day_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
+    max_cost_per_month_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
 
     def to_dict(self):
         return {
@@ -140,33 +173,201 @@ class Plan(db.Model):
             'can_speak': self.can_speak,
             'can_save_history': self.can_save_history,
             'enabled': self.enabled,
-            'description': self.description
+            'description': self.description,
+            'chat_per_day': self.chat_per_day,
+            'chat_per_month': self.chat_per_month,
+            'max_tokens_per_chat': self.max_tokens_per_chat,
+            'max_cost_per_day_vnd': self.max_cost_per_day_vnd,
+            'max_cost_per_month_vnd': self.max_cost_per_month_vnd
         }
 
 
 class UsageLog(db.Model):
-    """Track daily usage counts and estimated AI cost"""
+    """PART 1: Track AI usage and estimated costs per user interaction"""
     __tablename__ = 'usage_logs'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    date = db.Column(db.Date, default=datetime.utcnow().date)
-    chat_count = db.Column(db.Integer, default=0)
+    
+    # Message count tracking
+    message_count = db.Column(db.Integer, default=1)  # 1 for single message, 2+ for multi-turn
+    chat_count = db.Column(db.Integer, default=1)
     lesson_count = db.Column(db.Integer, default=0)
     speaking_count = db.Column(db.Integer, default=0)
-    ai_provider = db.Column(db.String(50), default='openai')
+    
+    # Token tracking
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+    estimated_tokens = db.Column(db.Integer, default=0)  # Used if no actual token count
+    
+    # Model used
+    model = db.Column(db.String(100), default='gpt-4o-mini')
+    
+    # Cost tracking
+    estimated_cost_usd = db.Column(db.Float, default=0.0)
+    estimated_cost_vnd = db.Column(db.Float, default=0.0)
     estimated_cost = db.Column(db.Float, default=0.0)
+    
+    # Metadata
+    ai_provider = db.Column(db.String(50), default='openai')
+    date = db.Column(db.Date, default=datetime.utcnow().date)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
+            'id': self.id,
             'user_id': self.user_id,
-            'date': self.date.isoformat() if self.date else None,
+            'message_count': self.message_count,
             'chat_count': self.chat_count,
             'lesson_count': self.lesson_count,
             'speaking_count': self.speaking_count,
+            'input_tokens': self.input_tokens,
+            'output_tokens': self.output_tokens,
+            'estimated_tokens': self.estimated_tokens,
+            'model': self.model,
+            'estimated_cost': round(self.estimated_cost, 2),
+            'estimated_cost_usd': round(self.estimated_cost_usd, 6),
+            'estimated_cost_vnd': round(self.estimated_cost_vnd, 0),
             'ai_provider': self.ai_provider,
-            'estimated_cost': self.estimated_cost
+            'date': self.date.isoformat() if self.date else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class CostAnalytics(db.Model):
+    """PART 3: Admin dashboard - cost and profitability analytics"""
+    __tablename__ = 'cost_analytics'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    date = db.Column(db.Date, default=datetime.utcnow().date)
+    
+    # Cost tracking
+    ai_cost_vnd = db.Column(db.Float, default=0.0)
+    ai_cost_usd = db.Column(db.Float, default=0.0)
+    
+    # Revenue tracking
+    revenue_vnd = db.Column(db.Float, default=0.0)
+    
+    # Usage metrics
+    chat_count = db.Column(db.Integer, default=0)
+    total_tokens = db.Column(db.Integer, default=0)
+    
+    # Status
+    is_profitable = db.Column(db.Boolean, default=True)
+    profit_loss_vnd = db.Column(db.Float, default=0.0)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'date': self.date.isoformat() if self.date else None,
+            'ai_cost_vnd': round(self.ai_cost_vnd, 0),
+            'ai_cost_usd': round(self.ai_cost_usd, 6),
+            'revenue_vnd': round(self.revenue_vnd, 0),
+            'chat_count': self.chat_count,
+            'total_tokens': self.total_tokens,
+            'is_profitable': self.is_profitable,
+            'profit_loss_vnd': round(self.profit_loss_vnd, 0),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class AffiliateProfile(db.Model):
+    """Affiliate profile for referrers"""
+    __tablename__ = 'affiliate_profiles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    affiliate_code = db.Column(db.String(50), unique=True, nullable=False)
+    referral_link = db.Column(db.String(255), nullable=False)
+    commission_rate = db.Column(db.Float, default=20.0)
+    commission_type = db.Column(db.String(20), default='percent')
+    commission_percent = db.Column(db.Float, default=20.0)
+    commission_fixed_amount = db.Column(db.Integer, default=0)
+    total_referrals = db.Column(db.Integer, default=0)
+    total_commission = db.Column(db.Float, default=0.0)
+    pending_commission = db.Column(db.Float, default=0.0)
+    paid_commission = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='active')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'affiliate_code': self.affiliate_code,
+            'referral_link': self.referral_link,
+            'commission_rate': self.commission_rate,
+            'commission_type': self.commission_type,
+            'commission_percent': self.commission_percent,
+            'commission_fixed_amount': self.commission_fixed_amount,
+            'total_referrals': self.total_referrals,
+            'total_commission': self.total_commission,
+            'pending_commission': self.pending_commission,
+            'paid_commission': self.paid_commission,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class Referral(db.Model):
+    """Referral record from a referrer to a referred user"""
+    __tablename__ = 'referrals'
+
+    id = db.Column(db.Integer, primary_key=True)
+    referrer_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    referred_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    referral_code = db.Column(db.String(50), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    first_payment_at = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='pending')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'referrer_user_id': self.referrer_user_id,
+            'referred_user_id': self.referred_user_id,
+            'referral_code': self.referral_code,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'first_payment_at': self.first_payment_at.isoformat() if self.first_payment_at else None,
+            'status': self.status
+        }
+
+
+class AffiliateCommission(db.Model):
+    """Commission record generated from referred payments"""
+    __tablename__ = 'affiliate_commissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    affiliate_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    referred_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    payment_id = db.Column(db.Integer, nullable=False)
+    amount_vnd = db.Column(db.Float, nullable=False)
+    commission_rate = db.Column(db.Float, nullable=False)
+    commission_amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    paid_at = db.Column(db.DateTime)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'affiliate_user_id': self.affiliate_user_id,
+            'referred_user_id': self.referred_user_id,
+            'payment_id': self.payment_id,
+            'amount_vnd': self.amount_vnd,
+            'commission_rate': self.commission_rate,
+            'commission_amount': self.commission_amount,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'paid_at': self.paid_at.isoformat() if self.paid_at else None
         }
 
 
@@ -181,6 +382,9 @@ class PaymentRequest(db.Model):
     currency = db.Column(db.String(10), default='VND')
     status = db.Column(db.String(20), default='pending')
     reference_code = db.Column(db.String(100), unique=True)
+    transfer_note = db.Column(db.String(100))
+    bank_info = db.Column(db.Text)
+    screenshot = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     approved_at = db.Column(db.DateTime)
 
@@ -193,6 +397,9 @@ class PaymentRequest(db.Model):
             'currency': self.currency,
             'status': self.status,
             'reference_code': self.reference_code,
+            'transfer_note': self.transfer_note or self.reference_code,
+            'bank_info': self.bank_info,
+            'screenshot': self.screenshot,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'approved_at': self.approved_at.isoformat() if self.approved_at else None
         }
@@ -383,6 +590,7 @@ def _ensure_sqlite_columns(engine):
     if not inspector.has_table('users'):
         return
 
+    # Check users table
     existing_columns = {col['name'] for col in inspector.get_columns('users')}
     alter_statements = []
 
@@ -406,14 +614,143 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN reminder_message VARCHAR(255) DEFAULT 'Hôm nay em học 5 phút với Ms. Smile nhé 😊'")
     if 'is_locked' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT 0")
-
+    
+    # New columns for fixed account model (BenNha style)
+    if 'user_code' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN user_code VARCHAR(12)")
+    if 'referral_code' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN referral_code VARCHAR(50)")
+    if 'referred_by' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN referred_by VARCHAR(50)")
+    if 'agent_status' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN agent_status VARCHAR(20)")
+    if 'trial_start' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN trial_start DATETIME")
+    if 'subscription_start' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN subscription_start DATETIME")
+    if 'subscription_end' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN subscription_end DATETIME")
+    if 'updated_at' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN updated_at DATETIME")
+    
     if alter_statements:
         with engine.connect() as conn:
             for statement in alter_statements:
                 try:
                     conn.execute(text(statement))
+                    conn.commit()
                 except Exception as e:
                     print(f"[DB] Failed to alter users table: {e}")
+            try:
+                rows = conn.execute(text("SELECT id FROM users WHERE user_code IS NULL OR user_code = ''")).fetchall()
+                for row in rows:
+                    conn.execute(text("UPDATE users SET user_code = :code WHERE id = :id"), {
+                        "code": f"MSE{row[0]:08d}",
+                        "id": row[0]
+                    })
+                conn.commit()
+            except Exception as e:
+                print(f"[DB] Failed to backfill user_code: {e}")
+    
+    # PART 2: Check plans table for quota columns
+    if inspector.has_table('plans'):
+        plan_columns = {col['name'] for col in inspector.get_columns('plans')}
+        plan_alters = []
+        
+        if 'chat_per_day' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN chat_per_day INTEGER DEFAULT 10")
+        if 'chat_per_month' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN chat_per_month INTEGER DEFAULT 300")
+        if 'max_tokens_per_chat' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_chat INTEGER DEFAULT 2000")
+        if 'max_cost_per_day_vnd' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_day_vnd FLOAT DEFAULT 0.0")
+        if 'max_cost_per_month_vnd' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_month_vnd FLOAT DEFAULT 0.0")
+        
+        if plan_alters:
+            with engine.connect() as conn:
+                for statement in plan_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter plans table: {e}")
+
+    if inspector.has_table('usage_logs'):
+        usage_columns = {col['name'] for col in inspector.get_columns('usage_logs')}
+        usage_alters = []
+        if 'message_count' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN message_count INTEGER DEFAULT 1")
+        if 'chat_count' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN chat_count INTEGER DEFAULT 1")
+        if 'lesson_count' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN lesson_count INTEGER DEFAULT 0")
+        if 'speaking_count' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN speaking_count INTEGER DEFAULT 0")
+        if 'input_tokens' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN input_tokens INTEGER DEFAULT 0")
+        if 'output_tokens' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN output_tokens INTEGER DEFAULT 0")
+        if 'estimated_tokens' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN estimated_tokens INTEGER DEFAULT 0")
+        if 'model' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN model VARCHAR(100) DEFAULT 'gpt-4o-mini'")
+        if 'estimated_cost_usd' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN estimated_cost_usd FLOAT DEFAULT 0.0")
+        if 'estimated_cost_vnd' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN estimated_cost_vnd FLOAT DEFAULT 0.0")
+        if 'estimated_cost' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN estimated_cost FLOAT DEFAULT 0.0")
+        if 'ai_provider' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN ai_provider VARCHAR(50) DEFAULT 'openai'")
+        if 'date' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN date DATE")
+        if 'created_at' not in usage_columns:
+            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN created_at DATETIME")
+        if usage_alters:
+            with engine.connect() as conn:
+                for statement in usage_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter usage_logs table: {e}")
+                conn.commit()
+
+    if inspector.has_table('payment_requests'):
+        payment_columns = {col['name'] for col in inspector.get_columns('payment_requests')}
+        payment_alters = []
+        if 'transfer_note' not in payment_columns:
+            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN transfer_note VARCHAR(100)")
+        if 'bank_info' not in payment_columns:
+            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN bank_info TEXT")
+        if 'screenshot' not in payment_columns:
+            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN screenshot VARCHAR(255)")
+        if payment_alters:
+            with engine.connect() as conn:
+                for statement in payment_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter payment_requests table: {e}")
+                conn.commit()
+
+    if inspector.has_table('affiliate_profiles'):
+        affiliate_columns = {col['name'] for col in inspector.get_columns('affiliate_profiles')}
+        affiliate_alters = []
+        if 'commission_type' not in affiliate_columns:
+            affiliate_alters.append("ALTER TABLE affiliate_profiles ADD COLUMN commission_type VARCHAR(20) DEFAULT 'percent'")
+        if 'commission_percent' not in affiliate_columns:
+            affiliate_alters.append("ALTER TABLE affiliate_profiles ADD COLUMN commission_percent FLOAT DEFAULT 20.0")
+        if 'commission_fixed_amount' not in affiliate_columns:
+            affiliate_alters.append("ALTER TABLE affiliate_profiles ADD COLUMN commission_fixed_amount INTEGER DEFAULT 0")
+        if affiliate_alters:
+            with engine.connect() as conn:
+                for statement in affiliate_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter affiliate_profiles table: {e}")
+                conn.commit()
 
 
 def seed_default_plans():
@@ -432,9 +769,29 @@ def seed_default_plans():
                     can_speak=plan['can_speak'],
                     can_save_history=plan['can_save_history'],
                     enabled=plan['enabled'],
-                    description=plan.get('description', '')
+                    description=plan.get('description', ''),
+                    chat_per_day=plan.get('chat_per_day', plan['chat_limit']),
+                    chat_per_month=plan.get('chat_per_month', plan['chat_limit'] * 30),
+                    max_tokens_per_chat=plan.get('max_tokens_per_chat', 2000),
+                    max_cost_per_day_vnd=plan.get('max_cost_per_day_vnd', 0.0),
+                    max_cost_per_month_vnd=plan.get('max_cost_per_month_vnd', 0.0)
                 )
                 db.session.add(new_plan)
+            else:
+                existing.title = plan.get('title', existing.title)
+                existing.price = plan.get('price', existing.price)
+                existing.currency = plan.get('currency', existing.currency)
+                existing.chat_limit = plan.get('chat_limit', existing.chat_limit)
+                existing.lesson_limit = plan.get('lesson_limit', existing.lesson_limit)
+                existing.can_speak = plan.get('can_speak', existing.can_speak)
+                existing.can_save_history = plan.get('can_save_history', existing.can_save_history)
+                existing.enabled = plan.get('enabled', existing.enabled)
+                existing.description = plan.get('description', existing.description)
+                existing.chat_per_day = plan.get('chat_per_day', existing.chat_per_day)
+                existing.chat_per_month = plan.get('chat_per_month', existing.chat_per_month)
+                existing.max_tokens_per_chat = plan.get('max_tokens_per_chat', existing.max_tokens_per_chat)
+                existing.max_cost_per_day_vnd = plan.get('max_cost_per_day_vnd', existing.max_cost_per_day_vnd)
+                existing.max_cost_per_month_vnd = plan.get('max_cost_per_month_vnd', existing.max_cost_per_month_vnd)
         db.session.commit()
     except Exception as e:
         print(f"[DB] Seed default plans failed: {e}")
@@ -454,18 +811,23 @@ def init_db(app):
 
 def seed_default_admin():
     try:
+        import config
         default_email = os.getenv('ADMIN_EMAIL', 'admin@ms-smile.local')
         default_password = os.getenv('ADMIN_PASSWORD', 'Admin123')
         default_name = os.getenv('ADMIN_NAME', 'Ms Smile Admin')
+        admin_affiliate_code = config.ADMIN_AFFILIATE_CODE
 
         existing_admin = User.query.filter_by(role='admin').first()
         if not existing_admin:
             admin = User(
                 email=default_email,
                 name=default_name,
+                user_code='ADMIN00000001',
                 role='admin',
                 status='active',
-                plan_name='premium',
+                plan_name='family',
+                subscription_start=datetime.utcnow(),
+                subscription_end=datetime.utcnow() + timedelta(days=365),
                 plan_start=datetime.utcnow(),
                 plan_end=datetime.utcnow() + timedelta(days=365),
                 trial_end=None,
@@ -478,5 +840,34 @@ def seed_default_admin():
             db.session.add(admin)
             db.session.commit()
             print(f"[DB] Default admin created: {default_email}")
+            
+            # PART 3: Create affiliate profile for admin as default referrer
+            referral_link = f"{config.AFFILIATE_REFERRAL_LINK_BASE}/?ref={admin_affiliate_code}"
+            affiliate_profile = AffiliateProfile(
+                user_id=admin.id,
+                affiliate_code=admin_affiliate_code,
+                referral_link=referral_link,
+                commission_rate=config.AFFILIATE_COMMISSION_RATE,
+                commission_type=os.getenv('AFFILIATE_COMMISSION_TYPE', 'percent'),
+                commission_percent=config.AFFILIATE_COMMISSION_RATE,
+                commission_fixed_amount=int(os.getenv('AFFILIATE_COMMISSION_FIXED_AMOUNT', '0')),
+                status='approved'
+            )
+            db.session.add(affiliate_profile)
+            db.session.commit()
+            print(f"[DB] Admin affiliate profile created with code: {admin_affiliate_code}")
+        else:
+            changed = False
+            if not existing_admin.user_code:
+                existing_admin.user_code = 'ADMIN00000001'
+                changed = True
+            if existing_admin.email != default_email and default_email:
+                existing_admin.email = default_email
+                changed = True
+            if os.getenv('ADMIN_PASSWORD'):
+                existing_admin.set_password(default_password)
+                changed = True
+            if changed:
+                db.session.commit()
     except Exception as e:
         print(f"[DB] Failed to seed default admin: {e}")
