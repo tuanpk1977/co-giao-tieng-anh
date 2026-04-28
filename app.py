@@ -17,7 +17,7 @@ from services.situation_advisor import get_situation_advisor
 from utils.history import get_history_manager
 from utils.user_profile import (
     load_profile, save_profile, update_profile, is_onboarded,
-    get_profile_for_prompt, reset_profile
+    get_profile_for_prompt, reset_profile, normalize_user_profile
 )
 
 app = Flask(__name__, 
@@ -210,6 +210,8 @@ def chat():
             if not user_profile:
                 # Fallback to local profile
                 local_profile = get_profile_for_prompt()
+                # ✅ Normalize local_profile - FIX cho lỗi 'str' object has no attribute 'get'
+                local_profile = normalize_user_profile(local_profile)
                 if local_profile:
                     user_profile = {
                         'level': local_profile.get('level', 'beginner'),
@@ -218,6 +220,9 @@ def chat():
                         'meet_foreigners': local_profile.get('meet_foreigners', False)
                     }
             
+            # ✅ Normalize user_profile trước khi gọi AI
+            user_profile = normalize_user_profile(user_profile)
+            
             # Gọi AI với user profile để cá nhân hóa
             ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
             
@@ -225,13 +230,15 @@ def chat():
             print(f"[CHAT ERROR] Exception caught: {str(e)}")
             import traceback
             print(traceback.format_exc())
-            ai_response = f"""❌ Lỗi hệ thống: {str(e)}
+            # ✅ Exception format SONG NGỮ đúng chuẩn
+            ai_response = f"""🇺🇸 English:
+❌ System error: {str(e)}
 
-VN Tiếng Việt:
+🇻🇳 Tiếng Việt:
 Hệ thống gặp lỗi khi xử lý. Vui lòng thử lại sau.
 
 📘 Giải thích:
-Lỗi: {str(e)}"""
+Lỗi kỹ thuật: {str(e)}"""
         
         # Log response chi tiết
         print(f"[CHAT DEBUG] === RESPONSE ===")
@@ -258,6 +265,7 @@ Lỗi: {str(e)}"""
             "success": True,
             "reply": ai_response,
             "response": ai_response,
+            "message": ai_response,  # ✅ Thêm message field
             "timestamp": get_timestamp(),
             "version": APP_VERSION
         }

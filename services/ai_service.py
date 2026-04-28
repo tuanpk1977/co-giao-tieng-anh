@@ -89,10 +89,18 @@ class AIService:
             user_profile: Profile người dùng (level, occupation) để cá nhân hóa phản hồi
             
         Returns:
-            Phản hồi từ AI
+            Phản hồi từ AI (song ngữ bắt buộc)
         """
         if conversation_history is None:
             conversation_history = []
+        
+        # ✅ Chuẩn hóa user_profile - FIX cho lỗi 'str' object has no attribute 'get'
+        if user_profile is None:
+            user_profile = {}
+        elif isinstance(user_profile, str):
+            user_profile = {"name": user_profile}
+        elif not isinstance(user_profile, dict):
+            user_profile = {}
         
         # Xây dựng system prompt với user context
         system_prompt = SYSTEM_PROMPT
@@ -174,9 +182,11 @@ QUY TẮC XỬ LÝ:
             print(f"[CHAT ERROR] Provider: {self.provider}, Error: {str(e)}")
             import traceback
             print(traceback.format_exc())
-            return f"""❌ Lỗi hệ thống: {str(e)}
+            # ✅ Exception format SONG NGỮ đúng chuẩn
+            return f"""🇺🇸 English:
+❌ System error: {str(e)}
 
-VN Tiếng Việt:
+🇻🇳 Tiếng Việt:
 Hệ thống gặp lỗi khi gọi AI. Vui lòng thử lại sau.
 
 📘 Giải thích:
@@ -191,15 +201,15 @@ Hệ thống gặp lỗi khi gọi AI. Vui lòng thử lại sau.
         
         if not (has_english and has_vietnamese and has_explanation):
             print(f"[WARN] AI response không đúng format, tự bọc lại...")
-            # Tự động bọc lại đúng format
-            ai_response = f"""US English:
+            # ✅ Tự động bọc lại đúng format song ngữ
+            ai_response = f"""🇺🇸 English:
 {ai_response}
 
-VN Tiếng Việt:
-[Cần dịch tiếng Việt chính xác]
+🇻🇳 Tiếng Việt:
+[Cần dịch tiếng Việt]
 
 📘 Giải thích:
-Phản hồi chưa đúng format song ngữ."""
+[Cần giải thích]"""
         
         return ai_response
     

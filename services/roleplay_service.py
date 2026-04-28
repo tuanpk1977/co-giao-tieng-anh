@@ -140,7 +140,15 @@ class RoleplayService:
         self.current_role = ROLES.get(role, ROLES["teacher"])
         self.current_situation = SITUATIONS.get(situation, SITUATIONS["greeting"])
         self.conversation_history = []
-        self.user_profile = user_profile or {}
+        # Normalize user_profile
+        if user_profile is None:
+            self.user_profile = {}
+        elif isinstance(user_profile, str):
+            self.user_profile = {"name": user_profile}
+        elif isinstance(user_profile, dict):
+            self.user_profile = user_profile
+        else:
+            self.user_profile = {}
         self.conversation_turn = 0
         self.last_user_message_time = datetime.now()
         

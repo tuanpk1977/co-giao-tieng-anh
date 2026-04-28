@@ -118,6 +118,28 @@ def get_goal_vietnamese(goal: str) -> str:
     return goals.get(goal, 'giao tiếp')
 
 
+def normalize_user_profile(user_profile: Any) -> Dict[str, Any]:
+    """
+    Chuẩn hóa user_profile để tránh lỗi 'str' object has no attribute 'get'
+    
+    Args:
+        user_profile: Có thể là None, str, dict, hoặc kiểu khác
+        
+    Returns:
+        Dict đã chuẩn hóa, luôn an toàn để gọi .get()
+    """
+    if user_profile is None:
+        return {}
+    elif isinstance(user_profile, dict):
+        return user_profile
+    elif isinstance(user_profile, str):
+        # Nếu là string (tên), tạo dict đơn giản
+        return {"name": user_profile}
+    else:
+        # Kiểu khác, trả về dict rỗng
+        return {}
+
+
 def get_profile_for_prompt() -> str:
     """
     Tạo text mô tả profile để thêm vào SYSTEM_PROMPT

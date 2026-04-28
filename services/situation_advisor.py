@@ -46,7 +46,15 @@ class SituationAdvisor:
             Dict chứa phân tích và câu trả lời theo format bắt buộc
         """
         self.current_situation = situation_text
-        self.user_profile = user_profile or {}
+        # Normalize user_profile
+        if user_profile is None:
+            self.user_profile = {}
+        elif isinstance(user_profile, str):
+            self.user_profile = {"name": user_profile}
+        elif isinstance(user_profile, dict):
+            self.user_profile = user_profile
+        else:
+            self.user_profile = {}
         
         # Detect language of input
         is_vietnamese = self._detect_vietnamese(situation_text)
