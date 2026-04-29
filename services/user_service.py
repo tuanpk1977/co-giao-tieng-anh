@@ -9,7 +9,7 @@ from typing import Dict, Optional, Tuple, List
 from sqlalchemy import or_
 from models import (
     db, User, UserProgress, LearningSession, CommonError, UserActivity,
-    Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback,
+    Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback, FamilyMember,
     AffiliateProfile, Referral, AffiliateCommission
 )
 import config
@@ -216,6 +216,62 @@ class UserService:
     def get_all_users(self):
         return User.query.order_by(User.created_at.desc()).all()
 
+    def _family_member_limit(self, owner: User) -> int:
+        plan = self.get_plan(owner.plan_name)
+        return plan.family_member_limit if plan and plan.family_member_limit else 1
+
+    def get_family_members(self, owner_user_id: int):
+        owner = self.get_user(owner_user_id)
+        if not owner:
+            return False, {'error': 'Owner user khong ton tai'}
+        members = FamilyMember.query.filter_by(owner_user_id=owner_user_id, status='active').all()
+        return True, {
+            'owner': owner.to_dict(),
+            'limit': self._family_member_limit(owner),
+            'members': [m.to_dict() for m in members],
+            'member_count': len(members)
+        }
+
+    def add_family_member(self, owner_user_id: int, member_user_id: int):
+        owner = self.get_user(owner_user_id)
+        member = self.get_user(member_user_id)
+        if not owner or not member:
+            return False, {'error': 'Owner hoac member khong ton tai'}
+        if owner.plan_name != 'family' or owner.status != 'active':
+            return False, {'error': 'Owner can co goi family dang active'}
+        if owner.id == member.id:
+            return False, {'error': 'Khong the them chinh owner lam member'}
+        existing = FamilyMember.query.filter_by(member_user_id=member_user_id, status='active').first()
+        if existing:
+            return False, {'error': 'User nay da nam trong mot goi family'}
+        member_count = FamilyMember.query.filter_by(owner_user_id=owner_user_id, status='active').count()
+        limit = self._family_member_limit(owner)
+        if member_count >= max(0, limit - 1):
+            return False, {'error': f'Goi family chi cho phep toi da {limit} users tinh ca owner'}
+        family_member = FamilyMember(owner_user_id=owner_user_id, member_user_id=member_user_id, status='active')
+        db.session.add(family_member)
+        db.session.commit()
+        return True, {'family_member': family_member.to_dict()}
+
+    def remove_family_member(self, family_member_id: int):
+        family_member = FamilyMember.query.get(family_member_id)
+        if not family_member:
+            return False, {'error': 'Family member khong ton tai'}
+        db.session.delete(family_member)
+        db.session.commit()
+        return True, {'message': 'Da xoa thanh vien family'}
+
+    def get_effective_billing_user(self, user_id: int):
+        user = self.get_user(user_id)
+        if not user:
+            return None
+        membership = FamilyMember.query.filter_by(member_user_id=user_id, status='active').first()
+        if membership:
+            owner = self.get_user(membership.owner_user_id)
+            if owner and owner.plan_name == 'family' and owner.status == 'active':
+                return owner
+        return user
+
     def search_users(self, query: str = None):
         if not query:
             return self.get_all_users()
@@ -279,6 +335,9 @@ class UserService:
         PaymentHistory.query.filter_by(user_id=user_id).delete()
         Feedback.query.filter_by(user_id=user_id).delete()
         AffiliateProfile.query.filter_by(user_id=user_id).delete()
+        FamilyMember.query.filter(
+            or_(FamilyMember.owner_user_id == user_id, FamilyMember.member_user_id == user_id)
+        ).delete(synchronize_session=False)
         Referral.query.filter(
             or_(Referral.referrer_user_id == user_id, Referral.referred_user_id == user_id)
         ).delete(synchronize_session=False)

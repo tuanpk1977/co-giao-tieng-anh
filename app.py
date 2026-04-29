@@ -223,7 +223,8 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
         if user_id:
             user = user_service.get_user(user_id)
             if user:
-                plan_name = user.plan_name or "free_trial"
+                billing_user = user_service.get_effective_billing_user(user.id)
+                plan_name = (billing_user.plan_name if billing_user else user.plan_name) or "free_trial"
                 
                 # Check if user is locked or expired
                 if user.is_locked or user.status == 'banned':
@@ -993,6 +994,43 @@ def admin_reset_quota(user_id):
     user_service = get_user_service()
     success, result = user_service.reset_user_quota(user_id)
     
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/family/<int:owner_user_id>/members', methods=['GET'])
+def admin_family_members(owner_user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    success, result = get_user_service().get_family_members(owner_user_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/family/<int:owner_user_id>/members', methods=['POST'])
+def admin_add_family_member(owner_user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    data = request.get_json() or {}
+    member_user_id = data.get('member_user_id')
+    if not member_user_id:
+        return jsonify({"success": False, "error": "member_user_id required"}), 400
+    success, result = get_user_service().add_family_member(owner_user_id, int(member_user_id))
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/admin/family/members/<int:family_member_id>', methods=['DELETE'])
+def admin_remove_family_member(family_member_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    success, result = get_user_service().remove_family_member(family_member_id)
     if success:
         return jsonify({"success": True, **result})
     return jsonify({"success": False, **result}), 400

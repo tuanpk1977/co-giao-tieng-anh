@@ -63,6 +63,7 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
+        "family_member_limit": 1,
         "description": "Dùng thử miễn phí 7 ngày",
         # PART 2: Quota limits for cost control
         "chat_per_day": 10,
@@ -81,6 +82,7 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
+        "family_member_limit": 1,
         "description": "49.000đ/tháng",
         # PART 2: Quota limits
         "chat_per_day": 30,
@@ -99,6 +101,7 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
+        "family_member_limit": 1,
         "description": "99.000đ/tháng",
         # PART 2: Quota limits
         "chat_per_day": 100,
@@ -117,6 +120,7 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
+        "family_member_limit": 5,
         "description": "199.000đ/tháng",
         # PART 2: Quota limits
         "chat_per_day": 999,

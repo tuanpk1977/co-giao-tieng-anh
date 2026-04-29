@@ -160,6 +160,7 @@ class Plan(db.Model):
     max_tokens_per_chat = db.Column(db.Integer, default=2000)
     max_cost_per_day_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
     max_cost_per_month_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
+    family_member_limit = db.Column(db.Integer, default=1)
 
     def to_dict(self):
         return {
@@ -178,7 +179,35 @@ class Plan(db.Model):
             'chat_per_month': self.chat_per_month,
             'max_tokens_per_chat': self.max_tokens_per_chat,
             'max_cost_per_day_vnd': self.max_cost_per_day_vnd,
-            'max_cost_per_month_vnd': self.max_cost_per_month_vnd
+            'max_cost_per_month_vnd': self.max_cost_per_month_vnd,
+            'family_member_limit': self.family_member_limit
+        }
+
+
+class FamilyMember(db.Model):
+    """Users attached to a Family plan owner."""
+    __tablename__ = 'family_members'
+
+    id = db.Column(db.Integer, primary_key=True)
+    owner_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    member_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    status = db.Column(db.String(20), default='active')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    owner = db.relationship('User', foreign_keys=[owner_user_id], lazy=True)
+    member = db.relationship('User', foreign_keys=[member_user_id], lazy=True)
+
+    def to_dict(self):
+        member = self.member
+        return {
+            'id': self.id,
+            'owner_user_id': self.owner_user_id,
+            'member_user_id': self.member_user_id,
+            'member_name': member.name if member else None,
+            'member_email': member.email if member else None,
+            'member_phone': member.phone if member else None,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 
@@ -667,6 +696,8 @@ def _ensure_sqlite_columns(engine):
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_day_vnd FLOAT DEFAULT 0.0")
         if 'max_cost_per_month_vnd' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_month_vnd FLOAT DEFAULT 0.0")
+        if 'family_member_limit' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN family_member_limit INTEGER DEFAULT 1")
         
         if plan_alters:
             with engine.connect() as conn:
@@ -774,7 +805,8 @@ def seed_default_plans():
                     chat_per_month=plan.get('chat_per_month', plan['chat_limit'] * 30),
                     max_tokens_per_chat=plan.get('max_tokens_per_chat', 2000),
                     max_cost_per_day_vnd=plan.get('max_cost_per_day_vnd', 0.0),
-                    max_cost_per_month_vnd=plan.get('max_cost_per_month_vnd', 0.0)
+                    max_cost_per_month_vnd=plan.get('max_cost_per_month_vnd', 0.0),
+                    family_member_limit=plan.get('family_member_limit', 1)
                 )
                 db.session.add(new_plan)
             else:
@@ -792,6 +824,7 @@ def seed_default_plans():
                 existing.max_tokens_per_chat = plan.get('max_tokens_per_chat', existing.max_tokens_per_chat)
                 existing.max_cost_per_day_vnd = plan.get('max_cost_per_day_vnd', existing.max_cost_per_day_vnd)
                 existing.max_cost_per_month_vnd = plan.get('max_cost_per_month_vnd', existing.max_cost_per_month_vnd)
+                existing.family_member_limit = plan.get('family_member_limit', existing.family_member_limit)
         db.session.commit()
     except Exception as e:
         print(f"[DB] Seed default plans failed: {e}")

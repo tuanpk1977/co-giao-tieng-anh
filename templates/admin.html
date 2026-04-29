@@ -164,6 +164,10 @@
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-users"></i><h2>Thống kê Affiliate</h2></div>
             <div id="affiliateStats"></div>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+                <input id="grantAgentUserId" type="number" placeholder="Nhap User ID de cap dai ly" style="max-width:260px;">
+                <button class="btn btn-success" onclick="grantAgentByInput()">Cap dai ly</button>
+            </div>
         </div>
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-id-card"></i><h2>Danh sach dai ly va ma gioi thieu</h2></div>
@@ -379,6 +383,7 @@
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">Sua</button>
                         ${user.role !== 'admin' ? `<button class="btn btn-sm btn-success" onclick="grantAgent(${user.id})">Cap dai ly</button>` : ''}
+                        ${user.plan_name === 'family' ? `<button class="btn btn-sm btn-outline" onclick="openFamilyMembers(${user.id})">Family</button>` : ''}
                         <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Xoa</button>
                     </td>
                 </tr>
@@ -602,6 +607,44 @@
                 }
             } catch (error) {
                 console.error('Error granting agent:', error);
+            }
+        }
+
+        function grantAgentByInput() {
+            const input = document.getElementById('grantAgentUserId');
+            const userId = parseInt(input.value, 10);
+            if (!userId) {
+                alert('Nhap User ID truoc');
+                return;
+            }
+            grantAgent(userId);
+        }
+
+        async function openFamilyMembers(ownerUserId) {
+            try {
+                const response = await fetch(`/api/admin/family/${ownerUserId}/members`);
+                const data = await response.json();
+                if (!data.success) {
+                    alert(data.error || 'Khong tai duoc family');
+                    return;
+                }
+                const members = data.members.map(m => `#${m.member_user_id} ${m.member_name || ''} ${m.member_email || m.member_phone || ''}`).join('\\n') || 'Chua co member';
+                const message = `Owner #${ownerUserId}\\nGoi family toi da ${data.limit} users tinh ca owner.\\nDang co ${data.member_count + 1}/${data.limit}:\\n${members}\\n\\nNhap User ID muon them vao family, de trong neu chi xem:`;
+                const memberId = prompt(message);
+                if (!memberId) return;
+                const addResponse = await fetch(`/api/admin/family/${ownerUserId}/members`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ member_user_id: parseInt(memberId, 10) })
+                });
+                const addData = await addResponse.json();
+                if (addData.success) {
+                    alert('Da them member vao goi family');
+                } else {
+                    alert(addData.error || 'Khong them duoc member');
+                }
+            } catch (error) {
+                console.error('Error loading family:', error);
             }
         }
 

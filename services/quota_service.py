@@ -4,7 +4,7 @@ PART 2: Enforce chat limits, token limits, cost limits, and rate limiting
 """
 
 from datetime import datetime, timedelta
-from models import db, User, Plan, UsageLog
+from models import db, User, Plan, UsageLog, FamilyMember
 from services.cost_service import CostService
 import config
 from functools import wraps
@@ -13,6 +13,47 @@ import time
 
 class QuotaService:
     """Service for checking and enforcing quota limits"""
+
+    @staticmethod
+    def _resolve_family_context(user_id: int, plan_name: str):
+        if not user_id:
+            return plan_name, [user_id]
+        membership = FamilyMember.query.filter_by(member_user_id=user_id, status='active').first()
+        owner = None
+        if membership:
+            owner = User.query.get(membership.owner_user_id)
+        user = User.query.get(user_id)
+        if owner and owner.plan_name == 'family' and owner.status == 'active':
+            member_ids = [row.member_user_id for row in FamilyMember.query.filter_by(
+                owner_user_id=owner.id,
+                status='active'
+            ).all()]
+            return 'family', [owner.id] + member_ids
+        if user and user.plan_name == 'family' and user.status == 'active':
+            member_ids = [row.member_user_id for row in FamilyMember.query.filter_by(
+                owner_user_id=user.id,
+                status='active'
+            ).all()]
+            return 'family', [user.id] + member_ids
+        return plan_name, [user_id]
+
+    @staticmethod
+    def _daily_chat_count(user_ids, day):
+        if len(user_ids) == 1:
+            return CostService.get_daily_chat_count(user_ids[0], day)
+        return int(db.session.query(db.func.count(UsageLog.id)).filter(
+            UsageLog.user_id.in_(user_ids),
+            UsageLog.date == day
+        ).scalar() or 0)
+
+    @staticmethod
+    def _daily_cost(user_ids, day):
+        if len(user_ids) == 1:
+            return CostService.get_daily_cost(user_ids[0], day)
+        return float(db.session.query(db.func.sum(UsageLog.estimated_cost_vnd)).filter(
+            UsageLog.user_id.in_(user_ids),
+            UsageLog.date == day
+        ).scalar() or 0.0)
 
     @staticmethod
     def check_can_chat(user_id: int = None, plan_name: str = "free_trial") -> dict:
@@ -32,6 +73,7 @@ class QuotaService:
             }
         """
         try:
+            plan_name, usage_user_ids = QuotaService._resolve_family_context(user_id, plan_name)
             # Get plan limits
             plan_def = config.get_plan_by_name(plan_name)
             if not plan_def:
@@ -42,8 +84,8 @@ class QuotaService:
             
             # Count today's usage
             today = datetime.utcnow().date()
-            daily_chats = CostService.get_daily_chat_count(user_id, today)
-            daily_cost_vnd = CostService.get_daily_cost(user_id, today)
+            daily_chats = QuotaService._daily_chat_count(usage_user_ids, today)
+            daily_cost_vnd = QuotaService._daily_cost(usage_user_ids, today)
             
             # Check chat limit
             if daily_chats >= chat_per_day:
