@@ -65,8 +65,8 @@ PLAN_DEFINITIONS = [
         "enabled": True,
         "description": "Dùng thử miễn phí 7 ngày",
         # PART 2: Quota limits for cost control
-        "chat_per_day": 5,
-        "chat_per_month": 100,
+        "chat_per_day": 10,
+        "chat_per_month": 300,
         "max_tokens_per_chat": 1000,
         "max_cost_per_day_vnd": 0.0,  # unlimited
         "max_cost_per_month_vnd": 0.0
@@ -83,8 +83,8 @@ PLAN_DEFINITIONS = [
         "enabled": True,
         "description": "49.000đ/tháng",
         # PART 2: Quota limits
-        "chat_per_day": 10,
-        "chat_per_month": 300,
+        "chat_per_day": 30,
+        "chat_per_month": 900,
         "max_tokens_per_chat": 2000,
         "max_cost_per_day_vnd": 30000.0,  # ~1 USD
         "max_cost_per_month_vnd": 600000.0  # ~24 USD
@@ -101,8 +101,8 @@ PLAN_DEFINITIONS = [
         "enabled": True,
         "description": "99.000đ/tháng",
         # PART 2: Quota limits
-        "chat_per_day": 30,
-        "chat_per_month": 900,
+        "chat_per_day": 100,
+        "chat_per_month": 3000,
         "max_tokens_per_chat": 4000,
         "max_cost_per_day_vnd": 60000.0,  # ~2.4 USD
         "max_cost_per_month_vnd": 1200000.0  # ~48 USD
