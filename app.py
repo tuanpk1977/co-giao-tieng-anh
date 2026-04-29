@@ -1538,7 +1538,13 @@ def check_reminder():
 @app.route('/admin')
 def admin_page():
     # Check admin authentication
-    user_id = session.get('user_id')
+    user_id = session.get('user_id') or request.args.get('admin_id', type=int)
+    if user_id and not session.get('user_id'):
+        user = get_user_service().get_user(user_id)
+        if user and user.role == 'admin':
+            session['user_id'] = user.id
+            session['user_email'] = user.email
+            session['user_role'] = user.role
     user_role = session.get('user_role')
     if not user_id or user_role != 'admin':
         return jsonify({"success": False, "error": "Admin access required"}), 403

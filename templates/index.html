@@ -34,6 +34,9 @@
             <button id="affiliateBtn" class="btn btn-affiliate hidden">
                 <i class="fas fa-users"></i> Giới thiệu
             </button>
+            <button id="plansBtn" class="btn btn-plans">
+                <i class="fas fa-tags"></i> Goi dich vu
+            </button>
             <button id="adminBtn" class="btn btn-admin hidden">
                 <i class="fas fa-user-shield"></i> Admin
             </button>
@@ -664,6 +667,19 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">📤 Gửi phản hồi</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plans Modal -->
+    <div id="plansModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Goi dich vu</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="plansContent" class="plans-list"></div>
             </div>
         </div>
     </div>

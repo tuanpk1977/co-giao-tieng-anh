@@ -229,6 +229,10 @@
         let allUsers = [];
         let allFeedback = [];
 
+        function formatMoney(value) {
+            return Number(value || 0).toLocaleString('vi-VN');
+        }
+
         function formatDate(timestamp) {
             return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
         }

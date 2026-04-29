@@ -190,6 +190,8 @@ class UserService:
         if not user:
             return False, {'error': 'User không tồn tại'}
         
+        if profile_data.get('name'):
+            user.name = profile_data.get('name')
         user.age = profile_data.get('age')
         user.job = profile_data.get('job')
         user.meet_foreigners = profile_data.get('meet_foreigners', False)

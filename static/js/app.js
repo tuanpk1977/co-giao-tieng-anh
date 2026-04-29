@@ -110,9 +110,12 @@ const elements = {
     switchToRegister: document.getElementById('switchToRegister'),
     dashboardBtn: document.getElementById('dashboardBtn'),
     affiliateBtn: document.getElementById('affiliateBtn'),
+    plansBtn: document.getElementById('plansBtn'),
     adminBtn: document.getElementById('adminBtn'),
     dashboardModal: document.getElementById('dashboardModal'),
     dashboardContent: document.getElementById('dashboardContent'),
+    plansModal: document.getElementById('plansModal'),
+    plansContent: document.getElementById('plansContent'),
     affiliateModal: document.getElementById('affiliateModal'),
     affiliateCode: document.getElementById('affiliateCode'),
     affiliateLink: document.getElementById('affiliateLink'),
@@ -199,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
 
-function initializeApp() {
+async function initializeApp() {
     captureReferralCode();
     setupEventListeners();
     initializeSpeechRecognition();
@@ -208,8 +211,8 @@ function initializeApp() {
     // Load freemium limits and update badge
     loadGuestLimits();
     updateUserBadge();
-    loadInitialData();
-    checkOnboarding();
+    await loadInitialData();
+    await checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
 }
@@ -269,6 +272,68 @@ function copyAffiliateLink() {
             console.error('Copy error:', err);
             showToast('❌', 'Sao chép thất bại');
         });
+}
+
+function formatMoney(value) {
+    return Number(value || 0).toLocaleString('vi-VN');
+}
+
+async function openPlansModal() {
+    await loadPlansForUser();
+    openModal('plansModal');
+}
+
+async function loadPlansForUser() {
+    if (!elements.plansContent) return;
+    elements.plansContent.innerHTML = '<p class="empty-text">Dang tai goi dich vu...</p>';
+    try {
+        const response = await fetch('/api/plans');
+        const data = await response.json();
+        if (!data.success) {
+            elements.plansContent.innerHTML = '<p class="empty-text">Khong tai duoc goi dich vu.</p>';
+            return;
+        }
+        elements.plansContent.innerHTML = data.plans.map(plan => `
+            <div class="dashboard-section">
+                <h3>${plan.title || plan.name}</h3>
+                <p><strong>${formatMoney(plan.price)} VND/thang</strong></p>
+                <p>Chat: ${plan.chat_per_day || plan.chat_limit}/ngay - Bai hoc: ${plan.lesson_limit}/ngay</p>
+                <p>Luyen phat am: ${plan.can_speak ? 'Co' : 'Khong'} - Luu lich su: ${plan.can_save_history ? 'Co' : 'Khong'}</p>
+                ${plan.name === 'family' ? `<p>Family: toi da ${plan.family_member_limit || 5} users tinh ca chu goi</p>` : ''}
+                ${plan.price > 0 ? `<button class="btn btn-primary btn-full" type="button" onclick="requestPlanPayment('${plan.name}')">Dang ky goi nay</button>` : ''}
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Plans load error:', error);
+        elements.plansContent.innerHTML = '<p class="empty-text">Loi tai goi dich vu.</p>';
+    }
+}
+
+async function requestPlanPayment(planName) {
+    if (!state.currentUser) {
+        closeModal('plansModal');
+        openModal('loginModal');
+        showToast('⚠️', 'Dang nhap truoc khi dang ky goi');
+        return;
+    }
+    try {
+        const response = await fetch('/api/payment/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id, plan_name: planName })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const payment = data.payment_request;
+            showToast('✅', `Da tao yeu cau thanh toan: ${payment.transfer_note || payment.reference_code}`);
+            alert(`Thong tin chuyen khoan\\nChu tai khoan: Nguyen Quoc Tuan\\nNoi dung: ${payment.transfer_note || payment.reference_code}\\nSo tien: ${formatMoney(payment.amount)} VND`);
+        } else {
+            showToast('❌', data.error || 'Khong tao duoc thanh toan');
+        }
+    } catch (error) {
+        console.error('Payment request error:', error);
+        showToast('❌', 'Loi tao yeu cau thanh toan');
+    }
 }
 
 async function loadFamilyMembers() {
@@ -354,6 +419,14 @@ async function removeFamilyMember(familyMemberId) {
 // ==========================================
 async function checkOnboarding() {
     try {
+        if (state.currentUser) {
+            const u = state.currentUser;
+            const hasAccountProfile = !!(u.english_level && u.job && u.goal);
+            if (!hasAccountProfile) {
+                openModal('onboardingModal');
+            }
+            return;
+        }
         const response = await fetch('/api/profile/onboarded');
         const data = await response.json();
         
@@ -385,6 +458,35 @@ async function loadUserProfile() {
 
 async function saveOnboarding(formData) {
     try {
+        if (state.currentUser) {
+            const profile = {
+                name: formData.name,
+                age: formData.age,
+                level: formData.level,
+                goal: formData.goal,
+                job: formData.job,
+                english_usage: formData.field || '',
+                meet_foreigners: false
+            };
+            const response = await fetch('/api/auth/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: state.currentUser.id, profile })
+            });
+            const data = await response.json();
+            if (data.success) {
+                state.currentUser = data.user;
+                closeModal('onboardingModal');
+                updateAuthUI();
+                updateUserBadge();
+                showToast('✅', `Da luu ho so cho ${formData.name}!`);
+                updateWelcomeMessage(formData.name);
+            } else {
+                showToast('❌', data.error || 'Khong luu duoc ho so');
+            }
+            return;
+        }
+
         const response = await fetch('/api/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -761,6 +863,10 @@ function setupEventListeners() {
     }
     if (elements.affiliateBtn) {
         elements.affiliateBtn.addEventListener('click', openAffiliateModal);
+    }
+
+    if (elements.plansBtn) {
+        elements.plansBtn.addEventListener('click', openPlansModal);
     }
     if (elements.adminBtn) {
         elements.adminBtn.addEventListener('click', () => {
