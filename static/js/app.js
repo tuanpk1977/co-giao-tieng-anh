@@ -420,13 +420,17 @@ async function removeFamilyMember(familyMemberId) {
 async function checkOnboarding() {
     try {
         if (state.currentUser) {
+            if (state.currentUser.role === 'admin') {
+                return;
+            }
             const u = state.currentUser;
-            const hasAccountProfile = !!(u.english_level && u.job && u.goal);
+            const hasAccountProfile = !!(u.job && u.goal);
             if (!hasAccountProfile) {
                 openModal('onboardingModal');
             }
             return;
         }
+        return;
         const response = await fetch('/api/profile/onboarded');
         const data = await response.json();
         
