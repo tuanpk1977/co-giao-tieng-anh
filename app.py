@@ -266,7 +266,6 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
         service = get_ai_service()
         
         # DEBUG LOG
-        import config as app_config
         print(f"[CHAT DEBUG] Provider: {app_config.AI_PROVIDER}")
         print(f"[CHAT DEBUG] Bilingual format: ENABLED")
         
