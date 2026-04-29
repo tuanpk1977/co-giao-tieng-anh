@@ -213,6 +213,14 @@ class UserService:
             return None
         return Plan.query.filter_by(name=plan_name, enabled=True).first()
 
+    def find_user_by_identifier(self, identifier: str):
+        if not identifier:
+            return None
+        value = identifier.strip()
+        if '@' in value:
+            return User.query.filter_by(email=value.lower()).first()
+        return User.query.filter_by(phone=value).first()
+
     def get_all_users(self):
         return User.query.order_by(User.created_at.desc()).all()
 
@@ -252,6 +260,12 @@ class UserService:
         db.session.add(family_member)
         db.session.commit()
         return True, {'family_member': family_member.to_dict()}
+
+    def add_family_member_by_identifier(self, owner_user_id: int, identifier: str):
+        member = self.find_user_by_identifier(identifier)
+        if not member:
+            return False, {'error': 'Thanh vien chua co account. Hay bao nguoi nha dang ky bang email/so dien thoai truoc.'}
+        return self.add_family_member(owner_user_id, member.id)
 
     def remove_family_member(self, family_member_id: int):
         family_member = FamilyMember.query.get(family_member_id)

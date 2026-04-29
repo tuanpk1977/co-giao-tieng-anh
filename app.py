@@ -2085,6 +2085,74 @@ def user_affiliate():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/user/family/members', methods=['GET'])
+def user_family_members():
+    try:
+        user_id = session.get('user_id') or request.args.get('user_id', type=int)
+        if not user_id:
+            return jsonify({"success": False, "error": "Login required"}), 401
+        user_service = get_user_service()
+        user = user_service.get_user(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        if user.plan_name != 'family' or user.status != 'active':
+            return jsonify({
+                "success": False,
+                "error": "Chi chu goi Family dang active moi quan ly thanh vien"
+            }), 403
+        success, result = user_service.get_family_members(user.id)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/family/members', methods=['POST'])
+def user_add_family_member():
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "Login required"}), 401
+        data = request.get_json() or {}
+        identifier = data.get('identifier')
+        if not identifier:
+            return jsonify({"success": False, "error": "Nhap email hoac so dien thoai thanh vien"}), 400
+        user_service = get_user_service()
+        owner = user_service.get_user(user_id)
+        if not owner:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        if owner.plan_name != 'family' or owner.status != 'active':
+            return jsonify({
+                "success": False,
+                "error": "Chi chu goi Family dang active moi them thanh vien"
+            }), 403
+        success, result = user_service.add_family_member_by_identifier(owner.id, identifier)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/family/members/<int:family_member_id>', methods=['DELETE'])
+def user_remove_family_member(family_member_id):
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "Login required"}), 401
+        from models import FamilyMember
+        family_member = FamilyMember.query.get(family_member_id)
+        if not family_member or family_member.owner_user_id != user_id:
+            return jsonify({"success": False, "error": "Khong co quyen xoa thanh vien nay"}), 403
+        success, result = get_user_service().remove_family_member(family_member_id)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/user/progress', methods=['GET'])
 def get_progress():
     """Get user progress"""

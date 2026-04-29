@@ -121,6 +121,11 @@ const elements = {
     affiliatePaidCount: document.getElementById('affiliatePaidCount'),
     affiliatePending: document.getElementById('affiliatePending'),
     affiliatePaid: document.getElementById('affiliatePaid'),
+    familySection: document.getElementById('familySection'),
+    familySummary: document.getElementById('familySummary'),
+    familyMembersList: document.getElementById('familyMembersList'),
+    familyMemberIdentifier: document.getElementById('familyMemberIdentifier'),
+    addFamilyMemberBtn: document.getElementById('addFamilyMemberBtn'),
     
     // Freemium
     userBadge: document.getElementById('userBadge'),
@@ -264,6 +269,84 @@ function copyAffiliateLink() {
             console.error('Copy error:', err);
             showToast('❌', 'Sao chép thất bại');
         });
+}
+
+async function loadFamilyMembers() {
+    if (!elements.familySection || !state.currentUser) return;
+    const isFamilyOwner = state.currentUser.plan_name === 'family' && state.currentUser.status === 'active';
+    elements.familySection.classList.toggle('hidden', !isFamilyOwner);
+    if (!isFamilyOwner) return;
+
+    try {
+        const response = await fetch('/api/user/family/members');
+        const data = await response.json();
+        if (!data.success) {
+            elements.familySummary.textContent = data.error || 'Khong tai duoc thanh vien Family';
+            return;
+        }
+
+        const used = (data.member_count || 0) + 1;
+        elements.familySummary.textContent = `Dang dung ${used}/${data.limit} users tinh ca chu goi.`;
+        if (!data.members || data.members.length === 0) {
+            elements.familyMembersList.innerHTML = '<p class="empty-text">Chua co thanh vien nao.</p>';
+            return;
+        }
+
+        elements.familyMembersList.innerHTML = data.members.map(member => `
+            <div class="error-item">
+                <span class="error-text">#${member.member_user_id} ${member.member_name || ''} ${member.member_email || member.member_phone || ''}</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="removeFamilyMember(${member.id})">Xoa</button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Family load error:', error);
+        elements.familySummary.textContent = 'Loi tai thanh vien Family';
+    }
+}
+
+async function addFamilyMember() {
+    if (!elements.familyMemberIdentifier) return;
+    const identifier = elements.familyMemberIdentifier.value.trim();
+    if (!identifier) {
+        showToast('⚠️', 'Nhap email hoac so dien thoai thanh vien');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/user/family/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier })
+        });
+        const data = await response.json();
+        if (data.success) {
+            elements.familyMemberIdentifier.value = '';
+            showToast('✅', 'Da them thanh vien vao goi Family');
+            loadFamilyMembers();
+        } else {
+            showToast('❌', data.error || 'Khong them duoc thanh vien');
+        }
+    } catch (error) {
+        console.error('Family add error:', error);
+        showToast('❌', 'Loi them thanh vien Family');
+    }
+}
+
+async function removeFamilyMember(familyMemberId) {
+    if (!confirm('Xoa thanh vien nay khoi goi Family?')) return;
+    try {
+        const response = await fetch(`/api/user/family/members/${familyMemberId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (data.success) {
+            showToast('✅', 'Da xoa thanh vien Family');
+            loadFamilyMembers();
+        } else {
+            showToast('❌', data.error || 'Khong xoa duoc thanh vien');
+        }
+    } catch (error) {
+        console.error('Family remove error:', error);
+        showToast('❌', 'Loi xoa thanh vien Family');
+    }
 }
 
 // ==========================================
@@ -473,8 +556,13 @@ function setupEventListeners() {
     // Profile button
     elements.profileBtn.addEventListener('click', () => {
         populateProfileForm();
+        loadFamilyMembers();
         openModal('profileModal');
     });
+
+    if (elements.addFamilyMemberBtn) {
+        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
+    }
     
     // Feedback button
     elements.feedbackBtn.addEventListener('click', () => {
