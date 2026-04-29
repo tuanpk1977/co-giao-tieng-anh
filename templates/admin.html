@@ -172,7 +172,7 @@
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-id-card"></i><h2>Danh sach dai ly va ma gioi thieu</h2></div>
             <p style="margin: 0 0 14px; color: #555;">
-                Admin cap quyen dai ly cho user, sau do copy <strong>Ma dai ly</strong> dua cho ho.
+                Admin cap quyen dai ly cho user co so dien thoai, sau do copy <strong>Ma dai ly = so dien thoai</strong> dua cho ho.
                 Hoc vien moi nhap ma nay o o ma gioi thieu khi dang ky. Hoa hong chi phat sinh khi thanh toan duoc admin duyet.
             </p>
             <div class="table-responsive">
@@ -574,7 +574,8 @@
                     document.getElementById('plansManagement').innerHTML = data.plans.map(plan => `
                         <div class="admin-list-item">
                             <strong>${plan.title || plan.name}</strong>
-                            <div>Gia: ${formatMoney(plan.price)} VND/thang</div>
+                            <div>Gia: ${formatMoney(plan.price)} VND / ${plan.duration_days || 30} ngay</div>
+                            ${plan.discount_percent ? `<div>Giam gia: ${plan.discount_percent}%</div>` : ''}
                             <div>Chat: ${plan.chat_per_day || plan.chat_limit}/ngay - Bai hoc: ${plan.lesson_limit}/ngay</div>
                             <div>Luyen phat am: ${plan.can_speak ? 'Co' : 'Khong'} - Luu lich su: ${plan.can_save_history ? 'Co' : 'Khong'}</div>
                             <div>Trang thai: ${plan.enabled ? 'Dang bat' : 'Dang tat'}</div>

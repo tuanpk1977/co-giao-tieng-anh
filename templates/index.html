@@ -805,6 +805,10 @@
                         <label>Mật khẩu *</label>
                         <input type="password" id="regPassword" placeholder="Ít nhất 6 ký tự" minlength="6" required>
                     </div>
+                    <div class="form-group">
+                        <label>Mã giới thiệu (không bắt buộc)</label>
+                        <input type="text" id="regReferralCode" placeholder="Số điện thoại đại lý, ví dụ 0939489139">
+                    </div>
                     <button type="submit" class="btn btn-primary btn-block">Tiếp tục →</button>
                 </form>
             </div>
@@ -963,16 +967,12 @@
             </div>
             <div class="modal-body">
                 <div class="affiliate-card">
-                    <p>Chia sẻ mã và link giới thiệu để nhận hoa hồng khi bạn bè nâng cấp gói trả phí.</p>
+                    <p>Chia sẻ link trang chủ và mã giới thiệu là số điện thoại của bạn để nhận hoa hồng khi bạn bè nâng cấp gói trả phí.</p>
                     <div class="form-group">
-                        <label>Mã giới thiệu</label>
+                        <label>Mã giới thiệu của bạn</label>
                         <input id="affiliateCode" type="text" readonly>
                     </div>
-                    <div class="form-group">
-                        <label>Link giới thiệu</label>
-                        <input id="affiliateLink" type="text" readonly>
-                    </div>
-                    <button id="copyAffiliateLinkBtn" class="btn btn-primary btn-block">Sao chép link</button>
+                    <button id="copyAffiliateLinkBtn" class="btn btn-primary btn-block">Sao chép mã</button>
                 </div>
                 <div class="affiliate-stats">
                     <div class="stat-item"><strong>Người đăng ký:</strong> <span id="affiliateReferredCount">0</span></div>

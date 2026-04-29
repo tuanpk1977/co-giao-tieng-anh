@@ -255,7 +255,7 @@ async function loadAffiliateData() {
         const affiliate = data.affiliate || {};
         const profile = affiliate.profile || {};
         elements.affiliateCode.value = profile.affiliate_code || '';
-        elements.affiliateLink.value = profile.referral_link || '';
+        if (elements.affiliateLink) elements.affiliateLink.value = profile.referral_link || window.location.origin;
         elements.affiliateReferredCount.textContent = (profile.total_referrals || 0).toString();
         elements.affiliatePending.textContent = (profile.pending_commission || 0).toString();
         elements.affiliatePaid.textContent = (profile.paid_commission || 0).toString();
@@ -268,8 +268,8 @@ async function loadAffiliateData() {
 }
 
 function copyAffiliateLink() {
-    if (!elements.affiliateLink || !elements.affiliateLink.value) return;
-    navigator.clipboard.writeText(elements.affiliateLink.value)
+    if (!elements.affiliateCode || !elements.affiliateCode.value) return;
+    navigator.clipboard.writeText(elements.affiliateCode.value)
         .then(() => showToast('✅', 'Đã sao chép link giới thiệu!'))
         .catch((err) => {
             console.error('Copy error:', err);
@@ -299,7 +299,8 @@ async function loadPlansForUser() {
         elements.plansContent.innerHTML = data.plans.map(plan => `
             <div class="dashboard-section">
                 <h3>${plan.title || plan.name}</h3>
-                <p><strong>${formatMoney(plan.price)} VND/thang</strong></p>
+                <p><strong>${formatMoney(plan.price)} VND</strong> / ${plan.duration_days || 30} ngay</p>
+                ${plan.discount_percent ? `<p>Giam ${plan.discount_percent}% so voi tra tung thang</p>` : ''}
                 <p>Chat: ${plan.chat_per_day || plan.chat_limit}/ngay - Bai hoc: ${plan.lesson_limit}/ngay</p>
                 <p>Luyen phat am: ${plan.can_speak ? 'Co' : 'Khong'} - Luu lich su: ${plan.can_save_history ? 'Co' : 'Khong'}</p>
                 ${plan.name === 'family' ? `<p>Family: toi da ${plan.family_member_limit || 5} users tinh ca chu goi</p>` : ''}
@@ -2477,9 +2478,10 @@ async function handleRegister(e) {
     const phone = document.getElementById('regPhone').value.trim();
     const name = document.getElementById('regName').value.trim();
     const password = document.getElementById('regPassword').value;
+    const referralInput = document.getElementById('regReferralCode')?.value.trim();
     
     try {
-        const referral_code = state.referralCode || null;
+        const referral_code = referralInput || state.referralCode || null;
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2492,6 +2494,7 @@ async function handleRegister(e) {
             state.pendingUserId = data.user.id;
             closeModal('registerModal');
             openModal('profileSetupModal');
+            if (data.referral_warning) showToast('⚠️', data.referral_warning);
             showToast('🎉', 'Đăng ký thành công! Hoàn thiện hồ sơ nhé.');
         } else {
             showToast('❌', data.error || 'Đăng ký thất bại');

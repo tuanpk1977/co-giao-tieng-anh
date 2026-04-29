@@ -153,6 +153,8 @@ class Plan(db.Model):
     can_save_history = db.Column(db.Boolean, default=True)
     enabled = db.Column(db.Boolean, default=True)
     description = db.Column(db.String(255), default='')
+    duration_days = db.Column(db.Integer, default=30)
+    discount_percent = db.Column(db.Float, default=0.0)
     
     # PART 2: Quota limits for cost control
     chat_per_day = db.Column(db.Integer, default=10)
@@ -175,6 +177,8 @@ class Plan(db.Model):
             'can_save_history': self.can_save_history,
             'enabled': self.enabled,
             'description': self.description,
+            'duration_days': self.duration_days,
+            'discount_percent': self.discount_percent,
             'chat_per_day': self.chat_per_day,
             'chat_per_month': self.chat_per_month,
             'max_tokens_per_chat': self.max_tokens_per_chat,
@@ -621,6 +625,7 @@ def _ensure_sqlite_columns(engine):
 
     # Check users table
     existing_columns = {col['name'] for col in inspector.get_columns('users')}
+    existing_column_types = {col['name']: str(col['type']).upper() for col in inspector.get_columns('users')}
     alter_statements = []
 
     if 'role' not in existing_columns:
@@ -661,6 +666,17 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN subscription_end DATETIME")
     if 'updated_at' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN updated_at DATETIME")
+
+    if 'referred_by' in existing_columns and not any(t in existing_column_types.get('referred_by', '') for t in ('CHAR', 'TEXT', 'VARCHAR')):
+        with engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE users RENAME COLUMN referred_by TO referred_by_old"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN referred_by VARCHAR(50)"))
+                conn.commit()
+                existing_columns.discard('referred_by')
+                existing_columns.add('referred_by')
+            except Exception as e:
+                print(f"[DB] Failed to migrate users.referred_by to text: {e}")
     
     if alter_statements:
         with engine.connect() as conn:
@@ -698,6 +714,10 @@ def _ensure_sqlite_columns(engine):
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_month_vnd FLOAT DEFAULT 0.0")
         if 'family_member_limit' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN family_member_limit INTEGER DEFAULT 1")
+        if 'duration_days' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN duration_days INTEGER DEFAULT 30")
+        if 'discount_percent' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN discount_percent FLOAT DEFAULT 0.0")
         
         if plan_alters:
             with engine.connect() as conn:
@@ -801,6 +821,8 @@ def seed_default_plans():
                     can_save_history=plan['can_save_history'],
                     enabled=plan['enabled'],
                     description=plan.get('description', ''),
+                    duration_days=plan.get('duration_days', 30),
+                    discount_percent=plan.get('discount_percent', 0.0),
                     chat_per_day=plan.get('chat_per_day', plan['chat_limit']),
                     chat_per_month=plan.get('chat_per_month', plan['chat_limit'] * 30),
                     max_tokens_per_chat=plan.get('max_tokens_per_chat', 2000),
@@ -819,6 +841,8 @@ def seed_default_plans():
                 existing.can_save_history = plan.get('can_save_history', existing.can_save_history)
                 existing.enabled = plan.get('enabled', existing.enabled)
                 existing.description = plan.get('description', existing.description)
+                existing.duration_days = plan.get('duration_days', existing.duration_days or 30)
+                existing.discount_percent = plan.get('discount_percent', existing.discount_percent or 0.0)
                 existing.chat_per_day = plan.get('chat_per_day', existing.chat_per_day)
                 existing.chat_per_month = plan.get('chat_per_month', existing.chat_per_month)
                 existing.max_tokens_per_chat = plan.get('max_tokens_per_chat', existing.max_tokens_per_chat)
