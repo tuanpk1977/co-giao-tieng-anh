@@ -29,6 +29,8 @@ const state = {
     currentPracticeIndex: 0,
     userProfile: null,
     isSpeaking: false,
+    lastAIResponse: '',
+    lastAIEnglish: '',
     
     // Roleplay state
     roleplayRole: null,
@@ -761,8 +763,11 @@ function setupEventListeners() {
     // Replay TTS button
     if (elements.replayTTSBtn) {
         elements.replayTTSBtn.addEventListener('click', () => {
-            if (state.lastAIResponse) {
-                speakText(state.lastAIResponse);
+            const text = state.lastAIEnglish || extractEnglishForTTS(state.lastAIResponse || '');
+            if (text) {
+                speakText(text);
+            } else {
+                showToast('🔊', 'Chưa có câu tiếng Anh để nghe lại.');
             }
         });
     }
@@ -1091,6 +1096,10 @@ async function sendMessage() {
                 botReply = `US English:\n${botReply}\n\nVN Tiếng Việt:\n[Cần dịch tiếng Việt]\n\n📘 Giải thích:\nPhản hồi chưa đúng format song ngữ. Cần kiểm tra AI response.`;
             }
             
+            state.lastAIResponse = botReply;
+            state.lastAIEnglish = extractEnglishForTTS(botReply);
+            state.currentAIResponse = state.lastAIEnglish || botReply;
+
             addMessage(botReply, 'ai');
             
             // Cập nhật conversation history
@@ -1120,15 +1129,7 @@ function addMessage(content, type) {
     const avatar = type === 'ai' ? '👩‍🏫' : '🙂';
     const formattedContent = formatMessage(content);
     
-    // For AI messages, extract English text for TTS
-    let englishText = '';
-    if (type === 'ai') {
-        // Extract English sentences (basic extraction)
-        const englishMatches = content.match(/[A-Za-z][A-Za-z0-9\s',.!?-]{5,}/g);
-        if (englishMatches) {
-            englishText = englishMatches.join('. ');
-        }
-    }
+    const englishText = type === 'ai' ? extractEnglishForTTS(content) : '';
     
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
@@ -1137,9 +1138,42 @@ function addMessage(content, type) {
             ${type === 'ai' && englishText ? `<button class="speak-btn" onclick="speakText('${englishText.replace(/'/g, "\\'")}')" title="Nghe cô đọc">🔊</button>` : ''}
         </div>
     `;
-    
+
+    if (type === 'ai' && englishText) {
+        const speakBtn = messageDiv.querySelector('.speak-btn');
+        if (speakBtn) {
+            speakBtn.type = 'button';
+            speakBtn.removeAttribute('onclick');
+            speakBtn.addEventListener('click', () => speakText(englishText));
+        }
+    }
+
     elements.chatMessages.appendChild(messageDiv);
     scrollToBottom();
+}
+
+function extractEnglishForTTS(content) {
+    if (!content) return '';
+
+    let text = String(content);
+    const englishMatch = text.match(/(?:US\s*)?English:\s*([\s\S]*?)(?=(?:VN\s*)?(?:Tiếng Việt|Tieng Viet):|📘|Giải thích|Giai thich|$)/i);
+    if (englishMatch && englishMatch[1]) {
+        text = englishMatch[1];
+    } else {
+        const englishMatches = text.match(/[A-Za-z][A-Za-z0-9\s',.!?;-]{5,}/g);
+        text = englishMatches ? englishMatches.join('. ') : text;
+    }
+
+    return text
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}]/gu, ' ')
+        .replace(/---/g, ' ')
+        .replace(/US\s*English:/gi, ' ')
+        .replace(/VN\s*(Tiếng Việt|Tieng Viet):/gi, ' ')
+        .replace(/(Giải thích|Giai thich):/gi, ' ')
+        .replace(/[-•*#_`]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function formatMessage(content) {
@@ -2858,10 +2892,17 @@ function speakText(text, rate = null) {
         return;
     }
     
+    text = String(text || '').trim();
+    if (!text) {
+        showToast('🔊', 'Chưa có nội dung để nghe.');
+        return;
+    }
+
     // Cancel any ongoing speech
     speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
     
     // Set voice to English if available
     if (englishVoices.length > 0) {
