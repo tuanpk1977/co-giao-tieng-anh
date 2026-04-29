@@ -251,6 +251,11 @@ AFFILIATE_COMMISSION_FIXED_AMOUNT = int(os.getenv("AFFILIATE_COMMISSION_FIXED_AM
 # ==========================================
 # Exchange rate USD to VND
 USD_TO_VND = float(os.getenv("USD_TO_VND", "25000.0"))
+TRIAL_COST_LIMIT_VND = float(os.getenv("TRIAL_COST_LIMIT_VND", "3000"))
+TRIAL_HARD_LIMIT_VND = float(os.getenv("TRIAL_HARD_LIMIT_VND", "5000"))
+USER_WARNING_COST_RATIO = float(os.getenv("USER_WARNING_COST_RATIO", "0.3"))
+USER_DANGER_COST_RATIO = float(os.getenv("USER_DANGER_COST_RATIO", "0.6"))
+USER_LOSS_COST_RATIO = float(os.getenv("USER_LOSS_COST_RATIO", "1.0"))
 
 # PART 1: Cost per token (in USD) for different models
 # Updated with current OpenAI pricing (as of 2024)
@@ -266,6 +271,21 @@ MODEL_COSTS = {
     "gpt-3.5-turbo": {
         "input_per_1k_tokens": 0.0005,  # $0.50 per 1M input tokens
         "output_per_1k_tokens": 0.0015,  # $1.50 per 1M output tokens
+    },
+}
+
+AI_COST_CONFIG = {
+    "gpt-4o-mini": {
+        "input_per_1m_usd": float(os.getenv("GPT4O_MINI_INPUT_PER_1M_USD", "0.15")),
+        "output_per_1m_usd": float(os.getenv("GPT4O_MINI_OUTPUT_PER_1M_USD", "0.60")),
+    },
+    "gpt-4": {
+        "input_per_1m_usd": float(os.getenv("GPT4_INPUT_PER_1M_USD", "30.0")),
+        "output_per_1m_usd": float(os.getenv("GPT4_OUTPUT_PER_1M_USD", "60.0")),
+    },
+    "gpt-3.5-turbo": {
+        "input_per_1m_usd": float(os.getenv("GPT35_INPUT_PER_1M_USD", "0.50")),
+        "output_per_1m_usd": float(os.getenv("GPT35_OUTPUT_PER_1M_USD", "1.50")),
     },
 }
 

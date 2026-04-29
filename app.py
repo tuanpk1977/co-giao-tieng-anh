@@ -262,8 +262,31 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
                 'limits': quota_check['limits']
             }), 429  # 429 = Too Many Requests
         
+        cost_policy = {'allowed': True, 'risk_level': 'safe', 'short_answer': False}
+        if user_id and user:
+            cost_policy = cost_service.check_chat_cost_policy(user.id)
+            if not cost_policy.get('allowed'):
+                hard_limit_message = """US English:
+You have reached today's learning limit.
+
+VN Tiếng Việt:
+Em đã dùng hết giới hạn học hôm nay. Vui lòng nâng cấp gói hoặc quay lại ngày mai.
+
+Giải thích:
+Giới hạn này giúp hệ thống duy trì ổn định."""
+                return jsonify({
+                    'success': False,
+                    'error': hard_limit_message,
+                    'message': hard_limit_message,
+                    'risk_level': cost_policy.get('risk_level')
+                }), 429
+
         # Lấy AI service
         service = get_ai_service()
+        original_max_tokens = service.config.get("max_tokens", 1000)
+        if cost_policy.get('short_answer'):
+            service.config["max_tokens"] = min(original_max_tokens, 350)
+            user_message = "Hôm nay em đã học khá nhiều rồi, cô sẽ trả lời ngắn gọn hơn nhé.\n\n" + user_message
         
         # DEBUG LOG
         print(f"[CHAT DEBUG] Provider: {app_config.AI_PROVIDER}")
@@ -306,8 +329,10 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
             
             # Gọi AI với user profile để cá nhân hóa
             ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
+            service.config["max_tokens"] = original_max_tokens
             
         except Exception as e:
+            service.config["max_tokens"] = original_max_tokens
             print(f"[CHAT ERROR] Exception caught: {str(e)}")
             import traceback
             print(traceback.format_exc())
@@ -1457,6 +1482,94 @@ def admin_costs():
             "costs": costs,
             "profit": profit
         })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/cost/summary', methods=['GET'])
+def admin_cost_summary():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        return jsonify({"success": True, "summary": get_cost_service().get_cost_summary()})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/cost/users', methods=['GET'])
+def admin_cost_users():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        risk = request.args.get('risk', 'all')
+        return jsonify({"success": True, "users": get_cost_service().get_cost_users(risk_filter=risk)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/cost/user/<int:user_id>', methods=['GET'])
+def admin_cost_user_detail(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        return jsonify({"success": True, **get_cost_service().get_user_cost_detail(user_id)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/cost/user/<int:user_id>/reset', methods=['POST'])
+def admin_cost_user_reset(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        get_cost_service().reset_user_cost(user_id)
+        return jsonify({"success": True, "message": "Usage reset"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/cost/user/<int:user_id>/limit', methods=['POST'])
+def admin_cost_user_limit(user_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    return jsonify({"success": True, "message": "Per-user limit override uses plan quota in MVP"})
+
+
+@app.route('/api/admin/alerts', methods=['GET'])
+def admin_alerts():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        from models import AdminAlert
+        query = AdminAlert.query
+        if request.args.get('unread') == '1':
+            query = query.filter_by(is_read=False)
+        alerts = [alert.to_dict() for alert in query.order_by(AdminAlert.created_at.desc()).limit(100).all()]
+        unread_count = AdminAlert.query.filter_by(is_read=False).count()
+        return jsonify({"success": True, "alerts": alerts, "unread_count": unread_count})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/admin/alerts/<int:alert_id>/read', methods=['POST'])
+def admin_alert_read(alert_id):
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    try:
+        from models import AdminAlert
+        alert = AdminAlert.query.get(alert_id)
+        if not alert:
+            return jsonify({"success": False, "error": "Alert not found"}), 404
+        alert.is_read = True
+        db.session.commit()
+        return jsonify({"success": True, "alert": alert.to_dict()})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

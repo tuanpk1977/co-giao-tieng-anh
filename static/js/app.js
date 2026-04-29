@@ -1073,6 +1073,7 @@ async function sendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
+                user_id: state.currentUser ? state.currentUser.id : null,
                 history: state.conversationHistory
             })
         });

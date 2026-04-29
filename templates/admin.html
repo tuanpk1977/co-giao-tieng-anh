@@ -44,6 +44,10 @@
         .profit-loss { font-size: 18px; font-weight: 700; margin: 10px 0; }
         .profit { color: #28a745; }
         .loss { color: #dc3545; }
+        .risk-safe { background:#d4edda; color:#155724; }
+        .risk-warning { background:#fff3cd; color:#856404; }
+        .risk-danger { background:#ffe0b2; color:#8a4b00; }
+        .risk-loss { background:#f8d7da; color:#721c24; }
     </style>
 </head>
 <body>
@@ -64,6 +68,7 @@
         <div class="admin-tab" data-tab="users">Người dùng</div>
         <div class="admin-tab" data-tab="payments">Thanh toán</div>
         <div class="admin-tab" data-tab="costs">Chi phí AI</div>
+        <div class="admin-tab" data-tab="profitUsers">Lời/Lỗ User <span id="alertsBadge"></span></div>
         <div class="admin-tab" data-tab="feedback">Phản hồi</div>
         <div class="admin-tab" data-tab="affiliate">Affiliate</div>
         <div class="admin-tab" data-tab="plans">Gói dịch vụ</div>
@@ -132,6 +137,42 @@
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-robot"></i><h2>Chi phí AI & Lợi nhuận</h2></div>
             <div id="costAnalytics"></div>
+        </div>
+    </div>
+
+    <div id="profitUsers" class="tab-content">
+        <div class="admin-grid">
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-chart-pie"></i><h2>Tổng quan lời/lỗ</h2></div>
+                <div id="costProfitSummary"></div>
+            </div>
+            <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-bell"></i><h2>Cảnh báo</h2></div>
+                <div id="adminAlerts"></div>
+            </div>
+        </div>
+        <div class="admin-card">
+            <div class="admin-section-title"><i class="fas fa-user-shield"></i><h2>Lời/Lỗ User</h2></div>
+            <div class="admin-input-group">
+                <select id="costRiskFilter" onchange="loadCostProfitUsers()">
+                    <option value="all">Tất cả</option>
+                    <option value="profit">Đang lời</option>
+                    <option value="warning">Warning</option>
+                    <option value="danger">Danger</option>
+                    <option value="loss">Đang lỗ</option>
+                </select>
+            </div>
+            <div class="table-responsive">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User</th><th>Email/SĐT</th><th>Plan</th><th>Revenue tháng</th>
+                            <th>AI cost</th><th>Gross profit</th><th>Margin</th><th>Chat</th><th>Tokens</th><th>Risk</th><th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="costUsersTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -269,6 +310,9 @@
                     break;
                 case 'costs':
                     await loadCosts();
+                    break;
+                case 'profitUsers':
+                    await loadCostProfitDashboard();
                     break;
                 case 'feedback':
                     await loadFeedback();
@@ -435,6 +479,94 @@
             } catch (error) {
                 console.error('Error loading costs:', error);
             }
+        }
+
+        function getRiskBadge(risk) {
+            return `<span class="status-badge risk-${risk || 'safe'}">${risk || 'safe'}</span>`;
+        }
+
+        async function loadCostProfitDashboard() {
+            await Promise.all([loadCostProfitSummary(), loadCostProfitUsers(), loadAdminAlerts()]);
+        }
+
+        async function loadCostProfitSummary() {
+            const response = await fetch('/api/admin/cost/summary');
+            const data = await response.json();
+            if (!data.success) return;
+            const s = data.summary;
+            const badge = document.getElementById('alertsBadge');
+            if (badge) badge.textContent = s.unread_alerts ? `(${s.unread_alerts})` : '';
+            document.getElementById('costProfitSummary').innerHTML = `
+                <p><strong>Doanh thu tháng:</strong> ${formatMoney(s.total_revenue)} VND</p>
+                <p><strong>Chi phí AI tháng:</strong> ${formatMoney(s.total_ai_cost)} VND</p>
+                <p><strong>Lợi nhuận:</strong> ${formatMoney(s.total_profit)} VND</p>
+                <p><strong>User đang lỗ:</strong> ${s.total_users_loss}</p>
+                <p><strong>User nguy hiểm:</strong> ${s.total_users_danger}</p>
+            `;
+        }
+
+        async function loadCostProfitUsers() {
+            const risk = document.getElementById('costRiskFilter')?.value || 'all';
+            const response = await fetch(`/api/admin/cost/users?risk=${encodeURIComponent(risk)}`);
+            const data = await response.json();
+            const tbody = document.getElementById('costUsersTableBody');
+            if (!data.success || !tbody) return;
+            tbody.innerHTML = data.users.length ? data.users.map(row => `
+                <tr>
+                    <td>#${row.user_id} ${row.user_name || ''}</td>
+                    <td>${row.email || row.phone || '-'}</td>
+                    <td>${row.plan_name || '-'}</td>
+                    <td>${formatMoney(row.revenue_vnd)} VND</td>
+                    <td>${formatMoney(row.estimated_ai_cost_vnd)} VND</td>
+                    <td class="${row.gross_profit_vnd >= 0 ? 'profit' : 'loss'}">${formatMoney(row.gross_profit_vnd)} VND</td>
+                    <td>${row.profit_margin_percent}%</td>
+                    <td>${row.chat_count}</td>
+                    <td>${row.total_tokens}</td>
+                    <td>${getRiskBadge(row.risk_level)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="viewCostDetail(${row.user_id})">Usage</button>
+                        <button class="btn btn-sm btn-danger" onclick="resetUserCost(${row.user_id})">Reset</button>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="11">Chưa có dữ liệu.</td></tr>';
+        }
+
+        async function loadAdminAlerts() {
+            const response = await fetch('/api/admin/alerts');
+            const data = await response.json();
+            if (!data.success) return;
+            const badge = document.getElementById('alertsBadge');
+            if (badge) badge.textContent = data.unread_count ? `(${data.unread_count})` : '';
+            document.getElementById('adminAlerts').innerHTML = data.alerts.length ? data.alerts.slice(0, 10).map(alert => `
+                <div class="admin-list-item">
+                    <strong>${alert.type}</strong>
+                    <div>${alert.message}</div>
+                    <div>${formatDate(alert.created_at)}</div>
+                    ${alert.is_read ? '' : `<button class="btn btn-sm btn-primary" onclick="markAlertRead(${alert.id})">Đã đọc</button>`}
+                </div>
+            `).join('') : '<p>Không có cảnh báo.</p>';
+        }
+
+        async function markAlertRead(alertId) {
+            await fetch(`/api/admin/alerts/${alertId}/read`, { method: 'POST' });
+            await loadAdminAlerts();
+            await loadCostProfitSummary();
+        }
+
+        async function resetUserCost(userId) {
+            if (!confirm('Reset usage/cost tháng này của user này?')) return;
+            await fetch(`/api/admin/cost/user/${userId}/reset`, { method: 'POST' });
+            await loadCostProfitDashboard();
+        }
+
+        async function viewCostDetail(userId) {
+            const response = await fetch(`/api/admin/cost/user/${userId}`);
+            const data = await response.json();
+            if (!data.success) return alert(data.error || 'Không tải được usage');
+            const rows = (data.daily_costs || []).slice(0, 10).map(r =>
+                `${r.date}: chat ${r.chat_count}, token ${r.total_tokens}, cost ${formatMoney(r.estimated_ai_cost_vnd)} VND, risk ${r.risk_level}`
+            ).join('\\n');
+            alert(rows || 'Chưa có lịch sử usage.');
         }
 
         async function loadFeedback() {

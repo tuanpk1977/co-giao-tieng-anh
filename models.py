@@ -310,6 +310,79 @@ class CostAnalytics(db.Model):
         }
 
 
+class UserUsageCost(db.Model):
+    """Daily/monthly user-level profit and AI cost tracking."""
+    __tablename__ = 'user_usage_costs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.Date, default=datetime.utcnow().date, nullable=False)
+    month = db.Column(db.String(7), nullable=False)
+    chat_count = db.Column(db.Integer, default=0)
+    lesson_count = db.Column(db.Integer, default=0)
+    speaking_count = db.Column(db.Integer, default=0)
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+    total_tokens = db.Column(db.Integer, default=0)
+    estimated_ai_cost_usd = db.Column(db.Float, default=0.0)
+    estimated_ai_cost_vnd = db.Column(db.Float, default=0.0)
+    revenue_vnd = db.Column(db.Float, default=0.0)
+    gross_profit_vnd = db.Column(db.Float, default=0.0)
+    profit_margin_percent = db.Column(db.Float, default=0.0)
+    risk_level = db.Column(db.String(20), default='safe')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship('User', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'date': self.date.isoformat() if self.date else None,
+            'month': self.month,
+            'chat_count': self.chat_count,
+            'lesson_count': self.lesson_count,
+            'speaking_count': self.speaking_count,
+            'input_tokens': self.input_tokens,
+            'output_tokens': self.output_tokens,
+            'total_tokens': self.total_tokens,
+            'estimated_ai_cost_usd': round(self.estimated_ai_cost_usd or 0, 6),
+            'estimated_ai_cost_vnd': round(self.estimated_ai_cost_vnd or 0, 0),
+            'revenue_vnd': round(self.revenue_vnd or 0, 0),
+            'gross_profit_vnd': round(self.gross_profit_vnd or 0, 0),
+            'profit_margin_percent': round(self.profit_margin_percent or 0, 2),
+            'risk_level': self.risk_level,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class AdminAlert(db.Model):
+    """Admin alerts for cost risk transitions."""
+    __tablename__ = 'admin_alerts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    message = db.Column(db.String(255), nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'type': self.type,
+            'message': self.message,
+            'is_read': self.is_read,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'user': self.user.to_dict() if self.user else None
+        }
+
+
 class AffiliateProfile(db.Model):
     """Affiliate profile for referrers"""
     __tablename__ = 'affiliate_profiles'
@@ -801,6 +874,47 @@ def _ensure_sqlite_columns(engine):
                         conn.execute(text(statement))
                     except Exception as e:
                         print(f"[DB] Failed to alter affiliate_profiles table: {e}")
+                conn.commit()
+
+    if inspector.has_table('user_usage_costs'):
+        cost_columns = {col['name'] for col in inspector.get_columns('user_usage_costs')}
+        expected = {
+            'month': "ALTER TABLE user_usage_costs ADD COLUMN month VARCHAR(7)",
+            'lesson_count': "ALTER TABLE user_usage_costs ADD COLUMN lesson_count INTEGER DEFAULT 0",
+            'speaking_count': "ALTER TABLE user_usage_costs ADD COLUMN speaking_count INTEGER DEFAULT 0",
+            'input_tokens': "ALTER TABLE user_usage_costs ADD COLUMN input_tokens INTEGER DEFAULT 0",
+            'output_tokens': "ALTER TABLE user_usage_costs ADD COLUMN output_tokens INTEGER DEFAULT 0",
+            'total_tokens': "ALTER TABLE user_usage_costs ADD COLUMN total_tokens INTEGER DEFAULT 0",
+            'estimated_ai_cost_usd': "ALTER TABLE user_usage_costs ADD COLUMN estimated_ai_cost_usd FLOAT DEFAULT 0.0",
+            'estimated_ai_cost_vnd': "ALTER TABLE user_usage_costs ADD COLUMN estimated_ai_cost_vnd FLOAT DEFAULT 0.0",
+            'revenue_vnd': "ALTER TABLE user_usage_costs ADD COLUMN revenue_vnd FLOAT DEFAULT 0.0",
+            'gross_profit_vnd': "ALTER TABLE user_usage_costs ADD COLUMN gross_profit_vnd FLOAT DEFAULT 0.0",
+            'profit_margin_percent': "ALTER TABLE user_usage_costs ADD COLUMN profit_margin_percent FLOAT DEFAULT 0.0",
+            'risk_level': "ALTER TABLE user_usage_costs ADD COLUMN risk_level VARCHAR(20) DEFAULT 'safe'",
+            'updated_at': "ALTER TABLE user_usage_costs ADD COLUMN updated_at DATETIME"
+        }
+        usage_cost_alters = [stmt for name, stmt in expected.items() if name not in cost_columns]
+        if usage_cost_alters:
+            with engine.connect() as conn:
+                for statement in usage_cost_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter user_usage_costs table: {e}")
+                conn.commit()
+
+    if inspector.has_table('admin_alerts'):
+        alert_columns = {col['name'] for col in inspector.get_columns('admin_alerts')}
+        alert_alters = []
+        if 'is_read' not in alert_columns:
+            alert_alters.append("ALTER TABLE admin_alerts ADD COLUMN is_read BOOLEAN DEFAULT 0")
+        if alert_alters:
+            with engine.connect() as conn:
+                for statement in alert_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter admin_alerts table: {e}")
                 conn.commit()
 
 
