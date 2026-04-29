@@ -101,6 +101,7 @@ const elements = {
     loginBtn: document.getElementById('loginBtn'),
     registerBtn: document.getElementById('registerBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
+    floatingLogoutBtn: document.getElementById('floatingLogoutBtn'),
     loginModal: document.getElementById('loginModal'),
     loginForm: document.getElementById('loginForm'),
     registerModal: document.getElementById('registerModal'),
@@ -860,6 +861,10 @@ function setupEventListeners() {
     
     if (elements.logoutBtn) {
         elements.logoutBtn.addEventListener('click', logout);
+    }
+
+    if (elements.floatingLogoutBtn) {
+        elements.floatingLogoutBtn.addEventListener('click', logout);
     }
     
     if (elements.dashboardBtn) {
@@ -2528,6 +2533,7 @@ function updateAuthUI() {
     if (elements.loginBtn) elements.loginBtn.classList.toggle('hidden', isLoggedIn);
     if (elements.registerBtn) elements.registerBtn.classList.toggle('hidden', isLoggedIn);
     if (elements.logoutBtn) elements.logoutBtn.classList.toggle('hidden', !isLoggedIn);
+    if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.dashboardBtn) elements.dashboardBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.profileBtn) elements.profileBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.feedbackBtn) elements.feedbackBtn.classList.toggle('hidden', !isLoggedIn);
@@ -2815,6 +2821,7 @@ function updateUserBadge() {
         if (elements.dashboardBtn) elements.dashboardBtn.classList.remove('hidden');
         if (elements.profileBtn) elements.profileBtn.classList.remove('hidden');
         if (elements.logoutBtn) elements.logoutBtn.classList.remove('hidden');
+        if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.remove('hidden');
         if (elements.loginBtn) elements.loginBtn.classList.add('hidden');
         if (elements.registerBtn) elements.registerBtn.classList.add('hidden');
         if (elements.adminBtn) {
@@ -2832,6 +2839,7 @@ function updateUserBadge() {
         if (elements.dashboardBtn) elements.dashboardBtn.classList.add('hidden');
         if (elements.profileBtn) elements.profileBtn.classList.add('hidden');
         if (elements.logoutBtn) elements.logoutBtn.classList.add('hidden');
+        if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.add('hidden');
         if (elements.loginBtn) elements.loginBtn.classList.remove('hidden');
         if (elements.registerBtn) elements.registerBtn.classList.remove('hidden');
         if (elements.adminBtn) elements.adminBtn.classList.add('hidden');

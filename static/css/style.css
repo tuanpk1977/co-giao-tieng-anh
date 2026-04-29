@@ -73,6 +73,26 @@ body {
     gap: 10px;
 }
 
+.floating-logout {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 1200;
+    background: #333;
+    color: #fff;
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 18px;
+    box-shadow: var(--shadow-hover);
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.floating-logout:hover {
+    background: var(--primary-dark);
+}
+
 /* ==========================================
    Buttons
    ========================================== */

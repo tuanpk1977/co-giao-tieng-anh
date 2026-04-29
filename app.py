@@ -57,6 +57,9 @@ _roleplay_service = None
 @app.route('/')
 def index():
     """Trang chủ - Render giao diện chính"""
+    referrer = request.headers.get('Referer', '')
+    if request.args.get('guest') == '1' or request.args.get('public') == '1' or 'bit.ly' in referrer.lower():
+        session.clear()
     return render_template('index.html')
 
 @app.route('/api/health/domain', methods=['GET'])
