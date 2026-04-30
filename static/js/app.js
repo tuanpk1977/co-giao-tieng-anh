@@ -100,6 +100,11 @@ const elements = {
     profileForm: document.getElementById('profileForm'),
     feedbackForm: document.getElementById('feedbackForm'),
     resetProfileBtn: document.getElementById('resetProfileBtn'),
+    familySection: document.getElementById('familySection'),
+    familySummary: document.getElementById('familySummary'),
+    familyMembersList: document.getElementById('familyMembersList'),
+    familyMemberIdentifier: document.getElementById('familyMemberIdentifier'),
+    addFamilyMemberBtn: document.getElementById('addFamilyMemberBtn'),
     
     // Auth
     loginBtn: document.getElementById('loginBtn'),
@@ -208,9 +213,28 @@ function initializeApp() {
     loadGuestLimits();
     updateUserBadge();
     loadInitialData();
-    checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
+}
+
+function renderPaymentInstructions(payment) {
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const lines = bankInfo.split('\n').filter(Boolean);
+    const note = payment.transfer_note || payment.reference_code;
+    return `
+        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
+            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
+            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
+            ${lines.map((line) => `<p>${line}</p>`).join('')}
+            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
+                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
+            </div>
+            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
+        </div>
+    `;
 }
 
 function captureReferralCode() {
@@ -481,6 +505,7 @@ function setupEventListeners() {
     elements.profileBtn.addEventListener('click', () => {
         populateProfileForm();
         openModal('profileModal');
+        loadFamilyMembers();
     });
     
     // Feedback button
@@ -549,6 +574,10 @@ function setupEventListeners() {
         });
     }
     
+    if (elements.addFamilyMemberBtn) {
+        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
+    }
+
     // Plan upgrade button
     const upgradePlanBtn = document.getElementById('upgradePlanBtn');
     [upgradePlanBtn, elements.plansBtn].forEach((button) => {
@@ -835,9 +864,11 @@ async function loadInitialData() {
         if (data.success) {
             state.currentUser = data.user;
             state.isGuest = false;
+            await checkOnboarding();
             updateAuthUI();
             updateUserBadge();
             await loadUserProfile();
+            await checkOnboarding();
             console.log('Restored session for user:', data.user.name);
         } else {
             state.isGuest = true;
@@ -2243,6 +2274,7 @@ async function handleLogin(e) {
             updateAuthUI();
             updateUserBadge();
             closeModal('loginModal');
+            await checkOnboarding();
             showToast('✅', `Chào mừng ${data.user.name}!`);
         } else {
             showToast('❌', data.error || 'Đăng nhập thất bại');
@@ -3014,7 +3046,11 @@ function renderPaymentInstructions(payment) {
             <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
             ${lines.map(line => `<p>${line}</p>`).join('')}
             <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt</strong> để mở gói cho tài khoản của em.</p>
-            <button class="btn btn-primary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Đã thanh toán</button>
+            </div>
+            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
         </div>
     `;
 }
@@ -3053,6 +3089,210 @@ async function selectPlan(planName) {
     } catch (error) {
         console.error('Error creating payment request:', error);
         showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
+    }
+}
+
+function renderPaymentInstructions(payment) {
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const lines = bankInfo.split('\n').filter(Boolean);
+    const note = payment.transfer_note || payment.reference_code;
+    return `
+        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
+            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
+            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
+            ${lines.map((line) => `<p>${line}</p>`).join('')}
+            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
+                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
+            </div>
+            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
+        </div>
+    `;
+}
+
+// Account onboarding should be tied to the logged-in account, not the old local profile file.
+async function checkOnboarding() {
+    try {
+        if (!state.currentUser || state.isGuest || state.currentUser.role === 'admin') {
+            return;
+        }
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+        if (!data.success || !data.user) {
+            return;
+        }
+        state.currentUser = data.user;
+        const user = data.user;
+        const hasRequiredProfile = Boolean(user.name && user.english_level && user.goal);
+        if (!hasRequiredProfile) {
+            state.pendingUserId = user.id;
+            openModal('profileSetupModal');
+        }
+    } catch (error) {
+        console.error('Account onboarding check error:', error);
+    }
+}
+
+function ensureFamilySection() {
+    let section = document.getElementById('familySection');
+    if (!section) {
+        const resetBtn = document.getElementById('resetProfileBtn');
+        if (!resetBtn || !resetBtn.parentElement) return null;
+        section = document.createElement('div');
+        section.id = 'familySection';
+        section.className = 'hidden';
+        section.style.marginTop = '20px';
+        section.innerHTML = `
+            <hr style="margin:20px 0;">
+            <h3 style="color:#2c3e50;margin-bottom:10px;">Gia dinh dung chung</h3>
+            <p id="familySummary" style="color:#666;margin-bottom:10px;"></p>
+            <div id="familyMembersList" style="margin-bottom:12px;"></div>
+            <div class="form-group">
+                <label>Email hoac so dien thoai thanh vien</label>
+                <input type="text" id="familyMemberIdentifier" placeholder="Nhap email hoac so dien thoai">
+            </div>
+            <button type="button" id="addFamilyMemberBtn" class="btn btn-primary btn-full">Moi / them thanh vien</button>
+        `;
+        resetBtn.parentElement.insertBefore(section, resetBtn);
+    }
+    elements.familySection = section;
+    elements.familySummary = document.getElementById('familySummary');
+    elements.familyMembersList = document.getElementById('familyMembersList');
+    elements.familyMemberIdentifier = document.getElementById('familyMemberIdentifier');
+    elements.addFamilyMemberBtn = document.getElementById('addFamilyMemberBtn');
+    if (elements.addFamilyMemberBtn && !elements.addFamilyMemberBtn.dataset.bound) {
+        elements.addFamilyMemberBtn.dataset.bound = '1';
+        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
+    }
+    return section;
+}
+
+function isFamilyPlanName(planName) {
+    return Boolean(planName && (planName === 'family' || String(planName).startsWith('family_')));
+}
+
+async function loadFamilyMembers() {
+    const section = ensureFamilySection();
+    if (!section) return;
+    if (!state.currentUser || !isFamilyPlanName(state.currentUser.plan_name) || state.currentUser.status !== 'active') {
+        section.classList.add('hidden');
+        return;
+    }
+    try {
+        const response = await fetch(`/api/user/family/members?user_id=${state.currentUser.id}`);
+        const data = await response.json();
+        if (!data.success) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+        const members = data.members || [];
+        const limit = data.limit || 5;
+        if (elements.familySummary) {
+            elements.familySummary.textContent = `Dang dung ${members.length + 1}/${limit} tai khoan, tinh ca chu goi.`;
+        }
+        if (elements.familyMembersList) {
+            elements.familyMembersList.innerHTML = members.length ? members.map((member) => `
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:8px;">
+                    <div>
+                        <strong>${member.member_name || 'Thanh vien'}</strong><br>
+                        <span style="color:#666;">${member.member_email || member.member_phone || ''}</span>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="removeFamilyMember(${member.id})">Xoa</button>
+                </div>
+            `).join('') : '<p style="color:#666;">Chua co thanh vien. Nhap email hoac so dien thoai de them.</p>';
+        }
+    } catch (error) {
+        console.error('Load family members error:', error);
+    }
+}
+
+async function addFamilyMember() {
+    ensureFamilySection();
+    const identifier = (elements.familyMemberIdentifier?.value || '').trim();
+    if (!identifier) {
+        showToast('⚠️', 'Nhap email hoac so dien thoai thanh vien');
+        return;
+    }
+    try {
+        const response = await fetch('/api/user/family/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser?.id, identifier })
+        });
+        const data = await response.json();
+        if (data.success) {
+            elements.familyMemberIdentifier.value = '';
+            showToast('✅', 'Da them thanh vien vao goi Family');
+            await loadFamilyMembers();
+        } else {
+            showToast('❌', data.error || 'Khong the them thanh vien');
+        }
+    } catch (error) {
+        console.error('Add family member error:', error);
+        showToast('❌', 'Loi ket noi khi them thanh vien');
+    }
+}
+
+async function removeFamilyMember(familyMemberId) {
+    if (!confirm('Xoa thanh vien nay khoi goi Family?')) return;
+    try {
+        const response = await fetch(`/api/user/family/members/${familyMemberId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (data.success) {
+            showToast('✅', 'Da xoa thanh vien');
+            await loadFamilyMembers();
+        } else {
+            showToast('❌', data.error || 'Khong the xoa thanh vien');
+        }
+    } catch (error) {
+        console.error('Remove family member error:', error);
+        showToast('❌', 'Loi ket noi khi xoa thanh vien');
+    }
+}
+
+function renderPaymentInstructions(payment) {
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const lines = bankInfo.split('\n').filter(Boolean);
+    const note = payment.transfer_note || payment.reference_code;
+    return `
+        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
+            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
+            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
+            ${lines.map((line) => `<p>${line}</p>`).join('')}
+            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
+                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
+            </div>
+            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
+        </div>
+    `;
+}
+
+async function confirmPaymentSent(paymentId) {
+    try {
+        const response = await fetch(`/api/payment/${paymentId}/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser?.id })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const status = document.getElementById('paymentConfirmStatus');
+            if (status) {
+                status.textContent = 'Da bao admin. Admin se kiem tra giao dich va bam Duyet - mo goi trong trang Thanh toan.';
+            }
+            showToast('✅', 'Da bao admin kiem tra thanh toan');
+        } else {
+            showToast('❌', data.error || 'Khong the xac nhan thanh toan');
+        }
+    } catch (error) {
+        console.error('Confirm payment error:', error);
+        showToast('❌', 'Loi ket noi khi xac nhan thanh toan');
     }
 }
 
@@ -3144,7 +3384,11 @@ function renderPaymentInstructions(payment) {
             <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
             ${lines.map((line) => `<p>${line}</p>`).join('')}
             <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt - mở gói</strong> để kích hoạt gói cho em.</p>
-            <button class="btn btn-primary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Đã thanh toán</button>
+            </div>
+            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
         </div>
     `;
 }

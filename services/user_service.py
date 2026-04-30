@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from models import (
     db, User, UserProgress, LearningSession, CommonError, UserActivity,
     Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback,
-    AffiliateProfile, Referral, AffiliateCommission, FamilyMember
+    AffiliateProfile, Referral, AffiliateCommission, FamilyMember, AdminAlert
 )
 import config
 
@@ -633,6 +633,38 @@ class UserService:
         db.session.commit()
 
         return True, {'payment_request': payment_request.to_dict()}
+
+    def confirm_payment_sent(self, payment_id: int, user_id: Optional[int] = None):
+        payment = PaymentRequest.query.get(payment_id)
+        if not payment:
+            return False, {'error': 'Payment request khong ton tai'}
+        if user_id and payment.user_id != int(user_id):
+            return False, {'error': 'Khong co quyen xac nhan thanh toan nay'}
+        if payment.status != 'pending':
+            return False, {'error': 'Payment request da duoc xu ly'}
+
+        now = datetime.utcnow()
+        payment.customer_confirmed_at = now
+        payment.customer_note = 'Customer clicked paid confirmation'
+
+        start_of_day = datetime(now.year, now.month, now.day)
+        existing_alert = AdminAlert.query.filter(
+            AdminAlert.user_id == payment.user_id,
+            AdminAlert.type == 'payment_confirmed',
+            AdminAlert.created_at >= start_of_day
+        ).first()
+        if not existing_alert:
+            db.session.add(AdminAlert(
+                user_id=payment.user_id,
+                type='payment_confirmed',
+                message=(
+                    f'Khach da bao da chuyen khoan {payment.amount:,} VND '
+                    f'cho goi {payment.plan_name}. Noi dung CK: {payment.transfer_note or payment.reference_code}'
+                )
+            ))
+
+        db.session.commit()
+        return True, {'message': 'Da bao admin kiem tra thanh toan', 'payment': payment.to_dict()}
 
     def approve_payment(self, payment_id: int):
         payment = PaymentRequest.query.get(payment_id)

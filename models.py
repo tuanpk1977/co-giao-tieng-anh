@@ -507,6 +507,8 @@ class PaymentRequest(db.Model):
     transfer_note = db.Column(db.String(100))
     bank_info = db.Column(db.Text)
     screenshot = db.Column(db.String(255))
+    customer_confirmed_at = db.Column(db.DateTime)
+    customer_note = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     approved_at = db.Column(db.DateTime)
 
@@ -522,6 +524,8 @@ class PaymentRequest(db.Model):
             'transfer_note': self.transfer_note or self.reference_code,
             'bank_info': self.bank_info,
             'screenshot': self.screenshot,
+            'customer_confirmed_at': self.customer_confirmed_at.isoformat() if self.customer_confirmed_at else None,
+            'customer_note': self.customer_note,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'approved_at': self.approved_at.isoformat() if self.approved_at else None
         }
@@ -870,6 +874,10 @@ def _ensure_sqlite_columns(engine):
             payment_alters.append("ALTER TABLE payment_requests ADD COLUMN bank_info TEXT")
         if 'screenshot' not in payment_columns:
             payment_alters.append("ALTER TABLE payment_requests ADD COLUMN screenshot VARCHAR(255)")
+        if 'customer_confirmed_at' not in payment_columns:
+            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN customer_confirmed_at DATETIME")
+        if 'customer_note' not in payment_columns:
+            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN customer_note VARCHAR(255)")
         if payment_alters:
             with engine.connect() as conn:
                 for statement in payment_alters:

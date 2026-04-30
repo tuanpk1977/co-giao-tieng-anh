@@ -629,6 +629,30 @@ def create_payment_request():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/payment/<int:payment_id>/confirm', methods=['POST'])
+def confirm_payment_sent(payment_id):
+    """Customer confirms they have transferred money for a manual payment."""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_id = session.get('user_id') or data.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "Login required"}), 401
+
+        success, result = get_user_service().confirm_payment_sent(payment_id, int(user_id))
+        if success:
+            return jsonify({
+                "success": True,
+                **result,
+                "admin_contact": {
+                    "email": os.getenv("ADMIN_EMAIL", ""),
+                    "phone": getattr(app_config, "ADMIN_PHONE", "")
+                }
+            })
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/admin/summary', methods=['GET'])
 def admin_summary():
     admin_id, resp, code = require_admin(request)
@@ -2261,10 +2285,10 @@ def user_family_members():
 @app.route('/api/user/family/members', methods=['POST'])
 def user_add_family_member():
     try:
-        user_id = session.get('user_id')
+        data = request.get_json() or {}
+        user_id = session.get('user_id') or data.get('user_id')
         if not user_id:
             return jsonify({"success": False, "error": "Login required"}), 401
-        data = request.get_json() or {}
         identifier = data.get('identifier')
         if not identifier:
             return jsonify({"success": False, "error": "Nhap email hoac so dien thoai thanh vien"}), 400

@@ -422,6 +422,9 @@
                                 <div>${payment.plan_name} - ${payment.amount} ${payment.currency}</div>
                                 <div>Trạng thái: ${payment.status}</div>
                                 <div>Người dùng: ${payment.user_id}</div>
+                                <div style="margin-top:6px;color:${payment.customer_confirmed_at ? '#16a34a' : '#666'};">
+                                    ${payment.customer_confirmed_at ? `Khach da bam "Da thanh toan": ${formatDate(payment.customer_confirmed_at)}` : 'Khach chua bam "Da thanh toan"'}
+                                </div>
                                 <div style="white-space:pre-line;margin-top:8px;">${payment.bank_info || ''}</div>
                                 <div><strong>Nội dung CK:</strong> ${payment.transfer_note || payment.reference_code}</div>
                                 ${payment.status === 'pending' ? `
