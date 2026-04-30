@@ -383,7 +383,28 @@ AFFILIATE_COMMISSION_FIXED_AMOUNT = int(os.getenv("AFFILIATE_COMMISSION_FIXED_AM
 # PART 1 & 3: AI Cost Calculation Configuration
 # ==========================================
 # Exchange rate USD to VND
-USD_TO_VND = float(os.getenv("USD_TO_VND", "25000.0"))
+USD_TO_VND = float(os.getenv("USD_TO_VND", "26000.0"))
+
+AI_COST_CONFIG = {
+    "gpt-4o-mini": {
+        "input_per_1m_usd": float(os.getenv("GPT_4O_MINI_INPUT_PER_1M_USD", "0.15")),
+        "output_per_1m_usd": float(os.getenv("GPT_4O_MINI_OUTPUT_PER_1M_USD", "0.60")),
+    },
+    "gpt-4o": {
+        "input_per_1m_usd": float(os.getenv("GPT_4O_INPUT_PER_1M_USD", "5.0")),
+        "output_per_1m_usd": float(os.getenv("GPT_4O_OUTPUT_PER_1M_USD", "15.0")),
+    },
+    "gpt-3.5-turbo": {
+        "input_per_1m_usd": float(os.getenv("GPT_35_INPUT_PER_1M_USD", "0.50")),
+        "output_per_1m_usd": float(os.getenv("GPT_35_OUTPUT_PER_1M_USD", "1.50")),
+    },
+}
+
+TRIAL_COST_LIMIT_VND = float(os.getenv("TRIAL_COST_LIMIT_VND", "3000"))
+TRIAL_HARD_LIMIT_VND = float(os.getenv("TRIAL_HARD_LIMIT_VND", "5000"))
+USER_WARNING_COST_RATIO = float(os.getenv("USER_WARNING_COST_RATIO", "0.30"))
+USER_DANGER_COST_RATIO = float(os.getenv("USER_DANGER_COST_RATIO", "0.60"))
+USER_LOSS_COST_RATIO = float(os.getenv("USER_LOSS_COST_RATIO", "1.0"))
 
 # PART 1: Cost per token (in USD) for different models
 # Updated with current OpenAI pricing (as of 2024)

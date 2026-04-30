@@ -56,6 +56,9 @@ class User(db.Model):
     reminder_hour = db.Column(db.String(5), default='20:00')
     reminder_message = db.Column(db.String(255), default='Hôm nay em học 5 phút với Ms. Smile nhé 😊')
     is_locked = db.Column(db.Boolean, default=False)
+    max_tokens_per_day_override = db.Column(db.Integer, nullable=True)
+    max_tokens_per_month_override = db.Column(db.Integer, nullable=True)
+    max_cost_per_day_vnd_override = db.Column(db.Float, nullable=True)
 
     # Relationships
     progress = db.relationship('UserProgress', backref='user', lazy=True, uselist=False)
@@ -105,6 +108,9 @@ class User(db.Model):
             'reminder_hour': self.reminder_hour,
             'reminder_message': self.reminder_message,
             'is_locked': self.is_locked,
+            'max_tokens_per_day_override': self.max_tokens_per_day_override,
+            'max_tokens_per_month_override': self.max_tokens_per_month_override,
+            'max_cost_per_day_vnd_override': self.max_cost_per_day_vnd_override,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None
@@ -730,6 +736,12 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN reminder_message VARCHAR(255) DEFAULT 'Hôm nay em học 5 phút với Ms. Smile nhé 😊'")
     if 'is_locked' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT 0")
+    if 'max_tokens_per_day_override' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN max_tokens_per_day_override INTEGER")
+    if 'max_tokens_per_month_override' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN max_tokens_per_month_override INTEGER")
+    if 'max_cost_per_day_vnd_override' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN max_cost_per_day_vnd_override FLOAT")
     
     # New columns for fixed account model (BenNha style)
     if 'user_code' not in existing_columns:

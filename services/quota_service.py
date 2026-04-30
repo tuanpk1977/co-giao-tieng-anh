@@ -103,11 +103,17 @@ class QuotaService:
             plan_def = config.get_plan_by_name(plan_name)
             if not plan_def:
                 plan_def = config.get_plan_by_name("free_trial")
+
+            current_user = User.query.get(user_id) if user_id else None
             
             chat_per_day = plan_def.get("chat_per_day", 10)
             max_tokens_per_day = int(plan_def.get("max_tokens_per_day", 0) or 0)
             max_tokens_per_month = int(plan_def.get("max_tokens_per_month", 0) or 0)
             max_cost_per_day_vnd = plan_def.get("max_cost_per_day_vnd", 0.0)
+            if current_user:
+                max_tokens_per_day = int(current_user.max_tokens_per_day_override or max_tokens_per_day)
+                max_tokens_per_month = int(current_user.max_tokens_per_month_override or max_tokens_per_month)
+                max_cost_per_day_vnd = float(current_user.max_cost_per_day_vnd_override or max_cost_per_day_vnd)
             
             # Count today's usage
             today = datetime.utcnow().date()

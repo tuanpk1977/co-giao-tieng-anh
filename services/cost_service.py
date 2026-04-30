@@ -178,6 +178,23 @@ class CostService:
         return record
 
     @staticmethod
+    def _latest_month_records(month_key: str = None):
+        month_key = month_key or CostService._month_key()
+        for user in User.query.filter(User.role != 'admin').all():
+            CostService._upsert_user_usage_cost(user.id, datetime.utcnow().date())
+        db.session.commit()
+
+        rows = db.session.query(
+            UserUsageCost.user_id,
+            func.max(UserUsageCost.date).label('max_date')
+        ).filter_by(month=month_key).group_by(UserUsageCost.user_id).subquery()
+
+        return UserUsageCost.query.join(
+            rows,
+            (UserUsageCost.user_id == rows.c.user_id) & (UserUsageCost.date == rows.c.max_date)
+        ).filter(UserUsageCost.month == month_key)
+
+    @staticmethod
     def get_user_current_cost(user_id: int):
         day = datetime.utcnow().date()
         record = CostService._upsert_user_usage_cost(user_id, day)
@@ -402,7 +419,7 @@ class CostService:
     @staticmethod
     def get_cost_summary(month_key: str = None):
         month_key = month_key or CostService._month_key()
-        records = UserUsageCost.query.filter_by(month=month_key).all()
+        records = CostService._latest_month_records(month_key).all()
         total_revenue = sum(r.revenue_vnd or 0 for r in records)
         total_cost = sum(r.estimated_ai_cost_vnd or 0 for r in records)
         return {
@@ -418,10 +435,7 @@ class CostService:
     @staticmethod
     def get_cost_users(risk_filter: str = None, month_key: str = None):
         month_key = month_key or CostService._month_key()
-        for user in User.query.filter(User.role != 'admin').all():
-            CostService._upsert_user_usage_cost(user.id, datetime.utcnow().date())
-        db.session.commit()
-        query = UserUsageCost.query.filter_by(month=month_key)
+        query = CostService._latest_month_records(month_key)
         if risk_filter and risk_filter not in ['all', 'profit']:
             query = query.filter_by(risk_level=risk_filter)
         records = query.order_by(UserUsageCost.risk_level.desc(), UserUsageCost.estimated_ai_cost_vnd.desc()).all()

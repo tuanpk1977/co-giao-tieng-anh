@@ -1537,7 +1537,36 @@ def admin_cost_user_limit(user_id):
     admin_id, resp, code = require_admin(request)
     if resp:
         return resp, code
-    return jsonify({"success": True, "message": "Per-user limit override uses plan quota in MVP"})
+    try:
+        data = request.get_json(silent=True) or {}
+        from models import User
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+
+        def optional_int(key):
+            value = data.get(key)
+            if value in (None, ''):
+                return None
+            return max(0, int(value))
+
+        def optional_float(key):
+            value = data.get(key)
+            if value in (None, ''):
+                return None
+            return max(0.0, float(value))
+
+        if 'max_tokens_per_day' in data:
+            user.max_tokens_per_day_override = optional_int('max_tokens_per_day')
+        if 'max_tokens_per_month' in data:
+            user.max_tokens_per_month_override = optional_int('max_tokens_per_month')
+        if 'max_cost_per_day_vnd' in data:
+            user.max_cost_per_day_vnd_override = optional_float('max_cost_per_day_vnd')
+        db.session.commit()
+        return jsonify({"success": True, "user": user.to_dict(), "message": "Limit override saved"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/admin/alerts', methods=['GET'])
