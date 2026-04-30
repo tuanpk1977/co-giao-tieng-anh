@@ -153,16 +153,22 @@ class Plan(db.Model):
     can_save_history = db.Column(db.Boolean, default=True)
     enabled = db.Column(db.Boolean, default=True)
     description = db.Column(db.String(255), default='')
-    duration_days = db.Column(db.Integer, default=30)
-    discount_percent = db.Column(db.Float, default=0.0)
     
     # PART 2: Quota limits for cost control
     chat_per_day = db.Column(db.Integer, default=10)
     chat_per_month = db.Column(db.Integer, default=300)
     max_tokens_per_chat = db.Column(db.Integer, default=2000)
+    max_tokens_per_day = db.Column(db.Integer, default=20000)
+    max_tokens_per_month = db.Column(db.Integer, default=600000)
     max_cost_per_day_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
     max_cost_per_month_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
     family_member_limit = db.Column(db.Integer, default=1)
+    
+    # NEW: Long-term subscription support
+    duration_days = db.Column(db.Integer, default=30)  # 30 for monthly, 180 for 6 months, 365 for yearly
+    plan_type = db.Column(db.String(20), default='monthly')  # monthly, six_months, yearly
+    discount_percent = db.Column(db.Float, default=0.0)  # discount percentage (0.15 for 15% off, etc.)
+    original_price = db.Column(db.Integer, default=0)  # original monthly price for calculating discounts
 
     def to_dict(self):
         return {
@@ -177,14 +183,18 @@ class Plan(db.Model):
             'can_save_history': self.can_save_history,
             'enabled': self.enabled,
             'description': self.description,
-            'duration_days': self.duration_days,
-            'discount_percent': self.discount_percent,
             'chat_per_day': self.chat_per_day,
             'chat_per_month': self.chat_per_month,
             'max_tokens_per_chat': self.max_tokens_per_chat,
+            'max_tokens_per_day': self.max_tokens_per_day,
+            'max_tokens_per_month': self.max_tokens_per_month,
             'max_cost_per_day_vnd': self.max_cost_per_day_vnd,
             'max_cost_per_month_vnd': self.max_cost_per_month_vnd,
-            'family_member_limit': self.family_member_limit
+            'family_member_limit': self.family_member_limit,
+            'duration_days': self.duration_days,
+            'plan_type': self.plan_type,
+            'discount_percent': self.discount_percent,
+            'original_price': self.original_price
         }
 
 
@@ -698,7 +708,6 @@ def _ensure_sqlite_columns(engine):
 
     # Check users table
     existing_columns = {col['name'] for col in inspector.get_columns('users')}
-    existing_column_types = {col['name']: str(col['type']).upper() for col in inspector.get_columns('users')}
     alter_statements = []
 
     if 'role' not in existing_columns:
@@ -739,17 +748,6 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN subscription_end DATETIME")
     if 'updated_at' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN updated_at DATETIME")
-
-    if 'referred_by' in existing_columns and not any(t in existing_column_types.get('referred_by', '') for t in ('CHAR', 'TEXT', 'VARCHAR')):
-        with engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE users RENAME COLUMN referred_by TO referred_by_old"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN referred_by VARCHAR(50)"))
-                conn.commit()
-                existing_columns.discard('referred_by')
-                existing_columns.add('referred_by')
-            except Exception as e:
-                print(f"[DB] Failed to migrate users.referred_by to text: {e}")
     
     if alter_statements:
         with engine.connect() as conn:
@@ -781,22 +779,33 @@ def _ensure_sqlite_columns(engine):
             plan_alters.append("ALTER TABLE plans ADD COLUMN chat_per_month INTEGER DEFAULT 300")
         if 'max_tokens_per_chat' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_chat INTEGER DEFAULT 2000")
+        if 'max_tokens_per_day' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_day INTEGER DEFAULT 20000")
+        if 'max_tokens_per_month' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_month INTEGER DEFAULT 600000")
         if 'max_cost_per_day_vnd' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_day_vnd FLOAT DEFAULT 0.0")
         if 'max_cost_per_month_vnd' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_month_vnd FLOAT DEFAULT 0.0")
         if 'family_member_limit' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN family_member_limit INTEGER DEFAULT 1")
+        
+        # NEW: Long-term subscription columns
         if 'duration_days' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN duration_days INTEGER DEFAULT 30")
+        if 'plan_type' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN plan_type VARCHAR(20) DEFAULT 'monthly'")
         if 'discount_percent' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN discount_percent FLOAT DEFAULT 0.0")
+        if 'original_price' not in plan_columns:
+            plan_alters.append("ALTER TABLE plans ADD COLUMN original_price INTEGER DEFAULT 0")
         
         if plan_alters:
             with engine.connect() as conn:
                 for statement in plan_alters:
                     try:
                         conn.execute(text(statement))
+                        conn.commit()
                     except Exception as e:
                         print(f"[DB] Failed to alter plans table: {e}")
 
@@ -876,47 +885,6 @@ def _ensure_sqlite_columns(engine):
                         print(f"[DB] Failed to alter affiliate_profiles table: {e}")
                 conn.commit()
 
-    if inspector.has_table('user_usage_costs'):
-        cost_columns = {col['name'] for col in inspector.get_columns('user_usage_costs')}
-        expected = {
-            'month': "ALTER TABLE user_usage_costs ADD COLUMN month VARCHAR(7)",
-            'lesson_count': "ALTER TABLE user_usage_costs ADD COLUMN lesson_count INTEGER DEFAULT 0",
-            'speaking_count': "ALTER TABLE user_usage_costs ADD COLUMN speaking_count INTEGER DEFAULT 0",
-            'input_tokens': "ALTER TABLE user_usage_costs ADD COLUMN input_tokens INTEGER DEFAULT 0",
-            'output_tokens': "ALTER TABLE user_usage_costs ADD COLUMN output_tokens INTEGER DEFAULT 0",
-            'total_tokens': "ALTER TABLE user_usage_costs ADD COLUMN total_tokens INTEGER DEFAULT 0",
-            'estimated_ai_cost_usd': "ALTER TABLE user_usage_costs ADD COLUMN estimated_ai_cost_usd FLOAT DEFAULT 0.0",
-            'estimated_ai_cost_vnd': "ALTER TABLE user_usage_costs ADD COLUMN estimated_ai_cost_vnd FLOAT DEFAULT 0.0",
-            'revenue_vnd': "ALTER TABLE user_usage_costs ADD COLUMN revenue_vnd FLOAT DEFAULT 0.0",
-            'gross_profit_vnd': "ALTER TABLE user_usage_costs ADD COLUMN gross_profit_vnd FLOAT DEFAULT 0.0",
-            'profit_margin_percent': "ALTER TABLE user_usage_costs ADD COLUMN profit_margin_percent FLOAT DEFAULT 0.0",
-            'risk_level': "ALTER TABLE user_usage_costs ADD COLUMN risk_level VARCHAR(20) DEFAULT 'safe'",
-            'updated_at': "ALTER TABLE user_usage_costs ADD COLUMN updated_at DATETIME"
-        }
-        usage_cost_alters = [stmt for name, stmt in expected.items() if name not in cost_columns]
-        if usage_cost_alters:
-            with engine.connect() as conn:
-                for statement in usage_cost_alters:
-                    try:
-                        conn.execute(text(statement))
-                    except Exception as e:
-                        print(f"[DB] Failed to alter user_usage_costs table: {e}")
-                conn.commit()
-
-    if inspector.has_table('admin_alerts'):
-        alert_columns = {col['name'] for col in inspector.get_columns('admin_alerts')}
-        alert_alters = []
-        if 'is_read' not in alert_columns:
-            alert_alters.append("ALTER TABLE admin_alerts ADD COLUMN is_read BOOLEAN DEFAULT 0")
-        if alert_alters:
-            with engine.connect() as conn:
-                for statement in alert_alters:
-                    try:
-                        conn.execute(text(statement))
-                    except Exception as e:
-                        print(f"[DB] Failed to alter admin_alerts table: {e}")
-                conn.commit()
-
 
 def seed_default_plans():
     try:
@@ -935,14 +903,19 @@ def seed_default_plans():
                     can_save_history=plan['can_save_history'],
                     enabled=plan['enabled'],
                     description=plan.get('description', ''),
-                    duration_days=plan.get('duration_days', 30),
-                    discount_percent=plan.get('discount_percent', 0.0),
                     chat_per_day=plan.get('chat_per_day', plan['chat_limit']),
                     chat_per_month=plan.get('chat_per_month', plan['chat_limit'] * 30),
                     max_tokens_per_chat=plan.get('max_tokens_per_chat', 2000),
+                    max_tokens_per_day=plan.get('max_tokens_per_day', 20000),
+                    max_tokens_per_month=plan.get('max_tokens_per_month', 600000),
                     max_cost_per_day_vnd=plan.get('max_cost_per_day_vnd', 0.0),
                     max_cost_per_month_vnd=plan.get('max_cost_per_month_vnd', 0.0),
-                    family_member_limit=plan.get('family_member_limit', 1)
+                    family_member_limit=plan.get('family_member_limit', 1),
+                    # NEW: Long-term subscription fields
+                    duration_days=plan.get('duration_days', 30),
+                    plan_type=plan.get('plan_type', 'monthly'),
+                    discount_percent=plan.get('discount_percent', 0.0),
+                    original_price=plan.get('original_price', plan['price'])
                 )
                 db.session.add(new_plan)
             else:
@@ -955,14 +928,19 @@ def seed_default_plans():
                 existing.can_save_history = plan.get('can_save_history', existing.can_save_history)
                 existing.enabled = plan.get('enabled', existing.enabled)
                 existing.description = plan.get('description', existing.description)
-                existing.duration_days = plan.get('duration_days', existing.duration_days or 30)
-                existing.discount_percent = plan.get('discount_percent', existing.discount_percent or 0.0)
                 existing.chat_per_day = plan.get('chat_per_day', existing.chat_per_day)
                 existing.chat_per_month = plan.get('chat_per_month', existing.chat_per_month)
                 existing.max_tokens_per_chat = plan.get('max_tokens_per_chat', existing.max_tokens_per_chat)
+                existing.max_tokens_per_day = plan.get('max_tokens_per_day', existing.max_tokens_per_day)
+                existing.max_tokens_per_month = plan.get('max_tokens_per_month', existing.max_tokens_per_month)
                 existing.max_cost_per_day_vnd = plan.get('max_cost_per_day_vnd', existing.max_cost_per_day_vnd)
                 existing.max_cost_per_month_vnd = plan.get('max_cost_per_month_vnd', existing.max_cost_per_month_vnd)
                 existing.family_member_limit = plan.get('family_member_limit', existing.family_member_limit)
+                # NEW: Update long-term subscription fields
+                existing.duration_days = plan.get('duration_days', existing.duration_days)
+                existing.plan_type = plan.get('plan_type', existing.plan_type)
+                existing.discount_percent = plan.get('discount_percent', existing.discount_percent)
+                existing.original_price = plan.get('original_price', existing.original_price)
         db.session.commit()
     except Exception as e:
         print(f"[DB] Seed default plans failed: {e}")

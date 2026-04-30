@@ -2216,7 +2216,7 @@ def user_family_members():
         user = user_service.get_user(user_id)
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
-        if user.plan_name != 'family' or user.status != 'active':
+        if not (user.plan_name == 'family' or str(user.plan_name or '').startswith('family_')) or user.status != 'active':
             return jsonify({
                 "success": False,
                 "error": "Chi chu goi Family dang active moi quan ly thanh vien"
@@ -2243,7 +2243,7 @@ def user_add_family_member():
         owner = user_service.get_user(user_id)
         if not owner:
             return jsonify({"success": False, "error": "User not found"}), 404
-        if owner.plan_name != 'family' or owner.status != 'active':
+        if not (owner.plan_name == 'family' or str(owner.plan_name or '').startswith('family_')) or owner.status != 'active':
             return jsonify({
                 "success": False,
                 "error": "Chi chu goi Family dang active moi them thanh vien"

@@ -9,8 +9,8 @@ from typing import Dict, Optional, Tuple, List
 from sqlalchemy import or_
 from models import (
     db, User, UserProgress, LearningSession, CommonError, UserActivity,
-    Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback, FamilyMember,
-    AffiliateProfile, Referral, AffiliateCommission
+    Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback,
+    AffiliateProfile, Referral, AffiliateCommission, FamilyMember
 )
 import config
 
@@ -33,12 +33,17 @@ class UserService:
         if not user:
             return None
         
-        return self._normalize_phone(user.phone) if user.phone else None
-
-    def _normalize_phone(self, phone: str = None) -> str:
-        if not phone:
-            return None
-        return ''.join(ch for ch in str(phone).strip() if ch.isdigit() or ch == '+')
+        # Use phone if available, otherwise email
+        base_code = user.phone or user.email.split('@')[0]
+        code = base_code[:20]
+        
+        # Make unique
+        counter = 1
+        while User.query.filter_by(referral_code=code).first():
+            code = f"{base_code[:15]}{counter}"
+            counter += 1
+        
+        return code
     
     def register_user(self, email: str = None, phone: str = None, 
                       password: str = None, name: str = None,
@@ -47,9 +52,7 @@ class UserService:
         """Register new user with fixed user_code"""
         referred_by = referred_by or referral_code or referred_by_code
         email = email.strip().lower() if email else None
-        phone = self._normalize_phone(phone)
-        referred_by = self._normalize_phone(referred_by) if referred_by else None
-        referral_warning = None
+        phone = phone.strip() if phone else None
         if not email and not phone:
             return False, {'error': 'Cần email hoặc số điện thoại'}
 
@@ -76,23 +79,13 @@ class UserService:
                     'is_existing': True
                 }
         
-        valid_referrer = None
-        if referred_by:
-            valid_referrer = User.query.filter(
-                User.referral_code == referred_by,
-                User.role == 'agent'
-            ).first()
-            if not valid_referrer:
-                referral_warning = 'Mã giới thiệu không hợp lệ'
-                referred_by = None
-
         # Create new user with unique user_code
         user = User(
             email=email,
             phone=phone,
             name=name or 'User',
             user_code=self._generate_user_code(),  # Fixed identifier
-            referred_by=referred_by,
+            referred_by=referred_by,  # Track who referred this user
             role='user',
             status='trial',
             plan_name='free_trial',
@@ -119,8 +112,8 @@ class UserService:
 
         # If referred by someone, track the referral
         if referred_by:
-            agent = valid_referrer or User.query.filter_by(referral_code=referred_by).first()
-            if agent and agent.id != user.id:
+            agent = User.query.filter_by(referral_code=referred_by).first()
+            if agent:
                 referral = Referral(
                     referrer_user_id=agent.id,
                     referred_user_id=user.id,
@@ -135,7 +128,6 @@ class UserService:
         return True, {
             'user': user.to_dict(), 
             'message': 'Đăng ký thành công',
-            'referral_warning': referral_warning,
             'is_existing': False
         }
     
@@ -146,7 +138,7 @@ class UserService:
             password = phone
             phone = None
         email = email.strip().lower() if email else None
-        phone = self._normalize_phone(phone)
+        phone = phone.strip() if phone else None
         if email:
             user = User.query.filter_by(email=email).first()
         elif phone:
@@ -198,8 +190,6 @@ class UserService:
         if not user:
             return False, {'error': 'User không tồn tại'}
         
-        if profile_data.get('name'):
-            user.name = profile_data.get('name')
         user.age = profile_data.get('age')
         user.job = profile_data.get('job')
         user.meet_foreigners = profile_data.get('meet_foreigners', False)
@@ -221,22 +211,34 @@ class UserService:
     def get_plan(self, plan_name: str):
         if not plan_name:
             return None
-        return Plan.query.filter_by(name=plan_name, enabled=True).first()
+        plan = Plan.query.filter_by(name=plan_name, enabled=True).first()
+        if plan:
+            return plan
+        legacy_aliases = {
+            'basic': 'basic_monthly',
+            'pro': 'pro_monthly',
+            'family': 'family_monthly',
+            'monthly': 'basic_monthly'
+        }
+        alias = legacy_aliases.get(plan_name)
+        if alias:
+            return Plan.query.filter_by(name=alias, enabled=True).first()
+        return None
+
+    def _is_family_plan(self, plan_name: str) -> bool:
+        return bool(plan_name and (plan_name == 'family' or plan_name.startswith('family_')))
 
     def find_user_by_identifier(self, identifier: str):
+        identifier = (identifier or '').strip()
         if not identifier:
             return None
-        value = identifier.strip()
-        if '@' in value:
-            return User.query.filter_by(email=value.lower()).first()
-        return User.query.filter_by(phone=value).first()
-
-    def get_all_users(self):
-        return User.query.order_by(User.created_at.desc()).all()
+        return User.query.filter(
+            or_(User.email == identifier.lower(), User.phone == identifier, User.user_code == identifier)
+        ).first()
 
     def _family_member_limit(self, owner: User) -> int:
-        plan = self.get_plan(owner.plan_name)
-        return plan.family_member_limit if plan and plan.family_member_limit else 1
+        plan = self.get_plan(owner.plan_name) if owner else None
+        return int(getattr(plan, 'family_member_limit', None) or 5)
 
     def get_family_members(self, owner_user_id: int):
         owner = self.get_user(owner_user_id)
@@ -255,7 +257,7 @@ class UserService:
         member = self.get_user(member_user_id)
         if not owner or not member:
             return False, {'error': 'Owner hoac member khong ton tai'}
-        if owner.plan_name != 'family' or owner.status != 'active':
+        if not self._is_family_plan(owner.plan_name) or owner.status != 'active':
             return False, {'error': 'Owner can co goi family dang active'}
         if owner.id == member.id:
             return False, {'error': 'Khong the them chinh owner lam member'}
@@ -292,9 +294,12 @@ class UserService:
         membership = FamilyMember.query.filter_by(member_user_id=user_id, status='active').first()
         if membership:
             owner = self.get_user(membership.owner_user_id)
-            if owner and owner.plan_name == 'family' and owner.status == 'active':
+            if owner and self._is_family_plan(owner.plan_name) and owner.status == 'active':
                 return owner
         return user
+
+    def get_all_users(self):
+        return User.query.order_by(User.created_at.desc()).all()
 
     def search_users(self, query: str = None):
         if not query:
@@ -397,8 +402,18 @@ class UserService:
             can_save_history=plan_data.get('can_save_history', True),
             enabled=plan_data.get('enabled', True),
             description=plan_data.get('description', ''),
+            chat_per_day=plan_data.get('chat_per_day', plan_data.get('chat_limit', 10)),
+            chat_per_month=plan_data.get('chat_per_month', plan_data.get('chat_limit', 10) * 30),
+            max_tokens_per_chat=plan_data.get('max_tokens_per_chat', 2000),
+            max_tokens_per_day=plan_data.get('max_tokens_per_day', 20000),
+            max_tokens_per_month=plan_data.get('max_tokens_per_month', 600000),
+            max_cost_per_day_vnd=plan_data.get('max_cost_per_day_vnd', 0.0),
+            max_cost_per_month_vnd=plan_data.get('max_cost_per_month_vnd', 0.0),
+            family_member_limit=plan_data.get('family_member_limit', 1),
             duration_days=plan_data.get('duration_days', 30),
-            discount_percent=plan_data.get('discount_percent', 0.0)
+            plan_type=plan_data.get('plan_type', 'monthly'),
+            discount_percent=plan_data.get('discount_percent', 0.0),
+            original_price=plan_data.get('original_price', plan_data.get('price', 0))
         )
         db.session.add(plan)
         db.session.commit()
@@ -417,8 +432,18 @@ class UserService:
         plan.can_save_history = plan_data.get('can_save_history', plan.can_save_history)
         plan.enabled = plan_data.get('enabled', plan.enabled)
         plan.description = plan_data.get('description', plan.description)
+        plan.chat_per_day = plan_data.get('chat_per_day', plan.chat_per_day)
+        plan.chat_per_month = plan_data.get('chat_per_month', plan.chat_per_month)
+        plan.max_tokens_per_chat = plan_data.get('max_tokens_per_chat', plan.max_tokens_per_chat)
+        plan.max_tokens_per_day = plan_data.get('max_tokens_per_day', plan.max_tokens_per_day)
+        plan.max_tokens_per_month = plan_data.get('max_tokens_per_month', plan.max_tokens_per_month)
+        plan.max_cost_per_day_vnd = plan_data.get('max_cost_per_day_vnd', plan.max_cost_per_day_vnd)
+        plan.max_cost_per_month_vnd = plan_data.get('max_cost_per_month_vnd', plan.max_cost_per_month_vnd)
+        plan.family_member_limit = plan_data.get('family_member_limit', plan.family_member_limit)
         plan.duration_days = plan_data.get('duration_days', plan.duration_days)
+        plan.plan_type = plan_data.get('plan_type', plan.plan_type)
         plan.discount_percent = plan_data.get('discount_percent', plan.discount_percent)
+        plan.original_price = plan_data.get('original_price', plan.original_price)
         db.session.commit()
         return True, {'plan': plan.to_dict()}
 
@@ -436,17 +461,9 @@ class UserService:
     def get_or_create_affiliate_profile(self, user_id: int, commission_rate: float = None):
         profile = AffiliateProfile.query.filter_by(user_id=user_id).first()
         if profile:
-            user = self.get_user(user_id)
-            if user and user.phone:
-                code = self._normalize_phone(user.phone)
-                profile.affiliate_code = code
-                profile.referral_link = config.APP_BASE_URL
-                user.referral_code = code
-                db.session.commit()
             return profile
-        user = self.get_user(user_id)
-        code = self._normalize_phone(user.phone) if user and user.phone else secrets.token_hex(4).upper()
-        referral_link = config.APP_BASE_URL
+        code = secrets.token_hex(4).upper()
+        referral_link = f"{config.AFFILIATE_REFERRAL_LINK_BASE}/?ref={code}"
         profile = AffiliateProfile(
             user_id=user_id,
             affiliate_code=code,
@@ -462,17 +479,12 @@ class UserService:
         return profile
 
     def get_affiliate_profile_by_code(self, code: str):
-        code = self._normalize_phone(code) if code else None
-        if not code:
-            return None
         return AffiliateProfile.query.filter_by(affiliate_code=code).first()
 
     def create_referral(self, referral_code: str, referred_user_id: int):
         if not referral_code or not referred_user_id:
             return None
-        referral_code = self._normalize_phone(referral_code)
-        referrer = User.query.filter_by(referral_code=referral_code, role='agent').first()
-        profile = AffiliateProfile.query.filter_by(user_id=referrer.id).first() if referrer else None
+        profile = self.get_affiliate_profile_by_code(referral_code)
         if not profile or profile.user_id == referred_user_id:
             return None
         existing = Referral.query.filter_by(referred_user_id=referred_user_id).first()
@@ -529,13 +541,7 @@ class UserService:
         return True, {'commission': commission.to_dict()}
 
     def get_user_affiliate(self, user_id: int):
-        user = self.get_user(user_id)
-        if user and user.role == 'agent' and user.phone and not user.referral_code:
-            user.referral_code = self._normalize_phone(user.phone)
-            db.session.commit()
         profile = AffiliateProfile.query.filter_by(user_id=user_id).first()
-        if user and user.role == 'agent' and not profile:
-            profile = self.get_or_create_affiliate_profile(user_id)
         referrals = Referral.query.filter_by(referrer_user_id=user_id).order_by(Referral.created_at.desc()).all()
         commissions = AffiliateCommission.query.filter_by(affiliate_user_id=user_id).order_by(AffiliateCommission.created_at.desc()).all()
         return {
@@ -635,8 +641,9 @@ class UserService:
         if not user or not plan:
             return False, {'error': 'User hoặc plan không hợp lệ'}
 
+        now = datetime.utcnow()
         payment.status = 'approved'
-        payment.approved_at = datetime.utcnow()
+        payment.approved_at = now
         db.session.commit()
 
         history = PaymentHistory(
@@ -650,9 +657,9 @@ class UserService:
 
         user.plan_name = plan.name
         user.status = 'active'
-        user.plan_start = datetime.utcnow()
+        user.plan_start = now
         duration_days = int(getattr(plan, 'duration_days', None) or 30)
-        user.plan_end = user.plan_start + timedelta(days=duration_days)
+        user.plan_end = now + timedelta(days=duration_days)
         user.subscription_start = user.plan_start
         user.subscription_end = user.plan_end
         user.trial_end = None
@@ -873,38 +880,35 @@ class UserService:
         if user.role == 'admin':
             return False, {'error': 'Admin không thể là đại lý'}
         
-        code = self._normalize_phone(user.phone)
-        if not code:
-            return False, {'error': 'User cần có số điện thoại để cấp quyền đại lý'}
-        existing = User.query.filter(User.referral_code == code, User.id != user.id).first()
-        if existing:
-            return False, {'error': 'Số điện thoại này đã được dùng làm mã đại lý'}
-        existing_profile = AffiliateProfile.query.filter(AffiliateProfile.affiliate_code == code, AffiliateProfile.user_id != user.id).first()
-        if existing_profile:
-            return False, {'error': 'Số điện thoại này đã được dùng làm mã đại lý'}
-        user.phone = code
-        user.referral_code = code
+        if not user.phone:
+            return False, {'error': 'User can co so dien thoai de lam ma dai ly'}
+
+        taken = User.query.filter(User.referral_code == user.phone, User.id != user.id).first()
+        if taken:
+            return False, {'error': 'So dien thoai nay dang duoc dung lam ma gioi thieu'}
+
+        user.referral_code = user.phone
         
         user.role = 'agent'
-        user.agent_status = 'approved'
+        user.agent_status = 'pending'
         db.session.commit()
         profile = AffiliateProfile.query.filter_by(user_id=user.id).first()
         if not profile:
             profile = AffiliateProfile(
                 user_id=user.id,
                 affiliate_code=user.referral_code,
-                referral_link=config.APP_BASE_URL,
+                referral_link=config.AFFILIATE_REFERRAL_LINK_BASE,
                 commission_rate=config.AFFILIATE_COMMISSION_RATE,
                 commission_type=getattr(config, 'AFFILIATE_COMMISSION_TYPE', 'percent'),
                 commission_percent=config.AFFILIATE_COMMISSION_RATE,
                 commission_fixed_amount=getattr(config, 'AFFILIATE_COMMISSION_FIXED_AMOUNT', 0),
-                status='approved'
+                status='pending'
             )
             db.session.add(profile)
         else:
             profile.affiliate_code = user.referral_code
-            profile.referral_link = config.APP_BASE_URL
-            profile.status = 'approved'
+            profile.referral_link = config.AFFILIATE_REFERRAL_LINK_BASE
+            profile.status = 'pending'
         db.session.commit()
         
         return True, {

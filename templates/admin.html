@@ -44,10 +44,6 @@
         .profit-loss { font-size: 18px; font-weight: 700; margin: 10px 0; }
         .profit { color: #28a745; }
         .loss { color: #dc3545; }
-        .risk-safe { background:#d4edda; color:#155724; }
-        .risk-warning { background:#fff3cd; color:#856404; }
-        .risk-danger { background:#ffe0b2; color:#8a4b00; }
-        .risk-loss { background:#f8d7da; color:#721c24; }
     </style>
 </head>
 <body>
@@ -68,7 +64,6 @@
         <div class="admin-tab" data-tab="users">Người dùng</div>
         <div class="admin-tab" data-tab="payments">Thanh toán</div>
         <div class="admin-tab" data-tab="costs">Chi phí AI</div>
-        <div class="admin-tab" data-tab="profitUsers">Lời/Lỗ User <span id="alertsBadge"></span></div>
         <div class="admin-tab" data-tab="feedback">Phản hồi</div>
         <div class="admin-tab" data-tab="affiliate">Affiliate</div>
         <div class="admin-tab" data-tab="plans">Gói dịch vụ</div>
@@ -140,42 +135,6 @@
         </div>
     </div>
 
-    <div id="profitUsers" class="tab-content">
-        <div class="admin-grid">
-            <div class="admin-card">
-                <div class="admin-section-title"><i class="fas fa-chart-pie"></i><h2>Tổng quan lời/lỗ</h2></div>
-                <div id="costProfitSummary"></div>
-            </div>
-            <div class="admin-card">
-                <div class="admin-section-title"><i class="fas fa-bell"></i><h2>Cảnh báo</h2></div>
-                <div id="adminAlerts"></div>
-            </div>
-        </div>
-        <div class="admin-card">
-            <div class="admin-section-title"><i class="fas fa-user-shield"></i><h2>Lời/Lỗ User</h2></div>
-            <div class="admin-input-group">
-                <select id="costRiskFilter" onchange="loadCostProfitUsers()">
-                    <option value="all">Tất cả</option>
-                    <option value="profit">Đang lời</option>
-                    <option value="warning">Warning</option>
-                    <option value="danger">Danger</option>
-                    <option value="loss">Đang lỗ</option>
-                </select>
-            </div>
-            <div class="table-responsive">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>User</th><th>Email/SĐT</th><th>Plan</th><th>Revenue tháng</th>
-                            <th>AI cost</th><th>Gross profit</th><th>Margin</th><th>Chat</th><th>Tokens</th><th>Risk</th><th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="costUsersTableBody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <!-- Feedback Tab -->
     <div id="feedback" class="tab-content">
         <div class="admin-card">
@@ -205,15 +164,11 @@
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-users"></i><h2>Thống kê Affiliate</h2></div>
             <div id="affiliateStats"></div>
-            <div style="display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap;">
-                <input id="grantAgentUserId" type="number" placeholder="Nhap User ID de cap dai ly" style="max-width:260px;">
-                <button class="btn btn-success" onclick="grantAgentByInput()">Cap dai ly</button>
-            </div>
         </div>
         <div class="admin-card">
             <div class="admin-section-title"><i class="fas fa-id-card"></i><h2>Danh sach dai ly va ma gioi thieu</h2></div>
             <p style="margin: 0 0 14px; color: #555;">
-                Admin cap quyen dai ly cho user co so dien thoai, sau do copy <strong>Ma dai ly = so dien thoai</strong> dua cho ho.
+                Admin cap quyen dai ly cho user, sau do copy <strong>Ma dai ly</strong> dua cho ho.
                 Hoc vien moi nhap ma nay o o ma gioi thieu khi dang ky. Hoa hong chi phat sinh khi thanh toan duoc admin duyet.
             </p>
             <div class="table-responsive">
@@ -270,10 +225,6 @@
         let allUsers = [];
         let allFeedback = [];
 
-        function formatMoney(value) {
-            return Number(value || 0).toLocaleString('vi-VN');
-        }
-
         function formatDate(timestamp) {
             return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
         }
@@ -311,9 +262,6 @@
                 case 'costs':
                     await loadCosts();
                     break;
-                case 'profitUsers':
-                    await loadCostProfitDashboard();
-                    break;
                 case 'feedback':
                     await loadFeedback();
                     break;
@@ -330,7 +278,7 @@
             try {
                 const [summaryRes, analyticsRes] = await Promise.all([
                     fetch('/api/admin/summary'),
-                    fetch('/api/admin/analytics/profit-loss')
+                    fetch('/api/admin/analytics/summary')
                 ]);
 
                 const summary = await summaryRes.json();
@@ -346,13 +294,15 @@
                 }
 
                 if (analytics.success) {
-                    const profit = analytics.profit_loss;
+                    const a = analytics.summary;
                     document.getElementById('profitStats').innerHTML = `
-                        <div class="profit-loss ${profit.net_profit >= 0 ? 'profit' : 'loss'}">
-                            ${profit.net_profit >= 0 ? '+' : ''}${profit.net_profit.toLocaleString()} VND
+                        <div class="profit-loss ${a.estimated_profit_month >= 0 ? 'profit' : 'loss'}">
+                            ${a.estimated_profit_month >= 0 ? '+' : ''}${a.estimated_profit_month.toLocaleString()} VND
                         </div>
-                        <p>Doanh thu: ${profit.total_revenue.toLocaleString()} VND</p>
-                        <p>Chi phí AI: ${profit.total_costs.toLocaleString()} VND</p>
+                        <p>Doanh thu tháng: ${a.total_revenue_month.toLocaleString()} VND</p>
+                        <p>Chi phí AI tháng: ${a.total_ai_cost_month.toLocaleString()} VND</p>
+                        <p>Users lỗ: ${a.users_with_loss}</p>
+                        <p>Users chi phí cao: ${a.high_cost_users}</p>
                     `;
                 }
 
@@ -431,7 +381,6 @@
                     <td>
                         <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">Sua</button>
                         ${user.role !== 'admin' ? `<button class="btn btn-sm btn-success" onclick="grantAgent(${user.id})">Cap dai ly</button>` : ''}
-                        ${user.plan_name === 'family' ? `<button class="btn btn-sm btn-outline" onclick="openFamilyMembers(${user.id})">Family</button>` : ''}
                         <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">Xoa</button>
                     </td>
                 </tr>
@@ -479,94 +428,6 @@
             } catch (error) {
                 console.error('Error loading costs:', error);
             }
-        }
-
-        function getRiskBadge(risk) {
-            return `<span class="status-badge risk-${risk || 'safe'}">${risk || 'safe'}</span>`;
-        }
-
-        async function loadCostProfitDashboard() {
-            await Promise.all([loadCostProfitSummary(), loadCostProfitUsers(), loadAdminAlerts()]);
-        }
-
-        async function loadCostProfitSummary() {
-            const response = await fetch('/api/admin/cost/summary');
-            const data = await response.json();
-            if (!data.success) return;
-            const s = data.summary;
-            const badge = document.getElementById('alertsBadge');
-            if (badge) badge.textContent = s.unread_alerts ? `(${s.unread_alerts})` : '';
-            document.getElementById('costProfitSummary').innerHTML = `
-                <p><strong>Doanh thu tháng:</strong> ${formatMoney(s.total_revenue)} VND</p>
-                <p><strong>Chi phí AI tháng:</strong> ${formatMoney(s.total_ai_cost)} VND</p>
-                <p><strong>Lợi nhuận:</strong> ${formatMoney(s.total_profit)} VND</p>
-                <p><strong>User đang lỗ:</strong> ${s.total_users_loss}</p>
-                <p><strong>User nguy hiểm:</strong> ${s.total_users_danger}</p>
-            `;
-        }
-
-        async function loadCostProfitUsers() {
-            const risk = document.getElementById('costRiskFilter')?.value || 'all';
-            const response = await fetch(`/api/admin/cost/users?risk=${encodeURIComponent(risk)}`);
-            const data = await response.json();
-            const tbody = document.getElementById('costUsersTableBody');
-            if (!data.success || !tbody) return;
-            tbody.innerHTML = data.users.length ? data.users.map(row => `
-                <tr>
-                    <td>#${row.user_id} ${row.user_name || ''}</td>
-                    <td>${row.email || row.phone || '-'}</td>
-                    <td>${row.plan_name || '-'}</td>
-                    <td>${formatMoney(row.revenue_vnd)} VND</td>
-                    <td>${formatMoney(row.estimated_ai_cost_vnd)} VND</td>
-                    <td class="${row.gross_profit_vnd >= 0 ? 'profit' : 'loss'}">${formatMoney(row.gross_profit_vnd)} VND</td>
-                    <td>${row.profit_margin_percent}%</td>
-                    <td>${row.chat_count}</td>
-                    <td>${row.total_tokens}</td>
-                    <td>${getRiskBadge(row.risk_level)}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="viewCostDetail(${row.user_id})">Usage</button>
-                        <button class="btn btn-sm btn-danger" onclick="resetUserCost(${row.user_id})">Reset</button>
-                    </td>
-                </tr>
-            `).join('') : '<tr><td colspan="11">Chưa có dữ liệu.</td></tr>';
-        }
-
-        async function loadAdminAlerts() {
-            const response = await fetch('/api/admin/alerts');
-            const data = await response.json();
-            if (!data.success) return;
-            const badge = document.getElementById('alertsBadge');
-            if (badge) badge.textContent = data.unread_count ? `(${data.unread_count})` : '';
-            document.getElementById('adminAlerts').innerHTML = data.alerts.length ? data.alerts.slice(0, 10).map(alert => `
-                <div class="admin-list-item">
-                    <strong>${alert.type}</strong>
-                    <div>${alert.message}</div>
-                    <div>${formatDate(alert.created_at)}</div>
-                    ${alert.is_read ? '' : `<button class="btn btn-sm btn-primary" onclick="markAlertRead(${alert.id})">Đã đọc</button>`}
-                </div>
-            `).join('') : '<p>Không có cảnh báo.</p>';
-        }
-
-        async function markAlertRead(alertId) {
-            await fetch(`/api/admin/alerts/${alertId}/read`, { method: 'POST' });
-            await loadAdminAlerts();
-            await loadCostProfitSummary();
-        }
-
-        async function resetUserCost(userId) {
-            if (!confirm('Reset usage/cost tháng này của user này?')) return;
-            await fetch(`/api/admin/cost/user/${userId}/reset`, { method: 'POST' });
-            await loadCostProfitDashboard();
-        }
-
-        async function viewCostDetail(userId) {
-            const response = await fetch(`/api/admin/cost/user/${userId}`);
-            const data = await response.json();
-            if (!data.success) return alert(data.error || 'Không tải được usage');
-            const rows = (data.daily_costs || []).slice(0, 10).map(r =>
-                `${r.date}: chat ${r.chat_count}, token ${r.total_tokens}, cost ${formatMoney(r.estimated_ai_cost_vnd)} VND, risk ${r.risk_level}`
-            ).join('\\n');
-            alert(rows || 'Chưa có lịch sử usage.');
         }
 
         async function loadFeedback() {
@@ -697,28 +558,6 @@
             }
         }
 
-        async function loadPlans() {
-            try {
-                const response = await fetch('/api/admin/plans');
-                const data = await response.json();
-
-                if (data.success) {
-                    document.getElementById('plansManagement').innerHTML = data.plans.map(plan => `
-                        <div class="admin-list-item">
-                            <strong>${plan.title || plan.name}</strong>
-                            <div>Gia: ${formatMoney(plan.price)} VND / ${plan.duration_days || 30} ngay</div>
-                            ${plan.discount_percent ? `<div>Giam gia: ${plan.discount_percent}%</div>` : ''}
-                            <div>Chat: ${plan.chat_per_day || plan.chat_limit}/ngay - Bai hoc: ${plan.lesson_limit}/ngay</div>
-                            <div>Luyen phat am: ${plan.can_speak ? 'Co' : 'Khong'} - Luu lich su: ${plan.can_save_history ? 'Co' : 'Khong'}</div>
-                            <div>Trang thai: ${plan.enabled ? 'Dang bat' : 'Dang tat'}</div>
-                        </div>
-                    `).join('');
-                }
-            } catch (error) {
-                console.error('Error loading plans:', error);
-            }
-        }
-
         // User search
         document.getElementById('userSearch').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
@@ -744,44 +583,6 @@
                 }
             } catch (error) {
                 console.error('Error granting agent:', error);
-            }
-        }
-
-        function grantAgentByInput() {
-            const input = document.getElementById('grantAgentUserId');
-            const userId = parseInt(input.value, 10);
-            if (!userId) {
-                alert('Nhap User ID truoc');
-                return;
-            }
-            grantAgent(userId);
-        }
-
-        async function openFamilyMembers(ownerUserId) {
-            try {
-                const response = await fetch(`/api/admin/family/${ownerUserId}/members`);
-                const data = await response.json();
-                if (!data.success) {
-                    alert(data.error || 'Khong tai duoc family');
-                    return;
-                }
-                const members = data.members.map(m => `#${m.member_user_id} ${m.member_name || ''} ${m.member_email || m.member_phone || ''}`).join('\\n') || 'Chua co member';
-                const message = `Owner #${ownerUserId}\\nGoi family toi da ${data.limit} users tinh ca owner.\\nDang co ${data.member_count + 1}/${data.limit}:\\n${members}\\n\\nNhap User ID muon them vao family, de trong neu chi xem:`;
-                const memberId = prompt(message);
-                if (!memberId) return;
-                const addResponse = await fetch(`/api/admin/family/${ownerUserId}/members`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ member_user_id: parseInt(memberId, 10) })
-                });
-                const addData = await addResponse.json();
-                if (addData.success) {
-                    alert('Da them member vao goi family');
-                } else {
-                    alert(addData.error || 'Khong them duoc member');
-                }
-            } catch (error) {
-                console.error('Error loading family:', error);
             }
         }
 

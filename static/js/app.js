@@ -29,8 +29,6 @@ const state = {
     currentPracticeIndex: 0,
     userProfile: null,
     isSpeaking: false,
-    lastAIResponse: '',
-    lastAIEnglish: '',
     
     // Roleplay state
     roleplayRole: null,
@@ -38,6 +36,8 @@ const state = {
     roleplayHistory: [],
     currentAIResponse: null,
     currentAnalysis: null,
+    lastAIResponse: '',
+    lastAIEnglish: '',
     
     // Situation Advisor state
     currentSituation: null,
@@ -66,6 +66,7 @@ const elements = {
     startLessonBtn: document.getElementById('startLessonBtn'),
     profileBtn: document.getElementById('profileBtn'),
     feedbackBtn: document.getElementById('feedbackBtn'),
+    plansBtn: document.getElementById('plansBtn'),
     
     // Modals
     lessonModal: document.getElementById('lessonModal'),
@@ -74,6 +75,7 @@ const elements = {
     onboardingModal: document.getElementById('onboardingModal'),
     profileModal: document.getElementById('profileModal'),
     feedbackModal: document.getElementById('feedbackModal'),
+    planModal: document.getElementById('planModal'),
     
     // Modal content
     lessonLoading: document.getElementById('lessonLoading'),
@@ -103,7 +105,6 @@ const elements = {
     loginBtn: document.getElementById('loginBtn'),
     registerBtn: document.getElementById('registerBtn'),
     logoutBtn: document.getElementById('logoutBtn'),
-    floatingLogoutBtn: document.getElementById('floatingLogoutBtn'),
     loginModal: document.getElementById('loginModal'),
     loginForm: document.getElementById('loginForm'),
     registerModal: document.getElementById('registerModal'),
@@ -113,12 +114,9 @@ const elements = {
     switchToRegister: document.getElementById('switchToRegister'),
     dashboardBtn: document.getElementById('dashboardBtn'),
     affiliateBtn: document.getElementById('affiliateBtn'),
-    plansBtn: document.getElementById('plansBtn'),
     adminBtn: document.getElementById('adminBtn'),
     dashboardModal: document.getElementById('dashboardModal'),
     dashboardContent: document.getElementById('dashboardContent'),
-    plansModal: document.getElementById('plansModal'),
-    plansContent: document.getElementById('plansContent'),
     affiliateModal: document.getElementById('affiliateModal'),
     affiliateCode: document.getElementById('affiliateCode'),
     affiliateLink: document.getElementById('affiliateLink'),
@@ -127,11 +125,6 @@ const elements = {
     affiliatePaidCount: document.getElementById('affiliatePaidCount'),
     affiliatePending: document.getElementById('affiliatePending'),
     affiliatePaid: document.getElementById('affiliatePaid'),
-    familySection: document.getElementById('familySection'),
-    familySummary: document.getElementById('familySummary'),
-    familyMembersList: document.getElementById('familyMembersList'),
-    familyMemberIdentifier: document.getElementById('familyMemberIdentifier'),
-    addFamilyMemberBtn: document.getElementById('addFamilyMemberBtn'),
     
     // Freemium
     userBadge: document.getElementById('userBadge'),
@@ -205,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
 
-async function initializeApp() {
+function initializeApp() {
     captureReferralCode();
     setupEventListeners();
     initializeSpeechRecognition();
@@ -214,8 +207,8 @@ async function initializeApp() {
     // Load freemium limits and update badge
     loadGuestLimits();
     updateUserBadge();
-    await loadInitialData();
-    await checkOnboarding();
+    loadInitialData();
+    checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
 }
@@ -254,7 +247,7 @@ async function loadAffiliateData() {
         }
         const affiliate = data.affiliate || {};
         const profile = affiliate.profile || {};
-        elements.affiliateCode.value = profile.affiliate_code || '';
+        if (elements.affiliateCode) elements.affiliateCode.value = profile.affiliate_code || '';
         if (elements.affiliateLink) elements.affiliateLink.value = profile.referral_link || window.location.origin;
         elements.affiliateReferredCount.textContent = (profile.total_referrals || 0).toString();
         elements.affiliatePending.textContent = (profile.pending_commission || 0).toString();
@@ -277,164 +270,11 @@ function copyAffiliateLink() {
         });
 }
 
-function formatMoney(value) {
-    return Number(value || 0).toLocaleString('vi-VN');
-}
-
-async function openPlansModal() {
-    await loadPlansForUser();
-    openModal('plansModal');
-}
-
-async function loadPlansForUser() {
-    if (!elements.plansContent) return;
-    elements.plansContent.innerHTML = '<p class="empty-text">Dang tai goi dich vu...</p>';
-    try {
-        const response = await fetch('/api/plans');
-        const data = await response.json();
-        if (!data.success) {
-            elements.plansContent.innerHTML = '<p class="empty-text">Khong tai duoc goi dich vu.</p>';
-            return;
-        }
-        elements.plansContent.innerHTML = data.plans.map(plan => `
-            <div class="dashboard-section">
-                <h3>${plan.title || plan.name}</h3>
-                <p><strong>${formatMoney(plan.price)} VND</strong> / ${plan.duration_days || 30} ngay</p>
-                ${plan.discount_percent ? `<p>Giam ${plan.discount_percent}% so voi tra tung thang</p>` : ''}
-                <p>Chat: ${plan.chat_per_day || plan.chat_limit}/ngay - Bai hoc: ${plan.lesson_limit}/ngay</p>
-                <p>Luyen phat am: ${plan.can_speak ? 'Co' : 'Khong'} - Luu lich su: ${plan.can_save_history ? 'Co' : 'Khong'}</p>
-                ${plan.name === 'family' ? `<p>Family: toi da ${plan.family_member_limit || 5} users tinh ca chu goi</p>` : ''}
-                ${plan.price > 0 ? `<button class="btn btn-primary btn-full" type="button" onclick="requestPlanPayment('${plan.name}')">Dang ky goi nay</button>` : ''}
-            </div>
-        `).join('');
-    } catch (error) {
-        console.error('Plans load error:', error);
-        elements.plansContent.innerHTML = '<p class="empty-text">Loi tai goi dich vu.</p>';
-    }
-}
-
-async function requestPlanPayment(planName) {
-    if (!state.currentUser) {
-        closeModal('plansModal');
-        openModal('loginModal');
-        showToast('⚠️', 'Dang nhap truoc khi dang ky goi');
-        return;
-    }
-    try {
-        const response = await fetch('/api/payment/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.currentUser.id, plan_name: planName })
-        });
-        const data = await response.json();
-        if (data.success) {
-            const payment = data.payment_request;
-            showToast('✅', `Da tao yeu cau thanh toan: ${payment.transfer_note || payment.reference_code}`);
-            alert(`Thong tin chuyen khoan\\nChu tai khoan: Nguyen Quoc Tuan\\nNoi dung: ${payment.transfer_note || payment.reference_code}\\nSo tien: ${formatMoney(payment.amount)} VND`);
-        } else {
-            showToast('❌', data.error || 'Khong tao duoc thanh toan');
-        }
-    } catch (error) {
-        console.error('Payment request error:', error);
-        showToast('❌', 'Loi tao yeu cau thanh toan');
-    }
-}
-
-async function loadFamilyMembers() {
-    if (!elements.familySection || !state.currentUser) return;
-    const isFamilyOwner = state.currentUser.plan_name === 'family' && state.currentUser.status === 'active';
-    elements.familySection.classList.toggle('hidden', !isFamilyOwner);
-    if (!isFamilyOwner) return;
-
-    try {
-        const response = await fetch('/api/user/family/members');
-        const data = await response.json();
-        if (!data.success) {
-            elements.familySummary.textContent = data.error || 'Khong tai duoc thanh vien Family';
-            return;
-        }
-
-        const used = (data.member_count || 0) + 1;
-        elements.familySummary.textContent = `Dang dung ${used}/${data.limit} users tinh ca chu goi.`;
-        if (!data.members || data.members.length === 0) {
-            elements.familyMembersList.innerHTML = '<p class="empty-text">Chua co thanh vien nao.</p>';
-            return;
-        }
-
-        elements.familyMembersList.innerHTML = data.members.map(member => `
-            <div class="error-item">
-                <span class="error-text">#${member.member_user_id} ${member.member_name || ''} ${member.member_email || member.member_phone || ''}</span>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="removeFamilyMember(${member.id})">Xoa</button>
-            </div>
-        `).join('');
-    } catch (error) {
-        console.error('Family load error:', error);
-        elements.familySummary.textContent = 'Loi tai thanh vien Family';
-    }
-}
-
-async function addFamilyMember() {
-    if (!elements.familyMemberIdentifier) return;
-    const identifier = elements.familyMemberIdentifier.value.trim();
-    if (!identifier) {
-        showToast('⚠️', 'Nhap email hoac so dien thoai thanh vien');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/user/family/members', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier })
-        });
-        const data = await response.json();
-        if (data.success) {
-            elements.familyMemberIdentifier.value = '';
-            showToast('✅', 'Da them thanh vien vao goi Family');
-            loadFamilyMembers();
-        } else {
-            showToast('❌', data.error || 'Khong them duoc thanh vien');
-        }
-    } catch (error) {
-        console.error('Family add error:', error);
-        showToast('❌', 'Loi them thanh vien Family');
-    }
-}
-
-async function removeFamilyMember(familyMemberId) {
-    if (!confirm('Xoa thanh vien nay khoi goi Family?')) return;
-    try {
-        const response = await fetch(`/api/user/family/members/${familyMemberId}`, { method: 'DELETE' });
-        const data = await response.json();
-        if (data.success) {
-            showToast('✅', 'Da xoa thanh vien Family');
-            loadFamilyMembers();
-        } else {
-            showToast('❌', data.error || 'Khong xoa duoc thanh vien');
-        }
-    } catch (error) {
-        console.error('Family remove error:', error);
-        showToast('❌', 'Loi xoa thanh vien Family');
-    }
-}
-
 // ==========================================
 // Onboarding & Profile Functions
 // ==========================================
 async function checkOnboarding() {
     try {
-        if (state.currentUser) {
-            if (state.currentUser.role === 'admin') {
-                return;
-            }
-            const u = state.currentUser;
-            const hasAccountProfile = !!(u.job && u.goal);
-            if (!hasAccountProfile) {
-                openModal('onboardingModal');
-            }
-            return;
-        }
-        return;
         const response = await fetch('/api/profile/onboarded');
         const data = await response.json();
         
@@ -466,35 +306,6 @@ async function loadUserProfile() {
 
 async function saveOnboarding(formData) {
     try {
-        if (state.currentUser) {
-            const profile = {
-                name: formData.name,
-                age: formData.age,
-                level: formData.level,
-                goal: formData.goal,
-                job: formData.job,
-                english_usage: formData.field || '',
-                meet_foreigners: false
-            };
-            const response = await fetch('/api/auth/profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: state.currentUser.id, profile })
-            });
-            const data = await response.json();
-            if (data.success) {
-                state.currentUser = data.user;
-                closeModal('onboardingModal');
-                updateAuthUI();
-                updateUserBadge();
-                showToast('✅', `Da luu ho so cho ${formData.name}!`);
-                updateWelcomeMessage(formData.name);
-            } else {
-                showToast('❌', data.error || 'Khong luu duoc ho so');
-            }
-            return;
-        }
-
         const response = await fetch('/api/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -622,6 +433,9 @@ function populateProfileForm() {
     meetForeignersRadios.forEach(radio => {
         radio.checked = (radio.value === 'true') === u.meet_foreigners;
     });
+    
+    // Load current plan info
+    loadCurrentPlanInfo();
 }
 
 function setupEventListeners() {
@@ -666,13 +480,8 @@ function setupEventListeners() {
     // Profile button
     elements.profileBtn.addEventListener('click', () => {
         populateProfileForm();
-        loadFamilyMembers();
         openModal('profileModal');
     });
-
-    if (elements.addFamilyMemberBtn) {
-        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
-    }
     
     // Feedback button
     elements.feedbackBtn.addEventListener('click', () => {
@@ -740,6 +549,15 @@ function setupEventListeners() {
         });
     }
     
+    // Plan upgrade button
+    const upgradePlanBtn = document.getElementById('upgradePlanBtn');
+    [upgradePlanBtn, elements.plansBtn].forEach((button) => {
+        if (button) button.addEventListener('click', () => {
+            loadPlanOptions();
+            openModal('planModal');
+        });
+    });
+    
     // Feedback form
     if (elements.feedbackForm) {
         elements.feedbackForm.addEventListener('submit', handleFeedbackSubmit);
@@ -764,11 +582,8 @@ function setupEventListeners() {
     // Replay TTS button
     if (elements.replayTTSBtn) {
         elements.replayTTSBtn.addEventListener('click', () => {
-            const text = state.lastAIEnglish || extractEnglishForTTS(state.lastAIResponse || '');
-            if (text) {
-                speakText(text);
-            } else {
-                showToast('🔊', 'Chưa có câu tiếng Anh để nghe lại.');
+            if (state.lastAIEnglish || state.lastAIResponse) {
+                speakText(state.lastAIEnglish || state.lastAIResponse);
             }
         });
     }
@@ -868,20 +683,12 @@ function setupEventListeners() {
     if (elements.logoutBtn) {
         elements.logoutBtn.addEventListener('click', logout);
     }
-
-    if (elements.floatingLogoutBtn) {
-        elements.floatingLogoutBtn.addEventListener('click', logout);
-    }
     
     if (elements.dashboardBtn) {
         elements.dashboardBtn.addEventListener('click', showDashboard);
     }
     if (elements.affiliateBtn) {
         elements.affiliateBtn.addEventListener('click', openAffiliateModal);
-    }
-
-    if (elements.plansBtn) {
-        elements.plansBtn.addEventListener('click', openPlansModal);
     }
     if (elements.adminBtn) {
         elements.adminBtn.addEventListener('click', () => {
@@ -1098,11 +905,10 @@ async function sendMessage() {
                 botReply = `US English:\n${botReply}\n\nVN Tiếng Việt:\n[Cần dịch tiếng Việt]\n\n📘 Giải thích:\nPhản hồi chưa đúng format song ngữ. Cần kiểm tra AI response.`;
             }
             
-            state.lastAIResponse = botReply;
-            state.lastAIEnglish = extractEnglishForTTS(botReply);
-            state.currentAIResponse = state.lastAIEnglish || botReply;
-
             addMessage(botReply, 'ai');
+            state.lastAIResponse = botReply;
+            const lastEnglishMatches = botReply.match(/[A-Za-z][A-Za-z0-9\s',.!?-]{5,}/g);
+            state.lastAIEnglish = lastEnglishMatches ? lastEnglishMatches.join('. ') : botReply;
             
             // Cập nhật conversation history
             state.conversationHistory.push(
@@ -1131,7 +937,15 @@ function addMessage(content, type) {
     const avatar = type === 'ai' ? '👩‍🏫' : '🙂';
     const formattedContent = formatMessage(content);
     
-    const englishText = type === 'ai' ? extractEnglishForTTS(content) : '';
+    // For AI messages, extract English text for TTS
+    let englishText = '';
+    if (type === 'ai') {
+        // Extract English sentences (basic extraction)
+        const englishMatches = content.match(/[A-Za-z][A-Za-z0-9\s',.!?-]{5,}/g);
+        if (englishMatches) {
+            englishText = englishMatches.join('. ');
+        }
+    }
     
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
@@ -1140,42 +954,9 @@ function addMessage(content, type) {
             ${type === 'ai' && englishText ? `<button class="speak-btn" onclick="speakText('${englishText.replace(/'/g, "\\'")}')" title="Nghe cô đọc">🔊</button>` : ''}
         </div>
     `;
-
-    if (type === 'ai' && englishText) {
-        const speakBtn = messageDiv.querySelector('.speak-btn');
-        if (speakBtn) {
-            speakBtn.type = 'button';
-            speakBtn.removeAttribute('onclick');
-            speakBtn.addEventListener('click', () => speakText(englishText));
-        }
-    }
-
+    
     elements.chatMessages.appendChild(messageDiv);
     scrollToBottom();
-}
-
-function extractEnglishForTTS(content) {
-    if (!content) return '';
-
-    let text = String(content);
-    const englishMatch = text.match(/(?:US\s*)?English:\s*([\s\S]*?)(?=(?:VN\s*)?(?:Tiếng Việt|Tieng Viet):|📘|Giải thích|Giai thich|$)/i);
-    if (englishMatch && englishMatch[1]) {
-        text = englishMatch[1];
-    } else {
-        const englishMatches = text.match(/[A-Za-z][A-Za-z0-9\s',.!?;-]{5,}/g);
-        text = englishMatches ? englishMatches.join('. ') : text;
-    }
-
-    return text
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}]/gu, ' ')
-        .replace(/---/g, ' ')
-        .replace(/US\s*English:/gi, ' ')
-        .replace(/VN\s*(Tiếng Việt|Tieng Viet):/gi, ' ')
-        .replace(/(Giải thích|Giai thich):/gi, ' ')
-        .replace(/[-•*#_`]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
 }
 
 function formatMessage(content) {
@@ -2479,10 +2260,9 @@ async function handleRegister(e) {
     const phone = document.getElementById('regPhone').value.trim();
     const name = document.getElementById('regName').value.trim();
     const password = document.getElementById('regPassword').value;
-    const referralInput = document.getElementById('regReferralCode')?.value.trim();
     
     try {
-        const referral_code = referralInput || state.referralCode || null;
+        const referral_code = state.referralCode || null;
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2495,7 +2275,6 @@ async function handleRegister(e) {
             state.pendingUserId = data.user.id;
             closeModal('registerModal');
             openModal('profileSetupModal');
-            if (data.referral_warning) showToast('⚠️', data.referral_warning);
             showToast('🎉', 'Đăng ký thành công! Hoàn thiện hồ sơ nhé.');
         } else {
             showToast('❌', data.error || 'Đăng ký thất bại');
@@ -2571,7 +2350,6 @@ function updateAuthUI() {
     if (elements.loginBtn) elements.loginBtn.classList.toggle('hidden', isLoggedIn);
     if (elements.registerBtn) elements.registerBtn.classList.toggle('hidden', isLoggedIn);
     if (elements.logoutBtn) elements.logoutBtn.classList.toggle('hidden', !isLoggedIn);
-    if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.dashboardBtn) elements.dashboardBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.profileBtn) elements.profileBtn.classList.toggle('hidden', !isLoggedIn);
     if (elements.feedbackBtn) elements.feedbackBtn.classList.toggle('hidden', !isLoggedIn);
@@ -2859,7 +2637,6 @@ function updateUserBadge() {
         if (elements.dashboardBtn) elements.dashboardBtn.classList.remove('hidden');
         if (elements.profileBtn) elements.profileBtn.classList.remove('hidden');
         if (elements.logoutBtn) elements.logoutBtn.classList.remove('hidden');
-        if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.remove('hidden');
         if (elements.loginBtn) elements.loginBtn.classList.add('hidden');
         if (elements.registerBtn) elements.registerBtn.classList.add('hidden');
         if (elements.adminBtn) {
@@ -2877,7 +2654,6 @@ function updateUserBadge() {
         if (elements.dashboardBtn) elements.dashboardBtn.classList.add('hidden');
         if (elements.profileBtn) elements.profileBtn.classList.add('hidden');
         if (elements.logoutBtn) elements.logoutBtn.classList.add('hidden');
-        if (elements.floatingLogoutBtn) elements.floatingLogoutBtn.classList.add('hidden');
         if (elements.loginBtn) elements.loginBtn.classList.remove('hidden');
         if (elements.registerBtn) elements.registerBtn.classList.remove('hidden');
         if (elements.adminBtn) elements.adminBtn.classList.add('hidden');
@@ -2896,17 +2672,10 @@ function speakText(text, rate = null) {
         return;
     }
     
-    text = String(text || '').trim();
-    if (!text) {
-        showToast('🔊', 'Chưa có nội dung để nghe.');
-        return;
-    }
-
     // Cancel any ongoing speech
     speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
     
     // Set voice to English if available
     if (englishVoices.length > 0) {
@@ -3113,4 +2882,158 @@ function renderBasicPronunciationFeedback(feedback, expected) {
     
     html += '</div>';
     return html;
+}
+
+// ==========================================
+// Plan Management Functions
+// ==========================================
+async function loadCurrentPlanInfo() {
+    if (!state.currentUser) return;
+    
+    try {
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+        
+        if (data.success) {
+            const user = data.user;
+            const planInfo = document.getElementById('currentPlanInfo');
+            
+            if (planInfo) {
+                let html = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Gói hiện tại:</strong> ${user.plan_name || 'free_trial'}
+                    </div>
+                `;
+                
+                if (user.subscription_end) {
+                    const endDate = new Date(user.subscription_end);
+                    const now = new Date();
+                    const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                    
+                    html += `
+                        <div style="margin-bottom: 10px;">
+                            <strong>Hết hạn:</strong> ${endDate.toLocaleDateString('vi-VN')}
+                            ${daysLeft > 0 ? `(${daysLeft} ngày còn lại)` : '(đã hết hạn)'}
+                        </div>
+                    `;
+                }
+                
+                planInfo.innerHTML = html;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading plan info:', error);
+    }
+}
+
+async function loadPlanOptions() {
+    try {
+        const response = await fetch('/api/plans');
+        const data = await response.json();
+        
+        if (data.success) {
+            const planOptions = document.getElementById('planOptions');
+            if (!planOptions) return;
+            
+            // Group plans by base name (basic, pro, family)
+            const planGroups = {};
+            
+            data.plans.forEach(plan => {
+                if (plan.name === 'free_trial') return; // Skip free trial
+                
+                const baseName = plan.name.replace(/_monthly|_six_months|_yearly$/, '');
+                if (!planGroups[baseName]) {
+                    planGroups[baseName] = [];
+                }
+                planGroups[baseName].push(plan);
+            });
+            
+            let html = '<div style="text-align: center; margin-bottom: 20px;">';
+            html += '<h3 style="color: #2c3e50;">Chọn gói dịch vụ phù hợp với em</h3>';
+            html += '<p style="color: #666;">Tất cả gói đều có đầy đủ tính năng học tập</p>';
+            html += '</div>';
+            
+            Object.keys(planGroups).forEach(baseName => {
+                const plans = planGroups[baseName].sort((a, b) => a.duration_days - b.duration_days);
+                const monthlyPlan = plans.find(p => p.plan_type === 'monthly');
+                
+                if (monthlyPlan) {
+                    const displayName = baseName === 'basic' ? 'Basic' : baseName === 'pro' ? 'Pro' : 'Family';
+                    html += '<div class="plan-card-group" style="margin-bottom: 30px; border: 1px solid #eee; border-radius: 8px; padding: 20px; background:#fff;">';
+                    html += `<h4 style="color: #2c3e50; margin-bottom: 6px;">${displayName}</h4>`;
+                    html += `<p style="color:#666;margin:0 0 14px;">${monthlyPlan.chat_per_day || monthlyPlan.chat_limit} chat/ngày · ${monthlyPlan.lesson_limit} bài học/ngày · ${baseName === 'family' ? 'Tối đa 5 users' : '1 user'}</p>`;
+                    
+                    plans.forEach(plan => {
+                        const savings = plan.discount_percent > 0 ? 
+                            `Tiết kiệm ${(plan.discount_percent * 100).toFixed(0)}%` : '';
+                        const badgeClass = plan.discount_percent > 0 ? 'badge-success' : 'badge-primary';
+                        const typeLabel = plan.plan_type === 'six_months' ? '6 tháng' : plan.plan_type === 'yearly' ? '1 năm' : 'Monthly';
+                        const monthMultiplier = plan.plan_type === 'six_months' ? 6 : plan.plan_type === 'yearly' ? 12 : 1;
+                        const originalTotal = (plan.original_price || monthlyPlan.price || plan.price) * monthMultiplier;
+                        const discountPercent = Math.round((plan.discount_percent || 0) * 100);
+                        const perMonth = plan.duration_days > 30 ? Math.round(plan.price / monthMultiplier) : plan.price;
+                        
+                        html += `
+                            <div class="plan-option" style="display: inline-block; margin: 10px; padding: 15px; border: 2px solid #eee; border-radius: 8px; min-width: 200px; text-align: center;">
+                                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
+                                    ${typeLabel}
+                                </div>
+                                <div style="font-size: 1.5rem; color: #e74c3c; font-weight: bold; margin-bottom: 5px;">
+                                    ${plan.price.toLocaleString()}đ
+                                </div>
+                                ${discountPercent > 0 ? `<div style="color:#888;text-decoration:line-through;font-size:.95rem;">${originalTotal.toLocaleString()}đ</div><div style="display:inline-block;background:#16a34a;color:#fff;padding:3px 8px;border-radius:12px;font-size:.8rem;margin-bottom:10px;">Tiết kiệm ${discountPercent}%</div>` : ''}
+                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
+                                    ${plan.duration_days} ngày · ~${perMonth.toLocaleString()}đ/tháng · ${(plan.max_tokens_per_day || 0).toLocaleString()} token/ngày
+                                </div>
+                                <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width: 100%;">
+                                    Chọn gói này
+                                </button>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                }
+            });
+            
+            planOptions.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('Error loading plans:', error);
+        showToast('❌', 'Không thể tải danh sách gói');
+    }
+}
+
+async function selectPlan(planName) {
+    if (!state.currentUser) {
+        showToast('❌', 'Vui lòng đăng nhập trước');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/payment/request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: state.currentUser.id,
+                plan_name: planName
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            showToast('❌', data.error || 'Không thể tạo yêu cầu thanh toán');
+            return;
+        }
+
+        const payment = data.payment_request;
+        const message = `Yêu cầu thanh toán đã tạo: ${payment.reference_code}. Vui lòng chuyển khoản ${payment.amount.toLocaleString()}đ với nội dung ${payment.transfer_note}.`;
+        showToast('✅', message);
+        closeModal('planModal');
+    } catch (error) {
+        console.error('Error creating payment request:', error);
+        showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
+    }
 }

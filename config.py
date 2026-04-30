@@ -63,137 +63,258 @@ PLAN_DEFINITIONS = [
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 1,
         "description": "Dùng thử miễn phí 7 ngày",
         # PART 2: Quota limits for cost control
-        "chat_per_day": 10,
-        "chat_per_month": 300,
+        "chat_per_day": 5,
+        "chat_per_month": 100,
         "max_tokens_per_chat": 1000,
+        "max_tokens_per_day": 5000,
+        "max_tokens_per_month": 100000,
         "max_cost_per_day_vnd": 0.0,  # unlimited
-        "max_cost_per_month_vnd": 0.0
+        "max_cost_per_month_vnd": 0.0,
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
+        "duration_days": 7,
+        "plan_type": "trial",
+        "discount_percent": 0.0,
+        "original_price": 0
     },
+    # BASIC PLANS
     {
-        "name": "basic",
-        "title": "Basic",
+        "name": "basic_monthly",
+        "title": "Basic - Monthly",
         "price": 49000,
         "currency": "VND",
-        "duration_days": 30,
-        "discount_percent": 0,
         "chat_limit": 30,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 1,
         "description": "49.000đ/tháng",
         # PART 2: Quota limits
-        "chat_per_day": 30,
-        "chat_per_month": 900,
+        "chat_per_day": 10,
+        "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
+        "max_tokens_per_day": 20000,
+        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,  # ~1 USD
-        "max_cost_per_month_vnd": 600000.0  # ~24 USD
-    },
-    {
-        "name": "monthly",
-        "title": "Monthly",
-        "price": 50000,
-        "currency": "VND",
+        "max_cost_per_month_vnd": 600000.0,  # ~24 USD
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
         "duration_days": 30,
-        "discount_percent": 0,
+        "plan_type": "monthly",
+        "discount_percent": 0.0,
+        "original_price": 49000
+    },
+    {
+        "name": "basic_six_months",
+        "title": "Basic - 6 Months",
+        "price": int(49000 * 6 * 0.85),  # 250,900 VND (15% discount)
+        "currency": "VND",
         "chat_limit": 30,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 1,
-        "description": "50.000d / 30 ngay",
-        "chat_per_day": 30,
-        "chat_per_month": 900,
+        "description": f"{int(49000 * 6 * 0.85):,}đ/6 tháng (tiết kiệm {int(49000 * 6 * 0.15):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 10,
+        "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
+        "max_tokens_per_day": 20000,
+        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,
-        "max_cost_per_month_vnd": 600000.0
-    },
-    {
-        "name": "six_months",
-        "title": "6 months",
-        "price": 250000,
-        "currency": "VND",
+        "max_cost_per_month_vnd": 600000.0,
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
         "duration_days": 180,
-        "discount_percent": 17,
-        "chat_limit": 30,
-        "lesson_limit": 2,
-        "can_speak": True,
-        "can_save_history": True,
-        "enabled": True,
-        "family_member_limit": 1,
-        "description": "250.000d / 180 ngay",
-        "chat_per_day": 30,
-        "chat_per_month": 5400,
-        "max_tokens_per_chat": 2000,
-        "max_cost_per_day_vnd": 30000.0,
-        "max_cost_per_month_vnd": 600000.0
+        "plan_type": "six_months",
+        "discount_percent": 0.15,
+        "original_price": 49000
     },
     {
-        "name": "yearly",
-        "title": "Yearly",
-        "price": 450000,
+        "name": "basic_yearly",
+        "title": "Basic - Yearly",
+        "price": int(49000 * 12 * 0.7),  # 411,600 VND (30% discount)
         "currency": "VND",
-        "duration_days": 365,
-        "discount_percent": 25,
         "chat_limit": 30,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 1,
-        "description": "450.000d / 365 ngay",
-        "chat_per_day": 30,
-        "chat_per_month": 10950,
+        "description": f"{int(49000 * 12 * 0.7):,}đ/năm (tiết kiệm {int(49000 * 12 * 0.3):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 10,
+        "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
+        "max_tokens_per_day": 20000,
+        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,
-        "max_cost_per_month_vnd": 600000.0
+        "max_cost_per_month_vnd": 600000.0,
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
+        "duration_days": 365,
+        "plan_type": "yearly",
+        "discount_percent": 0.30,
+        "original_price": 49000
     },
+    # PRO PLANS
     {
-        "name": "pro",
-        "title": "Pro",
+        "name": "pro_monthly",
+        "title": "Pro - Monthly",
         "price": 99000,
         "currency": "VND",
-        "duration_days": 30,
-        "discount_percent": 0,
         "chat_limit": 100,
         "lesson_limit": 5,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 1,
         "description": "99.000đ/tháng",
         # PART 2: Quota limits
-        "chat_per_day": 100,
-        "chat_per_month": 3000,
+        "chat_per_day": 30,
+        "chat_per_month": 900,
         "max_tokens_per_chat": 4000,
+        "max_tokens_per_day": 60000,
+        "max_tokens_per_month": 1800000,
         "max_cost_per_day_vnd": 60000.0,  # ~2.4 USD
-        "max_cost_per_month_vnd": 1200000.0  # ~48 USD
+        "max_cost_per_month_vnd": 1200000.0,  # ~48 USD
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
+        "duration_days": 30,
+        "plan_type": "monthly",
+        "discount_percent": 0.0,
+        "original_price": 99000
     },
     {
-        "name": "family",
-        "title": "Family",
+        "name": "pro_six_months",
+        "title": "Pro - 6 Months",
+        "price": int(99000 * 6 * 0.85),  # 504,900 VND (15% discount)
+        "currency": "VND",
+        "chat_limit": 100,
+        "lesson_limit": 5,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": f"{int(99000 * 6 * 0.85):,}đ/6 tháng (tiết kiệm {int(99000 * 6 * 0.15):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 30,
+        "chat_per_month": 900,
+        "max_tokens_per_chat": 4000,
+        "max_tokens_per_day": 60000,
+        "max_tokens_per_month": 1800000,
+        "max_cost_per_day_vnd": 60000.0,
+        "max_cost_per_month_vnd": 1200000.0,
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
+        "duration_days": 180,
+        "plan_type": "six_months",
+        "discount_percent": 0.15,
+        "original_price": 99000
+    },
+    {
+        "name": "pro_yearly",
+        "title": "Pro - Yearly",
+        "price": int(99000 * 12 * 0.7),  # 831,600 VND (30% discount)
+        "currency": "VND",
+        "chat_limit": 100,
+        "lesson_limit": 5,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": f"{int(99000 * 12 * 0.7):,}đ/năm (tiết kiệm {int(99000 * 12 * 0.3):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 30,
+        "chat_per_month": 900,
+        "max_tokens_per_chat": 4000,
+        "max_tokens_per_day": 60000,
+        "max_tokens_per_month": 1800000,
+        "max_cost_per_day_vnd": 60000.0,
+        "max_cost_per_month_vnd": 1200000.0,
+        "family_member_limit": 1,
+        # NEW: Long-term subscription fields
+        "duration_days": 365,
+        "plan_type": "yearly",
+        "discount_percent": 0.30,
+        "original_price": 99000
+    },
+    # FAMILY PLANS
+    {
+        "name": "family_monthly",
+        "title": "Family - Monthly",
         "price": 199000,
         "currency": "VND",
-        "duration_days": 30,
-        "discount_percent": 0,
         "chat_limit": 999,
         "lesson_limit": 999,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
-        "family_member_limit": 5,
         "description": "199.000đ/tháng",
         # PART 2: Quota limits
         "chat_per_day": 999,
         "chat_per_month": 29970,
         "max_tokens_per_chat": 8000,
+        "max_tokens_per_day": 150000,
+        "max_tokens_per_month": 4500000,
         "max_cost_per_day_vnd": 0.0,  # unlimited
-        "max_cost_per_month_vnd": 0.0
+        "max_cost_per_month_vnd": 0.0,
+        "family_member_limit": 5,
+        # NEW: Long-term subscription fields
+        "duration_days": 30,
+        "plan_type": "monthly",
+        "discount_percent": 0.0,
+        "original_price": 199000
+    },
+    {
+        "name": "family_six_months",
+        "title": "Family - 6 Months",
+        "price": int(199000 * 6 * 0.85),  # 1,014,900 VND (15% discount)
+        "currency": "VND",
+        "chat_limit": 999,
+        "lesson_limit": 999,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": f"{int(199000 * 6 * 0.85):,}đ/6 tháng (tiết kiệm {int(199000 * 6 * 0.15):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 999,
+        "chat_per_month": 29970,
+        "max_tokens_per_chat": 8000,
+        "max_tokens_per_day": 150000,
+        "max_tokens_per_month": 4500000,
+        "max_cost_per_day_vnd": 0.0,
+        "max_cost_per_month_vnd": 0.0,
+        "family_member_limit": 5,
+        # NEW: Long-term subscription fields
+        "duration_days": 180,
+        "plan_type": "six_months",
+        "discount_percent": 0.15,
+        "original_price": 199000
+    },
+    {
+        "name": "family_yearly",
+        "title": "Family - Yearly",
+        "price": int(199000 * 12 * 0.7),  # 1,687,200 VND (30% discount)
+        "currency": "VND",
+        "chat_limit": 999,
+        "lesson_limit": 999,
+        "can_speak": True,
+        "can_save_history": True,
+        "enabled": True,
+        "description": f"{int(199000 * 12 * 0.7):,}đ/năm (tiết kiệm {int(199000 * 12 * 0.3):,}đ)",
+        # PART 2: Quota limits (same as monthly)
+        "chat_per_day": 999,
+        "chat_per_month": 29970,
+        "max_tokens_per_chat": 8000,
+        "max_tokens_per_day": 150000,
+        "max_tokens_per_month": 4500000,
+        "max_cost_per_day_vnd": 0.0,
+        "max_cost_per_month_vnd": 0.0,
+        "family_member_limit": 5,
+        # NEW: Long-term subscription fields
+        "duration_days": 365,
+        "plan_type": "yearly",
+        "discount_percent": 0.30,
+        "original_price": 199000
     }
 ]
 
@@ -206,7 +327,19 @@ APP_NAME = "Ms. Smile English"
 
 
 def get_plan_by_name(name):
-    return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
+    plan = next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
+    if plan:
+        return plan
+    legacy_aliases = {
+        'basic': 'basic_monthly',
+        'pro': 'pro_monthly',
+        'family': 'family_monthly',
+        'monthly': 'basic_monthly'
+    }
+    alias = legacy_aliases.get(name)
+    if alias:
+        return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == alias), None)
+    return None
 
 
 def get_model_config():
@@ -251,11 +384,6 @@ AFFILIATE_COMMISSION_FIXED_AMOUNT = int(os.getenv("AFFILIATE_COMMISSION_FIXED_AM
 # ==========================================
 # Exchange rate USD to VND
 USD_TO_VND = float(os.getenv("USD_TO_VND", "25000.0"))
-TRIAL_COST_LIMIT_VND = float(os.getenv("TRIAL_COST_LIMIT_VND", "3000"))
-TRIAL_HARD_LIMIT_VND = float(os.getenv("TRIAL_HARD_LIMIT_VND", "5000"))
-USER_WARNING_COST_RATIO = float(os.getenv("USER_WARNING_COST_RATIO", "0.3"))
-USER_DANGER_COST_RATIO = float(os.getenv("USER_DANGER_COST_RATIO", "0.6"))
-USER_LOSS_COST_RATIO = float(os.getenv("USER_LOSS_COST_RATIO", "1.0"))
 
 # PART 1: Cost per token (in USD) for different models
 # Updated with current OpenAI pricing (as of 2024)
@@ -271,21 +399,6 @@ MODEL_COSTS = {
     "gpt-3.5-turbo": {
         "input_per_1k_tokens": 0.0005,  # $0.50 per 1M input tokens
         "output_per_1k_tokens": 0.0015,  # $1.50 per 1M output tokens
-    },
-}
-
-AI_COST_CONFIG = {
-    "gpt-4o-mini": {
-        "input_per_1m_usd": float(os.getenv("GPT4O_MINI_INPUT_PER_1M_USD", "0.15")),
-        "output_per_1m_usd": float(os.getenv("GPT4O_MINI_OUTPUT_PER_1M_USD", "0.60")),
-    },
-    "gpt-4": {
-        "input_per_1m_usd": float(os.getenv("GPT4_INPUT_PER_1M_USD", "30.0")),
-        "output_per_1m_usd": float(os.getenv("GPT4_OUTPUT_PER_1M_USD", "60.0")),
-    },
-    "gpt-3.5-turbo": {
-        "input_per_1m_usd": float(os.getenv("GPT35_INPUT_PER_1M_USD", "0.50")),
-        "output_per_1m_usd": float(os.getenv("GPT35_OUTPUT_PER_1M_USD", "1.50")),
     },
 }
 
