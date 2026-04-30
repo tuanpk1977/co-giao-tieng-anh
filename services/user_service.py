@@ -614,6 +614,11 @@ class UserService:
 
         reference_code = f"MSE-{user_id}-{plan_name}-{int(datetime.utcnow().timestamp())}"
         transfer_note = f"MSE-{user_id}-{plan_name}"
+        bank_info = (
+            f"Chủ tài khoản: {config.PAYMENT_BANK_OWNER}\n"
+            f"Ngân hàng: {config.PAYMENT_BANK_NAME}\n"
+            f"Số tài khoản: {config.PAYMENT_BANK_ACCOUNT}"
+        )
         payment_request = PaymentRequest(
             user_id=user_id,
             plan_name=plan_name,
@@ -622,7 +627,7 @@ class UserService:
             status='pending',
             reference_code=reference_code,
             transfer_note=transfer_note,
-            bank_info='Chủ tài khoản: Nguyễn Quốc Tuấn'
+            bank_info=bank_info
         )
         db.session.add(payment_request)
         db.session.commit()

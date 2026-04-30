@@ -265,6 +265,11 @@
             return `<span class="status-badge risk-${level}">${level}</span>`;
         }
 
+        function adminQuery() {
+            const adminId = new URLSearchParams(window.location.search).get('admin_id');
+            return adminId ? `?admin_id=${encodeURIComponent(adminId)}` : '';
+        }
+
         async function loadTabData(tab) {
             switch(tab) {
                 case 'overview':
@@ -417,11 +422,54 @@
                                 <div>${payment.plan_name} - ${payment.amount} ${payment.currency}</div>
                                 <div>Trạng thái: ${payment.status}</div>
                                 <div>Người dùng: ${payment.user_id}</div>
+                                <div style="white-space:pre-line;margin-top:8px;">${payment.bank_info || ''}</div>
+                                <div><strong>Nội dung CK:</strong> ${payment.transfer_note || payment.reference_code}</div>
+                                ${payment.status === 'pending' ? `
+                                    <div class="admin-actions">
+                                        <button class="btn btn-sm btn-success" onclick="approvePayment(${payment.id})">Duyệt - mở gói</button>
+                                        <button class="btn btn-sm btn-danger" onclick="rejectPayment(${payment.id})">Từ chối</button>
+                                    </div>
+                                ` : ''}
                             </div>
                         `).join('') : '<p>Không có yêu cầu thanh toán.</p>';
                 }
             } catch (error) {
                 console.error('Error loading payments:', error);
+            }
+        }
+
+        async function approvePayment(paymentId) {
+            if (!confirm('Xác nhận đã nhận tiền và mở gói cho khách hàng?')) return;
+            try {
+                const response = await fetch(`/api/admin/payments/${paymentId}/approve${adminQuery()}`, { method: 'PATCH' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Đã duyệt thanh toán và mở gói cho khách hàng.');
+                    loadPayments();
+                    loadOverview();
+                } else {
+                    alert(data.error || 'Không duyệt được thanh toán');
+                }
+            } catch (error) {
+                console.error('Approve payment error:', error);
+                alert('Lỗi duyệt thanh toán');
+            }
+        }
+
+        async function rejectPayment(paymentId) {
+            if (!confirm('Từ chối yêu cầu thanh toán này?')) return;
+            try {
+                const response = await fetch(`/api/admin/payments/${paymentId}/reject${adminQuery()}`, { method: 'PATCH' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Đã từ chối thanh toán.');
+                    loadPayments();
+                } else {
+                    alert(data.error || 'Không từ chối được thanh toán');
+                }
+            } catch (error) {
+                console.error('Reject payment error:', error);
+                alert('Lỗi từ chối thanh toán');
             }
         }
 

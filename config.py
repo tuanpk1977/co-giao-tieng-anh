@@ -372,6 +372,9 @@ SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/success")
 PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
 PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
+PAYMENT_BANK_OWNER = os.getenv("PAYMENT_BANK_OWNER", "Nguyen Quoc Tuan")
+PAYMENT_BANK_NAME = os.getenv("PAYMENT_BANK_NAME", "ACB")
+PAYMENT_BANK_ACCOUNT = os.getenv("PAYMENT_BANK_ACCOUNT", "13184397")
 
 # Affiliate marketing defaults
 AFFILIATE_COMMISSION_RATE = float(os.getenv("AFFILIATE_COMMISSION_RATE", "20.0"))

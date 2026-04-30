@@ -2983,7 +2983,7 @@ async function loadPlanOptions() {
                                 </div>
                                 ${discountPercent > 0 ? `<div style="color:#888;text-decoration:line-through;font-size:.95rem;">${originalTotal.toLocaleString()}đ</div><div style="display:inline-block;background:#16a34a;color:#fff;padding:3px 8px;border-radius:12px;font-size:.8rem;margin-bottom:10px;">Tiết kiệm ${discountPercent}%</div>` : ''}
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
-                                    ${plan.duration_days} ngày · ~${perMonth.toLocaleString()}đ/tháng · ${(plan.max_tokens_per_day || 0).toLocaleString()} token/ngày
+                                    ${plan.duration_days} ngày · ~${perMonth.toLocaleString()}đ/tháng · ${plan.chat_per_day || plan.chat_limit} lượt chat/ngày
                                 </div>
                                 <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width: 100%;">
                                     Chọn gói này
@@ -3002,6 +3002,21 @@ async function loadPlanOptions() {
         console.error('Error loading plans:', error);
         showToast('❌', 'Không thể tải danh sách gói');
     }
+}
+
+function renderPaymentInstructions(payment) {
+    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397';
+    const lines = bankInfo.split('\n').filter(Boolean);
+    return `
+        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;color:#2c3e50;">Thông tin chuyển khoản</h3>
+            <p><strong>Số tiền:</strong> ${Number(payment.amount || 0).toLocaleString('vi-VN')} VND</p>
+            <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
+            ${lines.map(line => `<p>${line}</p>`).join('')}
+            <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt</strong> để mở gói cho tài khoản của em.</p>
+            <button class="btn btn-primary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+        </div>
+    `;
 }
 
 async function selectPlan(planName) {
@@ -3031,7 +3046,132 @@ async function selectPlan(planName) {
         const payment = data.payment_request;
         const message = `Yêu cầu thanh toán đã tạo: ${payment.reference_code}. Vui lòng chuyển khoản ${payment.amount.toLocaleString()}đ với nội dung ${payment.transfer_note}.`;
         showToast('✅', message);
-        closeModal('planModal');
+        const planOptions = document.getElementById('planOptions');
+        if (planOptions) {
+            planOptions.innerHTML = renderPaymentInstructions(payment);
+        }
+    } catch (error) {
+        console.error('Error creating payment request:', error);
+        showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
+    }
+}
+
+function formatPlanPrice(value) {
+    return Number(value || 0).toLocaleString('vi-VN');
+}
+
+function copyText(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text)
+        .then(() => showToast('✅', 'Đã sao chép'))
+        .catch(() => showToast('❌', 'Không sao chép được'));
+}
+
+async function loadPlanOptions() {
+    try {
+        const response = await fetch('/api/plans');
+        const data = await response.json();
+        const planOptions = document.getElementById('planOptions');
+        if (!planOptions) return;
+        if (!data.success) {
+            planOptions.innerHTML = '<p>Không tải được danh sách gói.</p>';
+            return;
+        }
+
+        const groups = {};
+        data.plans.forEach((plan) => {
+            if (plan.name === 'free_trial') return;
+            const baseName = plan.name.replace(/_monthly|_six_months|_yearly$/, '');
+            groups[baseName] = groups[baseName] || [];
+            groups[baseName].push(plan);
+        });
+
+        let html = `
+            <div style="text-align:center;margin-bottom:20px;">
+                <h3 style="color:#2c3e50;">Chọn gói dịch vụ phù hợp với em</h3>
+                <p style="color:#666;">Chọn gói, chuyển khoản đúng nội dung, admin sẽ duyệt để mở gói.</p>
+            </div>
+        `;
+
+        Object.keys(groups).forEach((baseName) => {
+            const plans = groups[baseName].sort((a, b) => a.duration_days - b.duration_days);
+            const monthlyPlan = plans.find((p) => p.plan_type === 'monthly') || plans[0];
+            const displayName = baseName === 'basic' ? 'Basic' : baseName === 'pro' ? 'Pro' : 'Family';
+            html += `
+                <div class="plan-card-group" style="margin-bottom:30px;border:1px solid #eee;border-radius:8px;padding:20px;background:#fff;">
+                    <h4 style="color:#2c3e50;margin-bottom:6px;">${displayName}</h4>
+                    <p style="color:#666;margin:0 0 14px;">
+                        ${monthlyPlan.chat_per_day || monthlyPlan.chat_limit} lượt chat/ngày ·
+                        ${monthlyPlan.lesson_limit} bài học/ngày ·
+                        ${baseName === 'family' ? 'Tối đa 5 tài khoản gia đình' : '1 tài khoản'}
+                    </p>
+            `;
+
+            plans.forEach((plan) => {
+                const typeLabel = plan.plan_type === 'six_months' ? '6 tháng' : plan.plan_type === 'yearly' ? '1 năm' : 'Hàng tháng';
+                const multiplier = plan.plan_type === 'six_months' ? 6 : plan.plan_type === 'yearly' ? 12 : 1;
+                const originalTotal = (plan.original_price || monthlyPlan.price || plan.price) * multiplier;
+                const discountPercent = Math.round((plan.discount_percent || 0) * 100);
+                const perMonth = plan.duration_days > 30 ? Math.round(plan.price / multiplier) : plan.price;
+                html += `
+                    <div class="plan-option" style="display:inline-block;vertical-align:top;margin:10px;padding:15px;border:2px solid #eee;border-radius:8px;min-width:220px;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:bold;margin-bottom:5px;">${typeLabel}</div>
+                        <div style="font-size:1.5rem;color:#e74c3c;font-weight:bold;margin-bottom:5px;">${formatPlanPrice(plan.price)}đ</div>
+                        ${discountPercent > 0 ? `<div style="color:#888;text-decoration:line-through;font-size:.95rem;">${formatPlanPrice(originalTotal)}đ</div><div style="display:inline-block;background:#16a34a;color:#fff;padding:3px 8px;border-radius:12px;font-size:.8rem;margin-bottom:10px;">Tiết kiệm ${discountPercent}%</div>` : ''}
+                        <div style="color:#666;font-size:.9rem;margin-bottom:10px;">
+                            ${plan.duration_days} ngày · ~${formatPlanPrice(perMonth)}đ/tháng · ${plan.chat_per_day || plan.chat_limit} lượt chat/ngày
+                        </div>
+                        <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width:100%;">Chọn gói này</button>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        });
+        planOptions.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading plans:', error);
+        showToast('❌', 'Không thể tải danh sách gói');
+    }
+}
+
+function renderPaymentInstructions(payment) {
+    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397';
+    const lines = bankInfo.split('\n').filter(Boolean);
+    return `
+        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
+            <h3 style="margin-top:0;color:#2c3e50;">Thông tin chuyển khoản</h3>
+            <p><strong>Số tiền:</strong> ${formatPlanPrice(payment.amount)} VND</p>
+            <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
+            ${lines.map((line) => `<p>${line}</p>`).join('')}
+            <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt - mở gói</strong> để kích hoạt gói cho em.</p>
+            <button class="btn btn-primary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
+        </div>
+    `;
+}
+
+async function selectPlan(planName) {
+    if (!state.currentUser) {
+        showToast('❌', 'Vui lòng đăng nhập trước');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/payment/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id, plan_name: planName })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            showToast('❌', data.error || 'Không thể tạo yêu cầu thanh toán');
+            return;
+        }
+        const payment = data.payment_request;
+        const planOptions = document.getElementById('planOptions');
+        if (planOptions) {
+            planOptions.innerHTML = renderPaymentInstructions(payment);
+        }
+        showToast('✅', 'Đã tạo yêu cầu thanh toán');
     } catch (error) {
         console.error('Error creating payment request:', error);
         showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
