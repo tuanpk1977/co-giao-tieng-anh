@@ -617,7 +617,8 @@ class UserService:
         bank_info = (
             f"Chủ tài khoản: {config.PAYMENT_BANK_OWNER}\n"
             f"Ngân hàng: {config.PAYMENT_BANK_NAME}\n"
-            f"Số tài khoản: {config.PAYMENT_BANK_ACCOUNT}"
+            f"Số tài khoản: {config.PAYMENT_BANK_ACCOUNT}\n"
+            f"Liên hệ admin: {config.ADMIN_PHONE}"
         )
         payment_request = PaymentRequest(
             user_id=user_id,

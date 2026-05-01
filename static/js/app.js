@@ -218,7 +218,7 @@ function initializeApp() {
 }
 
 function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
     const lines = bankInfo.split('\n').filter(Boolean);
     const note = payment.transfer_note || payment.reference_code;
     return `
@@ -3037,7 +3037,7 @@ async function loadPlanOptions() {
 }
 
 function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397';
+    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397\nLiên hệ admin: 0939489139';
     const lines = bankInfo.split('\n').filter(Boolean);
     return `
         <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
@@ -3093,7 +3093,7 @@ async function selectPlan(planName) {
 }
 
 function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
     const lines = bankInfo.split('\n').filter(Boolean);
     const note = payment.transfer_note || payment.reference_code;
     return `
@@ -3254,7 +3254,7 @@ async function removeFamilyMember(familyMemberId) {
 }
 
 function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397';
+    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
     const lines = bankInfo.split('\n').filter(Boolean);
     const note = payment.transfer_note || payment.reference_code;
     return `
@@ -3284,7 +3284,8 @@ async function confirmPaymentSent(paymentId) {
         if (data.success) {
             const status = document.getElementById('paymentConfirmStatus');
             if (status) {
-                status.textContent = 'Da bao admin. Admin se kiem tra giao dich va bam Duyet - mo goi trong trang Thanh toan.';
+                const adminPhone = data.admin_contact?.phone || '0939489139';
+                status.textContent = `Da bao admin. Neu can lien he nhanh, goi/Zalo admin: ${adminPhone}. Admin se kiem tra giao dich va bam Duyet - mo goi trong trang Thanh toan.`;
             }
             showToast('✅', 'Da bao admin kiem tra thanh toan');
         } else {
@@ -3375,7 +3376,7 @@ async function loadPlanOptions() {
 }
 
 function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397';
+    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397\nLiên hệ admin: 0939489139';
     const lines = bankInfo.split('\n').filter(Boolean);
     return `
         <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
