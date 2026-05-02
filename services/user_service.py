@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from models import (
     db, User, UserProgress, LearningSession, CommonError, UserActivity,
     Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback,
-    AffiliateProfile, Referral, AffiliateCommission, FamilyMember, AdminAlert
+    AffiliateProfile, Referral, AffiliateCommission
 )
 import config
 
@@ -211,92 +211,7 @@ class UserService:
     def get_plan(self, plan_name: str):
         if not plan_name:
             return None
-        plan = Plan.query.filter_by(name=plan_name, enabled=True).first()
-        if plan:
-            return plan
-        legacy_aliases = {
-            'basic': 'basic_monthly',
-            'pro': 'pro_monthly',
-            'family': 'family_monthly',
-            'monthly': 'basic_monthly'
-        }
-        alias = legacy_aliases.get(plan_name)
-        if alias:
-            return Plan.query.filter_by(name=alias, enabled=True).first()
-        return None
-
-    def _is_family_plan(self, plan_name: str) -> bool:
-        return bool(plan_name and (plan_name == 'family' or plan_name.startswith('family_')))
-
-    def find_user_by_identifier(self, identifier: str):
-        identifier = (identifier or '').strip()
-        if not identifier:
-            return None
-        return User.query.filter(
-            or_(User.email == identifier.lower(), User.phone == identifier, User.user_code == identifier)
-        ).first()
-
-    def _family_member_limit(self, owner: User) -> int:
-        plan = self.get_plan(owner.plan_name) if owner else None
-        return int(getattr(plan, 'family_member_limit', None) or 5)
-
-    def get_family_members(self, owner_user_id: int):
-        owner = self.get_user(owner_user_id)
-        if not owner:
-            return False, {'error': 'Owner user khong ton tai'}
-        members = FamilyMember.query.filter_by(owner_user_id=owner_user_id, status='active').all()
-        return True, {
-            'owner': owner.to_dict(),
-            'limit': self._family_member_limit(owner),
-            'members': [m.to_dict() for m in members],
-            'member_count': len(members)
-        }
-
-    def add_family_member(self, owner_user_id: int, member_user_id: int):
-        owner = self.get_user(owner_user_id)
-        member = self.get_user(member_user_id)
-        if not owner or not member:
-            return False, {'error': 'Owner hoac member khong ton tai'}
-        if not self._is_family_plan(owner.plan_name) or owner.status != 'active':
-            return False, {'error': 'Owner can co goi family dang active'}
-        if owner.id == member.id:
-            return False, {'error': 'Khong the them chinh owner lam member'}
-        existing = FamilyMember.query.filter_by(member_user_id=member_user_id, status='active').first()
-        if existing:
-            return False, {'error': 'User nay da nam trong mot goi family'}
-        member_count = FamilyMember.query.filter_by(owner_user_id=owner_user_id, status='active').count()
-        limit = self._family_member_limit(owner)
-        if member_count >= max(0, limit - 1):
-            return False, {'error': f'Goi family chi cho phep toi da {limit} users tinh ca owner'}
-        family_member = FamilyMember(owner_user_id=owner_user_id, member_user_id=member_user_id, status='active')
-        db.session.add(family_member)
-        db.session.commit()
-        return True, {'family_member': family_member.to_dict()}
-
-    def add_family_member_by_identifier(self, owner_user_id: int, identifier: str):
-        member = self.find_user_by_identifier(identifier)
-        if not member:
-            return False, {'error': 'Thanh vien chua co account. Hay bao nguoi nha dang ky bang email/so dien thoai truoc.'}
-        return self.add_family_member(owner_user_id, member.id)
-
-    def remove_family_member(self, family_member_id: int):
-        family_member = FamilyMember.query.get(family_member_id)
-        if not family_member:
-            return False, {'error': 'Family member khong ton tai'}
-        db.session.delete(family_member)
-        db.session.commit()
-        return True, {'message': 'Da xoa thanh vien family'}
-
-    def get_effective_billing_user(self, user_id: int):
-        user = self.get_user(user_id)
-        if not user:
-            return None
-        membership = FamilyMember.query.filter_by(member_user_id=user_id, status='active').first()
-        if membership:
-            owner = self.get_user(membership.owner_user_id)
-            if owner and self._is_family_plan(owner.plan_name) and owner.status == 'active':
-                return owner
-        return user
+        return Plan.query.filter_by(name=plan_name, enabled=True).first()
 
     def get_all_users(self):
         return User.query.order_by(User.created_at.desc()).all()
@@ -345,8 +260,7 @@ class UserService:
         user.plan_name = plan.name
         user.status = 'active'
         user.plan_start = datetime.utcnow()
-        duration_days = int(getattr(plan, 'duration_days', None) or 30)
-        user.plan_end = user.plan_start + timedelta(days=duration_days)
+        user.plan_end = datetime.utcnow() + timedelta(days=30)
         user.subscription_start = user.plan_start
         user.subscription_end = user.plan_end
         user.trial_end = None
@@ -365,9 +279,6 @@ class UserService:
         PaymentHistory.query.filter_by(user_id=user_id).delete()
         Feedback.query.filter_by(user_id=user_id).delete()
         AffiliateProfile.query.filter_by(user_id=user_id).delete()
-        FamilyMember.query.filter(
-            or_(FamilyMember.owner_user_id == user_id, FamilyMember.member_user_id == user_id)
-        ).delete(synchronize_session=False)
         Referral.query.filter(
             or_(Referral.referrer_user_id == user_id, Referral.referred_user_id == user_id)
         ).delete(synchronize_session=False)
@@ -401,19 +312,7 @@ class UserService:
             can_speak=plan_data.get('can_speak', True),
             can_save_history=plan_data.get('can_save_history', True),
             enabled=plan_data.get('enabled', True),
-            description=plan_data.get('description', ''),
-            chat_per_day=plan_data.get('chat_per_day', plan_data.get('chat_limit', 10)),
-            chat_per_month=plan_data.get('chat_per_month', plan_data.get('chat_limit', 10) * 30),
-            max_tokens_per_chat=plan_data.get('max_tokens_per_chat', 2000),
-            max_tokens_per_day=plan_data.get('max_tokens_per_day', 20000),
-            max_tokens_per_month=plan_data.get('max_tokens_per_month', 600000),
-            max_cost_per_day_vnd=plan_data.get('max_cost_per_day_vnd', 0.0),
-            max_cost_per_month_vnd=plan_data.get('max_cost_per_month_vnd', 0.0),
-            family_member_limit=plan_data.get('family_member_limit', 1),
-            duration_days=plan_data.get('duration_days', 30),
-            plan_type=plan_data.get('plan_type', 'monthly'),
-            discount_percent=plan_data.get('discount_percent', 0.0),
-            original_price=plan_data.get('original_price', plan_data.get('price', 0))
+            description=plan_data.get('description', '')
         )
         db.session.add(plan)
         db.session.commit()
@@ -432,18 +331,6 @@ class UserService:
         plan.can_save_history = plan_data.get('can_save_history', plan.can_save_history)
         plan.enabled = plan_data.get('enabled', plan.enabled)
         plan.description = plan_data.get('description', plan.description)
-        plan.chat_per_day = plan_data.get('chat_per_day', plan.chat_per_day)
-        plan.chat_per_month = plan_data.get('chat_per_month', plan.chat_per_month)
-        plan.max_tokens_per_chat = plan_data.get('max_tokens_per_chat', plan.max_tokens_per_chat)
-        plan.max_tokens_per_day = plan_data.get('max_tokens_per_day', plan.max_tokens_per_day)
-        plan.max_tokens_per_month = plan_data.get('max_tokens_per_month', plan.max_tokens_per_month)
-        plan.max_cost_per_day_vnd = plan_data.get('max_cost_per_day_vnd', plan.max_cost_per_day_vnd)
-        plan.max_cost_per_month_vnd = plan_data.get('max_cost_per_month_vnd', plan.max_cost_per_month_vnd)
-        plan.family_member_limit = plan_data.get('family_member_limit', plan.family_member_limit)
-        plan.duration_days = plan_data.get('duration_days', plan.duration_days)
-        plan.plan_type = plan_data.get('plan_type', plan.plan_type)
-        plan.discount_percent = plan_data.get('discount_percent', plan.discount_percent)
-        plan.original_price = plan_data.get('original_price', plan.original_price)
         db.session.commit()
         return True, {'plan': plan.to_dict()}
 
@@ -614,12 +501,6 @@ class UserService:
 
         reference_code = f"MSE-{user_id}-{plan_name}-{int(datetime.utcnow().timestamp())}"
         transfer_note = f"MSE-{user_id}-{plan_name}"
-        bank_info = (
-            f"Chủ tài khoản: {config.PAYMENT_BANK_OWNER}\n"
-            f"Ngân hàng: {config.PAYMENT_BANK_NAME}\n"
-            f"Số tài khoản: {config.PAYMENT_BANK_ACCOUNT}\n"
-            f"Liên hệ admin: {config.ADMIN_PHONE}"
-        )
         payment_request = PaymentRequest(
             user_id=user_id,
             plan_name=plan_name,
@@ -628,44 +509,12 @@ class UserService:
             status='pending',
             reference_code=reference_code,
             transfer_note=transfer_note,
-            bank_info=bank_info
+            bank_info='Chủ tài khoản: Nguyễn Quốc Tuấn'
         )
         db.session.add(payment_request)
         db.session.commit()
 
         return True, {'payment_request': payment_request.to_dict()}
-
-    def confirm_payment_sent(self, payment_id: int, user_id: Optional[int] = None):
-        payment = PaymentRequest.query.get(payment_id)
-        if not payment:
-            return False, {'error': 'Payment request khong ton tai'}
-        if user_id and payment.user_id != int(user_id):
-            return False, {'error': 'Khong co quyen xac nhan thanh toan nay'}
-        if payment.status != 'pending':
-            return False, {'error': 'Payment request da duoc xu ly'}
-
-        now = datetime.utcnow()
-        payment.customer_confirmed_at = now
-        payment.customer_note = 'Customer clicked paid confirmation'
-
-        start_of_day = datetime(now.year, now.month, now.day)
-        existing_alert = AdminAlert.query.filter(
-            AdminAlert.user_id == payment.user_id,
-            AdminAlert.type == 'payment_confirmed',
-            AdminAlert.created_at >= start_of_day
-        ).first()
-        if not existing_alert:
-            db.session.add(AdminAlert(
-                user_id=payment.user_id,
-                type='payment_confirmed',
-                message=(
-                    f'Khach da bao da chuyen khoan {payment.amount:,} VND '
-                    f'cho goi {payment.plan_name}. Noi dung CK: {payment.transfer_note or payment.reference_code}'
-                )
-            ))
-
-        db.session.commit()
-        return True, {'message': 'Da bao admin kiem tra thanh toan', 'payment': payment.to_dict()}
 
     def approve_payment(self, payment_id: int):
         payment = PaymentRequest.query.get(payment_id)
@@ -679,9 +528,8 @@ class UserService:
         if not user or not plan:
             return False, {'error': 'User hoặc plan không hợp lệ'}
 
-        now = datetime.utcnow()
         payment.status = 'approved'
-        payment.approved_at = now
+        payment.approved_at = datetime.utcnow()
         db.session.commit()
 
         history = PaymentHistory(
@@ -695,9 +543,8 @@ class UserService:
 
         user.plan_name = plan.name
         user.status = 'active'
-        user.plan_start = now
-        duration_days = int(getattr(plan, 'duration_days', None) or 30)
-        user.plan_end = now + timedelta(days=duration_days)
+        user.plan_start = datetime.utcnow()
+        user.plan_end = datetime.utcnow() + timedelta(days=plan.duration_days)  # Use plan's duration_days
         user.subscription_start = user.plan_start
         user.subscription_end = user.plan_end
         user.trial_end = None
@@ -918,14 +765,9 @@ class UserService:
         if user.role == 'admin':
             return False, {'error': 'Admin không thể là đại lý'}
         
-        if not user.phone:
-            return False, {'error': 'User can co so dien thoai de lam ma dai ly'}
-
-        taken = User.query.filter(User.referral_code == user.phone, User.id != user.id).first()
-        if taken:
-            return False, {'error': 'So dien thoai nay dang duoc dung lam ma gioi thieu'}
-
-        user.referral_code = user.phone
+        # Generate referral code if not exists
+        if not user.referral_code:
+            user.referral_code = self._generate_referral_code(user_id)
         
         user.role = 'agent'
         user.agent_status = 'pending'
@@ -935,7 +777,7 @@ class UserService:
             profile = AffiliateProfile(
                 user_id=user.id,
                 affiliate_code=user.referral_code,
-                referral_link=config.AFFILIATE_REFERRAL_LINK_BASE,
+                referral_link=f"{config.AFFILIATE_REFERRAL_LINK_BASE}/?ref={user.referral_code}",
                 commission_rate=config.AFFILIATE_COMMISSION_RATE,
                 commission_type=getattr(config, 'AFFILIATE_COMMISSION_TYPE', 'percent'),
                 commission_percent=config.AFFILIATE_COMMISSION_RATE,
@@ -945,7 +787,7 @@ class UserService:
             db.session.add(profile)
         else:
             profile.affiliate_code = user.referral_code
-            profile.referral_link = config.AFFILIATE_REFERRAL_LINK_BASE
+            profile.referral_link = f"{config.AFFILIATE_REFERRAL_LINK_BASE}/?ref={user.referral_code}"
             profile.status = 'pending'
         db.session.commit()
         

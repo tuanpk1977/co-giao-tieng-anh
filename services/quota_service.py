@@ -4,7 +4,7 @@ PART 2: Enforce chat limits, token limits, cost limits, and rate limiting
 """
 
 from datetime import datetime, timedelta
-from models import db, User, Plan, UsageLog, FamilyMember
+from models import db, User, Plan, UsageLog
 from services.cost_service import CostService
 import config
 from functools import wraps
@@ -13,72 +13,6 @@ import time
 
 class QuotaService:
     """Service for checking and enforcing quota limits"""
-
-    @staticmethod
-    def _is_family_plan(plan_name: str) -> bool:
-        return bool(plan_name and (plan_name == 'family' or plan_name.startswith('family_')))
-
-    @staticmethod
-    def _resolve_family_context(user_id: int, plan_name: str):
-        if not user_id:
-            return plan_name, [user_id]
-        membership = FamilyMember.query.filter_by(member_user_id=user_id, status='active').first()
-        owner = None
-        if membership:
-            owner = User.query.get(membership.owner_user_id)
-        user = User.query.get(user_id)
-        if owner and QuotaService._is_family_plan(owner.plan_name) and owner.status == 'active':
-            member_ids = [row.member_user_id for row in FamilyMember.query.filter_by(
-                owner_user_id=owner.id,
-                status='active'
-            ).all()]
-            return owner.plan_name, [owner.id] + member_ids
-        if user and QuotaService._is_family_plan(user.plan_name) and user.status == 'active':
-            member_ids = [row.member_user_id for row in FamilyMember.query.filter_by(
-                owner_user_id=user.id,
-                status='active'
-            ).all()]
-            return user.plan_name, [user.id] + member_ids
-        return plan_name, [user_id]
-
-    @staticmethod
-    def _daily_chat_count(user_ids, day):
-        if len(user_ids) == 1:
-            return CostService.get_daily_chat_count(user_ids[0], day)
-        return int(db.session.query(db.func.count(UsageLog.id)).filter(
-            UsageLog.user_id.in_(user_ids),
-            UsageLog.date == day
-        ).scalar() or 0)
-
-    @staticmethod
-    def _daily_cost(user_ids, day):
-        if len(user_ids) == 1:
-            return CostService.get_daily_cost(user_ids[0], day)
-        return float(db.session.query(db.func.sum(UsageLog.estimated_cost_vnd)).filter(
-            UsageLog.user_id.in_(user_ids),
-            UsageLog.date == day
-        ).scalar() or 0.0)
-
-    @staticmethod
-    def _daily_tokens(user_ids, day):
-        return int(db.session.query(
-            db.func.sum(UsageLog.input_tokens + UsageLog.output_tokens + UsageLog.estimated_tokens)
-        ).filter(
-            UsageLog.user_id.in_(user_ids),
-            UsageLog.date == day
-        ).scalar() or 0)
-
-    @staticmethod
-    def _monthly_tokens(user_ids, now):
-        start = datetime(now.year, now.month, 1)
-        end = datetime(now.year + (1 if now.month == 12 else 0), 1 if now.month == 12 else now.month + 1, 1)
-        return int(db.session.query(
-            db.func.sum(UsageLog.input_tokens + UsageLog.output_tokens + UsageLog.estimated_tokens)
-        ).filter(
-            UsageLog.user_id.in_(user_ids),
-            UsageLog.created_at >= start,
-            UsageLog.created_at < end
-        ).scalar() or 0)
 
     @staticmethod
     def check_can_chat(user_id: int = None, plan_name: str = "free_trial") -> dict:
@@ -98,29 +32,18 @@ class QuotaService:
             }
         """
         try:
-            plan_name, usage_user_ids = QuotaService._resolve_family_context(user_id, plan_name)
             # Get plan limits
             plan_def = config.get_plan_by_name(plan_name)
             if not plan_def:
                 plan_def = config.get_plan_by_name("free_trial")
-
-            current_user = User.query.get(user_id) if user_id else None
             
             chat_per_day = plan_def.get("chat_per_day", 10)
-            max_tokens_per_day = int(plan_def.get("max_tokens_per_day", 0) or 0)
-            max_tokens_per_month = int(plan_def.get("max_tokens_per_month", 0) or 0)
             max_cost_per_day_vnd = plan_def.get("max_cost_per_day_vnd", 0.0)
-            if current_user:
-                max_tokens_per_day = int(current_user.max_tokens_per_day_override or max_tokens_per_day)
-                max_tokens_per_month = int(current_user.max_tokens_per_month_override or max_tokens_per_month)
-                max_cost_per_day_vnd = float(current_user.max_cost_per_day_vnd_override or max_cost_per_day_vnd)
             
             # Count today's usage
             today = datetime.utcnow().date()
-            daily_chats = QuotaService._daily_chat_count(usage_user_ids, today)
-            daily_cost_vnd = QuotaService._daily_cost(usage_user_ids, today)
-            daily_tokens = QuotaService._daily_tokens(usage_user_ids, today)
-            monthly_tokens = QuotaService._monthly_tokens(usage_user_ids, datetime.utcnow())
+            daily_chats = CostService.get_daily_chat_count(user_id, today)
+            daily_cost_vnd = CostService.get_daily_cost(user_id, today)
             
             # Check chat limit
             if daily_chats >= chat_per_day:
@@ -147,34 +70,6 @@ class QuotaService:
                         "cost_remaining_today": 0
                     }
                 }
-
-            if max_tokens_per_day > 0 and daily_tokens >= max_tokens_per_day:
-                return {
-                    "allowed": False,
-                    "reason": "US English: You have reached today's learning limit. VN Tiếng Việt: Em đã dùng hết giới hạn học hôm nay. Vui lòng nâng cấp gói hoặc quay lại ngày mai. Giải thích: Giới hạn này giúp hệ thống duy trì ổn định.",
-                    "limits": {
-                        "daily_chats": chat_per_day,
-                        "daily_cost": max_cost_per_day_vnd,
-                        "daily_tokens": max_tokens_per_day,
-                        "monthly_tokens": max_tokens_per_month,
-                        "chats_remaining_today": max(0, chat_per_day - daily_chats),
-                        "tokens_remaining_today": 0
-                    }
-                }
-
-            if max_tokens_per_month > 0 and monthly_tokens >= max_tokens_per_month:
-                return {
-                    "allowed": False,
-                    "reason": "US English: You have reached this month's learning limit. VN Tiếng Việt: Em đã dùng hết giới hạn học tháng này. Vui lòng nâng cấp gói để tiếp tục. Giải thích: Giới hạn token giúp hệ thống tránh lỗ chi phí AI.",
-                    "limits": {
-                        "daily_chats": chat_per_day,
-                        "daily_cost": max_cost_per_day_vnd,
-                        "daily_tokens": max_tokens_per_day,
-                        "monthly_tokens": max_tokens_per_month,
-                        "chats_remaining_today": max(0, chat_per_day - daily_chats),
-                        "tokens_remaining_today": max(0, max_tokens_per_day - daily_tokens)
-                    }
-                }
             
             # Calculate remaining quota
             chats_remaining = chat_per_day - daily_chats
@@ -186,11 +81,8 @@ class QuotaService:
                 "limits": {
                     "daily_chats": chat_per_day,
                     "daily_cost": max_cost_per_day_vnd,
-                    "daily_tokens": max_tokens_per_day,
-                    "monthly_tokens": max_tokens_per_month,
                     "chats_remaining_today": chats_remaining,
-                    "cost_remaining_today": cost_remaining if cost_remaining != float('inf') else max_cost_per_day_vnd,
-                    "tokens_remaining_today": max(0, max_tokens_per_day - daily_tokens) if max_tokens_per_day > 0 else 0
+                    "cost_remaining_today": cost_remaining if cost_remaining != float('inf') else max_cost_per_day_vnd
                 }
             }
         except Exception as e:

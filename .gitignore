@@ -55,3 +55,4 @@ public_url.txt
 # Local test files
 test_*.py
 !test_public.py
+.opencode

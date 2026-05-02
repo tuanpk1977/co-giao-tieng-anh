@@ -36,8 +36,6 @@ const state = {
     roleplayHistory: [],
     currentAIResponse: null,
     currentAnalysis: null,
-    lastAIResponse: '',
-    lastAIEnglish: '',
     
     // Situation Advisor state
     currentSituation: null,
@@ -66,7 +64,6 @@ const elements = {
     startLessonBtn: document.getElementById('startLessonBtn'),
     profileBtn: document.getElementById('profileBtn'),
     feedbackBtn: document.getElementById('feedbackBtn'),
-    plansBtn: document.getElementById('plansBtn'),
     
     // Modals
     lessonModal: document.getElementById('lessonModal'),
@@ -100,11 +97,6 @@ const elements = {
     profileForm: document.getElementById('profileForm'),
     feedbackForm: document.getElementById('feedbackForm'),
     resetProfileBtn: document.getElementById('resetProfileBtn'),
-    familySection: document.getElementById('familySection'),
-    familySummary: document.getElementById('familySummary'),
-    familyMembersList: document.getElementById('familyMembersList'),
-    familyMemberIdentifier: document.getElementById('familyMemberIdentifier'),
-    addFamilyMemberBtn: document.getElementById('addFamilyMemberBtn'),
     
     // Auth
     loginBtn: document.getElementById('loginBtn'),
@@ -213,28 +205,9 @@ function initializeApp() {
     loadGuestLimits();
     updateUserBadge();
     loadInitialData();
+    checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
-}
-
-function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
-    const lines = bankInfo.split('\n').filter(Boolean);
-    const note = payment.transfer_note || payment.reference_code;
-    return `
-        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
-            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
-            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
-            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
-            ${lines.map((line) => `<p>${line}</p>`).join('')}
-            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
-                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
-            </div>
-            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
-        </div>
-    `;
 }
 
 function captureReferralCode() {
@@ -271,8 +244,8 @@ async function loadAffiliateData() {
         }
         const affiliate = data.affiliate || {};
         const profile = affiliate.profile || {};
-        if (elements.affiliateCode) elements.affiliateCode.value = profile.affiliate_code || '';
-        if (elements.affiliateLink) elements.affiliateLink.value = profile.referral_link || window.location.origin;
+        elements.affiliateCode.value = profile.affiliate_code || '';
+        elements.affiliateLink.value = profile.referral_link || '';
         elements.affiliateReferredCount.textContent = (profile.total_referrals || 0).toString();
         elements.affiliatePending.textContent = (profile.pending_commission || 0).toString();
         elements.affiliatePaid.textContent = (profile.paid_commission || 0).toString();
@@ -285,8 +258,8 @@ async function loadAffiliateData() {
 }
 
 function copyAffiliateLink() {
-    if (!elements.affiliateCode || !elements.affiliateCode.value) return;
-    navigator.clipboard.writeText(elements.affiliateCode.value)
+    if (!elements.affiliateLink || !elements.affiliateLink.value) return;
+    navigator.clipboard.writeText(elements.affiliateLink.value)
         .then(() => showToast('✅', 'Đã sao chép link giới thiệu!'))
         .catch((err) => {
             console.error('Copy error:', err);
@@ -505,7 +478,6 @@ function setupEventListeners() {
     elements.profileBtn.addEventListener('click', () => {
         populateProfileForm();
         openModal('profileModal');
-        loadFamilyMembers();
     });
     
     // Feedback button
@@ -574,18 +546,14 @@ function setupEventListeners() {
         });
     }
     
-    if (elements.addFamilyMemberBtn) {
-        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
-    }
-
     // Plan upgrade button
     const upgradePlanBtn = document.getElementById('upgradePlanBtn');
-    [upgradePlanBtn, elements.plansBtn].forEach((button) => {
-        if (button) button.addEventListener('click', () => {
+    if (upgradePlanBtn) {
+        upgradePlanBtn.addEventListener('click', () => {
             loadPlanOptions();
             openModal('planModal');
         });
-    });
+    }
     
     // Feedback form
     if (elements.feedbackForm) {
@@ -611,8 +579,8 @@ function setupEventListeners() {
     // Replay TTS button
     if (elements.replayTTSBtn) {
         elements.replayTTSBtn.addEventListener('click', () => {
-            if (state.lastAIEnglish || state.lastAIResponse) {
-                speakText(state.lastAIEnglish || state.lastAIResponse);
+            if (state.lastAIResponse) {
+                speakText(state.lastAIResponse);
             }
         });
     }
@@ -813,36 +781,11 @@ function setupEventListeners() {
 }
 
 function initializeSpeechRecognition() {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        state.recognition = new SpeechRecognition();
-        state.recognition.continuous = false;
-        state.recognition.interimResults = false;
-        state.recognition.lang = 'en-US'; // Mặc định tiếng Anh
-        
-        state.recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            elements.messageInput.value = transcript;
-            stopRecording();
-            
-            // Tự động gửi nếu đang trong chế độ practice
-            if (state.isPracticeMode) {
-                evaluatePracticeSpeech(transcript);
-            }
-        };
-        
-        state.recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
-            stopRecording();
-            showToast('❌', 'Không nhận diện được giọng nói. Em thử lại nhé!');
-        };
-        
-        state.recognition.onend = () => {
-            stopRecording();
-        };
-    } else {
-        elements.micBtn.style.display = 'none';
-        console.log('Browser không hỗ trợ Speech Recognition');
+    // Dùng MsSmileSpeech helper
+    state.recognition = null;
+    state.speechRecognitionSupported = !!(window.MsSmileSpeech && MsSmileSpeech.isSpeechRecognitionSupported());
+    if (!state.speechRecognitionSupported) {
+        console.log('Speech Recognition is not supported in this browser.');
     }
 }
 
@@ -864,11 +807,9 @@ async function loadInitialData() {
         if (data.success) {
             state.currentUser = data.user;
             state.isGuest = false;
-            await checkOnboarding();
             updateAuthUI();
             updateUserBadge();
             await loadUserProfile();
-            await checkOnboarding();
             console.log('Restored session for user:', data.user.name);
         } else {
             state.isGuest = true;
@@ -911,7 +852,6 @@ async function sendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
-                user_id: state.currentUser ? state.currentUser.id : null,
                 history: state.conversationHistory
             })
         });
@@ -937,9 +877,6 @@ async function sendMessage() {
             }
             
             addMessage(botReply, 'ai');
-            state.lastAIResponse = botReply;
-            const lastEnglishMatches = botReply.match(/[A-Za-z][A-Za-z0-9\s',.!?-]{5,}/g);
-            state.lastAIEnglish = lastEnglishMatches ? lastEnglishMatches.join('. ') : botReply;
             
             // Cập nhật conversation history
             state.conversationHistory.push(
@@ -1037,79 +974,6 @@ function clearChat() {
 }
 
 // ==========================================
-// Speech Functions
-// ==========================================
-function toggleRecording() {
-    if (!state.recognition) {
-        showToast('❌', 'Trình duyệt của em không hỗ trợ nhận diện giọng nói.');
-        return;
-    }
-    
-    if (state.isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
-    }
-}
-
-function startRecording() {
-    state.isRecording = true;
-    elements.micBtn.classList.add('recording');
-    elements.recordingIndicator.classList.remove('hidden');
-    
-    try {
-        state.recognition.start();
-    } catch (error) {
-        console.error('Recording error:', error);
-        stopRecording();
-    }
-}
-
-function stopRecording() {
-    state.isRecording = false;
-    elements.micBtn.classList.remove('recording');
-    elements.recordingIndicator.classList.add('hidden');
-    
-    try {
-        state.recognition.stop();
-    } catch (error) {
-        // Ignore stop errors
-    }
-}
-
-function speakText(text) {
-    if (!state.synthesis) {
-        showToast('❌', 'Trình duyệt không hỗ trợ phát âm thanh.');
-        return;
-    }
-    
-    // Hủy các utterance đang chạy
-    state.synthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    
-    // Tìm giọng tiếng Anh
-    const voices = state.synthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) {
-        utterance.voice = englishVoice;
-    }
-    
-    utterance.onend = () => {
-        console.log('Speech finished');
-    };
-    
-    utterance.onerror = (error) => {
-        console.error('Speech error:', error);
-    };
-    
-    state.synthesis.speak(utterance);
-}
-
-// ==========================================
 // Lesson Functions
 // ==========================================
 async function loadLesson() {
@@ -1160,7 +1024,7 @@ function renderLesson(lesson) {
                 <div class="vocab-card">
                     <div class="vocab-word">
                         ${item.word}
-                        <button class="speak-btn" onclick="speakText('${item.word}')">
+                        <button class="speak-btn" onclick="speakText('${item.word}', null, ${JSON.stringify(item.audioUrl || '')})">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1186,7 +1050,7 @@ function renderLesson(lesson) {
                 <div class="sentence-card">
                     <div class="sentence-en">
                         ${item.english}
-                        <button class="speak-btn" onclick="speakText('${item.english.replace(/'/g, "\\'")}')">
+                        <button class="speak-btn" onclick="speakText('${item.english.replace(/'/g, "\\'")}', null, ${JSON.stringify(item.audioUrl || '')})">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1214,7 +1078,7 @@ function renderLesson(lesson) {
                     <div class="dialogue-content">
                         <div class="dialogue-en">
                             ${line.text}
-                            <button class="speak-btn" onclick="speakText('${line.text.replace(/'/g, "\\'")}')">
+                            <button class="speak-btn" onclick="speakText('${line.text.replace(/'/g, "\\'")}', null, ${JSON.stringify(line.audioUrl || '')})">
                                 <i class="fas fa-volume-up"></i>
                             </button>
                         </div>
@@ -1330,13 +1194,11 @@ function openSpeakingPractice(index) {
     closeModal('lessonModal');
     openModal('speakingModal');
     
-    // Tự động đọc câu
-    setTimeout(() => speakText(sentence), 500);
 }
 
 function togglePracticeRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói.');
+        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
         return;
     }
     
@@ -1354,7 +1216,7 @@ function startPracticeRecording() {
     elements.recordPracticeBtn.innerHTML = '<i class="fas fa-stop"></i> Dừng';
     
     try {
-        state.recognition.start();
+        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
     } catch (error) {
         console.error('Practice recording error:', error);
         stopPracticeRecording();
@@ -1605,9 +1467,6 @@ async function startRoleplay() {
             addRoleplayMessage(data.greeting, 'ai', data.role.name);
             state.currentAIResponse = data.greeting;
             
-            // Auto speak greeting
-            speakText(data.greeting);
-            
             showToast('🎭', `Bắt đầu luyện với ${data.role.name}!`);
         } else {
             showToast('❌', data.error || 'Không thể bắt đầu luyện hội thoại');
@@ -1648,9 +1507,6 @@ async function sendRoleplayMessage() {
             // Show analysis
             state.currentAnalysis = data.analysis;
             renderRoleplayAnalysis(data.analysis);
-            
-            // Auto speak AI response
-            speakText(data.ai_response);
             
         } else {
             showToast('❌', data.error || 'Không thể gửi tin nhắn');
@@ -1807,7 +1663,7 @@ function renderRoleplayAnalysis(analysis) {
 
 function toggleRoleplayRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
+        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
         return;
     }
     
@@ -1831,7 +1687,7 @@ function startRoleplayRecording() {
     };
     
     try {
-        state.recognition.start();
+        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
         showToast('🎤', 'Đang nghe em nói tiếng Anh...');
     } catch (error) {
         console.error('Recording error:', error);
@@ -2030,9 +1886,6 @@ async function analyzeSituation() {
             // Render analysis
             renderSituationAnalysis(data);
             
-            // Auto speak simple sentence
-            speakText(data.simple_en || '');
-            
             showToast('✅', 'Cô đã phân tích xong! Nghe câu gợi ý nhé.');
         } else {
             showToast('❌', data.error || 'Không thể phân tích tình huống');
@@ -2203,7 +2056,7 @@ function resetSituationPractice() {
 
 function toggleSituationPracticeRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
+        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
         return;
     }
     
@@ -2227,7 +2080,7 @@ function startSituationPracticeRecording() {
     };
     
     try {
-        state.recognition.start();
+        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
         showToast('🎤', 'Đang nghe em nói tiếng Anh...');
     } catch (error) {
         console.error('Recording error:', error);
@@ -2274,7 +2127,6 @@ async function handleLogin(e) {
             updateAuthUI();
             updateUserBadge();
             closeModal('loginModal');
-            await checkOnboarding();
             showToast('✅', `Chào mừng ${data.user.name}!`);
         } else {
             showToast('❌', data.error || 'Đăng nhập thất bại');
@@ -2700,7 +2552,7 @@ function loadVoices() {
 
 function speakText(text, rate = null) {
     if (!('speechSynthesis' in window)) {
-        showToast('❌', 'Trình duyệt không hỗ trợ đọc văn bản');
+        showToast('❌', 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
         return;
     }
     
@@ -2769,7 +2621,7 @@ function addSpeakButtonToMessage(messageContent, text) {
 // ==========================================
 function startRecordingWithFeedback() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
+        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
         return;
     }
     
@@ -2782,7 +2634,7 @@ function startRecordingWithFeedback() {
     state.recognition.lang = isVietnamese ? 'vi-VN' : 'en-US';
     
     try {
-        state.recognition.start();
+        window.MsSmileSpeech?.startSpeechRecognition({ lang: state.recognition.lang || 'en-US' });
         showToast('🎤', 'Đang nghe... Em nói đi!');
     } catch (error) {
         console.error('Recording error:', error);
@@ -2990,32 +2842,25 @@ async function loadPlanOptions() {
                 const monthlyPlan = plans.find(p => p.plan_type === 'monthly');
                 
                 if (monthlyPlan) {
-                    const displayName = baseName === 'basic' ? 'Basic' : baseName === 'pro' ? 'Pro' : 'Family';
-                    html += '<div class="plan-card-group" style="margin-bottom: 30px; border: 1px solid #eee; border-radius: 8px; padding: 20px; background:#fff;">';
-                    html += `<h4 style="color: #2c3e50; margin-bottom: 6px;">${displayName}</h4>`;
-                    html += `<p style="color:#666;margin:0 0 14px;">${monthlyPlan.chat_per_day || monthlyPlan.chat_limit} chat/ngày · ${monthlyPlan.lesson_limit} bài học/ngày · ${baseName === 'family' ? 'Tối đa 5 users' : '1 user'}</p>`;
+                    html += '<div class="plan-card-group" style="margin-bottom: 30px; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">';
+                    html += `<h4 style="text-transform: capitalize; color: #2c3e50; margin-bottom: 15px;">${baseName}</h4>`;
                     
                     plans.forEach(plan => {
                         const savings = plan.discount_percent > 0 ? 
                             `Tiết kiệm ${(plan.discount_percent * 100).toFixed(0)}%` : '';
                         const badgeClass = plan.discount_percent > 0 ? 'badge-success' : 'badge-primary';
-                        const typeLabel = plan.plan_type === 'six_months' ? '6 tháng' : plan.plan_type === 'yearly' ? '1 năm' : 'Monthly';
-                        const monthMultiplier = plan.plan_type === 'six_months' ? 6 : plan.plan_type === 'yearly' ? 12 : 1;
-                        const originalTotal = (plan.original_price || monthlyPlan.price || plan.price) * monthMultiplier;
-                        const discountPercent = Math.round((plan.discount_percent || 0) * 100);
-                        const perMonth = plan.duration_days > 30 ? Math.round(plan.price / monthMultiplier) : plan.price;
                         
                         html += `
                             <div class="plan-option" style="display: inline-block; margin: 10px; padding: 15px; border: 2px solid #eee; border-radius: 8px; min-width: 200px; text-align: center;">
                                 <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
-                                    ${typeLabel}
+                                    ${plan.title}
                                 </div>
                                 <div style="font-size: 1.5rem; color: #e74c3c; font-weight: bold; margin-bottom: 5px;">
                                     ${plan.price.toLocaleString()}đ
                                 </div>
-                                ${discountPercent > 0 ? `<div style="color:#888;text-decoration:line-through;font-size:.95rem;">${originalTotal.toLocaleString()}đ</div><div style="display:inline-block;background:#16a34a;color:#fff;padding:3px 8px;border-radius:12px;font-size:.8rem;margin-bottom:10px;">Tiết kiệm ${discountPercent}%</div>` : ''}
+                                ${savings ? `<div class="badge ${badgeClass}" style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-bottom: 10px;">${savings}</div>` : ''}
                                 <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
-                                    ${plan.duration_days} ngày · ~${perMonth.toLocaleString()}đ/tháng · ${plan.chat_per_day || plan.chat_limit} lượt chat/ngày
+                                    ${plan.description}
                                 </div>
                                 <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width: 100%;">
                                     Chọn gói này
@@ -3034,25 +2879,6 @@ async function loadPlanOptions() {
         console.error('Error loading plans:', error);
         showToast('❌', 'Không thể tải danh sách gói');
     }
-}
-
-function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397\nLiên hệ admin: 0939489139';
-    const lines = bankInfo.split('\n').filter(Boolean);
-    return `
-        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
-            <h3 style="margin-top:0;color:#2c3e50;">Thông tin chuyển khoản</h3>
-            <p><strong>Số tiền:</strong> ${Number(payment.amount || 0).toLocaleString('vi-VN')} VND</p>
-            <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
-            ${lines.map(line => `<p>${line}</p>`).join('')}
-            <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt</strong> để mở gói cho tài khoản của em.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
-                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Đã thanh toán</button>
-            </div>
-            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
-        </div>
-    `;
 }
 
 async function selectPlan(planName) {
@@ -3082,343 +2908,286 @@ async function selectPlan(planName) {
         const payment = data.payment_request;
         const message = `Yêu cầu thanh toán đã tạo: ${payment.reference_code}. Vui lòng chuyển khoản ${payment.amount.toLocaleString()}đ với nội dung ${payment.transfer_note}.`;
         showToast('✅', message);
-        const planOptions = document.getElementById('planOptions');
-        if (planOptions) {
-            planOptions.innerHTML = renderPaymentInstructions(payment);
-        }
+        closeModal('planModal');
     } catch (error) {
         console.error('Error creating payment request:', error);
         showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
     }
 }
 
-function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
-    const lines = bankInfo.split('\n').filter(Boolean);
-    const note = payment.transfer_note || payment.reference_code;
-    return `
-        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
-            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
-            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
-            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
-            ${lines.map((line) => `<p>${line}</p>`).join('')}
-            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
-                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
-            </div>
-            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
-        </div>
-    `;
+// ==========================================
+// Audio and Speech Overrides
+// ==========================================
+function getSpeechErrorMessage(error) {
+    if (!error) return 'Chưa nhận diện được giọng nói. Bạn thử lại nhé.';
+    return error.message || window.MsSmileSpeech?.getSpeechRecognitionErrorMessage?.(error.code) || 'Chưa nhận diện được giọng nói. Bạn thử lại nhé.';
 }
 
-// Account onboarding should be tied to the logged-in account, not the old local profile file.
-async function checkOnboarding() {
-    try {
-        if (!state.currentUser || state.isGuest || state.currentUser.role === 'admin') {
-            return;
-        }
-        const response = await fetch('/api/auth/me');
-        const data = await response.json();
-        if (!data.success || !data.user) {
-            return;
-        }
-        state.currentUser = data.user;
-        const user = data.user;
-        const hasRequiredProfile = Boolean(user.name && user.english_level && user.goal);
-        if (!hasRequiredProfile) {
-            state.pendingUserId = user.id;
-            openModal('profileSetupModal');
-        }
-    } catch (error) {
-        console.error('Account onboarding check error:', error);
+function shouldAllowUserSpeechAction() {
+    return true;
+}
+
+function initializeSpeechRecognition() {
+    state.recognition = null;
+    state.speechRecognitionSupported = !!(window.MsSmileSpeech && MsSmileSpeech.isSpeechRecognitionSupported());
+    if (!state.speechRecognitionSupported) {
+        console.log('Speech Recognition is not supported in this browser.');
     }
 }
 
-function ensureFamilySection() {
-    let section = document.getElementById('familySection');
-    if (!section) {
-        const resetBtn = document.getElementById('resetProfileBtn');
-        if (!resetBtn || !resetBtn.parentElement) return null;
-        section = document.createElement('div');
-        section.id = 'familySection';
-        section.className = 'hidden';
-        section.style.marginTop = '20px';
-        section.innerHTML = `
-            <hr style="margin:20px 0;">
-            <h3 style="color:#2c3e50;margin-bottom:10px;">Gia dinh dung chung</h3>
-            <p id="familySummary" style="color:#666;margin-bottom:10px;"></p>
-            <div id="familyMembersList" style="margin-bottom:12px;"></div>
-            <div class="form-group">
-                <label>Email hoac so dien thoai thanh vien</label>
-                <input type="text" id="familyMemberIdentifier" placeholder="Nhap email hoac so dien thoai">
-            </div>
-            <button type="button" id="addFamilyMemberBtn" class="btn btn-primary btn-full">Moi / them thanh vien</button>
-        `;
-        resetBtn.parentElement.insertBefore(section, resetBtn);
-    }
-    elements.familySection = section;
-    elements.familySummary = document.getElementById('familySummary');
-    elements.familyMembersList = document.getElementById('familyMembersList');
-    elements.familyMemberIdentifier = document.getElementById('familyMemberIdentifier');
-    elements.addFamilyMemberBtn = document.getElementById('addFamilyMemberBtn');
-    if (elements.addFamilyMemberBtn && !elements.addFamilyMemberBtn.dataset.bound) {
-        elements.addFamilyMemberBtn.dataset.bound = '1';
-        elements.addFamilyMemberBtn.addEventListener('click', addFamilyMember);
-    }
-    return section;
-}
-
-function isFamilyPlanName(planName) {
-    return Boolean(planName && (planName === 'family' || String(planName).startsWith('family_')));
-}
-
-async function loadFamilyMembers() {
-    const section = ensureFamilySection();
-    if (!section) return;
-    if (!state.currentUser || !isFamilyPlanName(state.currentUser.plan_name) || state.currentUser.status !== 'active') {
-        section.classList.add('hidden');
+function initializeTTS() {
+    if (!window.MsSmileSpeech || !MsSmileSpeech.isSpeechSynthesisSupported()) {
+        console.log('Speech synthesis is not supported in this browser.');
         return;
     }
-    try {
-        const response = await fetch(`/api/user/family/members?user_id=${state.currentUser.id}`);
-        const data = await response.json();
-        if (!data.success) {
-            section.classList.add('hidden');
-            return;
-        }
-        section.classList.remove('hidden');
-        const members = data.members || [];
-        const limit = data.limit || 5;
-        if (elements.familySummary) {
-            elements.familySummary.textContent = `Dang dung ${members.length + 1}/${limit} tai khoan, tinh ca chu goi.`;
-        }
-        if (elements.familyMembersList) {
-            elements.familyMembersList.innerHTML = members.length ? members.map((member) => `
-                <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:8px;">
-                    <div>
-                        <strong>${member.member_name || 'Thanh vien'}</strong><br>
-                        <span style="color:#666;">${member.member_email || member.member_phone || ''}</span>
-                    </div>
-                    <button type="button" class="btn btn-secondary" onclick="removeFamilyMember(${member.id})">Xoa</button>
-                </div>
-            `).join('') : '<p style="color:#666;">Chua co thanh vien. Nhap email hoac so dien thoai de them.</p>';
-        }
-    } catch (error) {
-        console.error('Load family members error:', error);
-    }
 }
 
-async function addFamilyMember() {
-    ensureFamilySection();
-    const identifier = (elements.familyMemberIdentifier?.value || '').trim();
-    if (!identifier) {
-        showToast('⚠️', 'Nhap email hoac so dien thoai thanh vien');
+function loadVoices() {
+    return [];
+}
+
+async function speakText(text, rate = null, audioUrl = null) {
+    const cleanText = String(text || '').trim();
+    if (!cleanText) return;
+
+    if (!window.MsSmileSpeech) {
+        showToast('❌', 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
         return;
     }
-    try {
-        const response = await fetch('/api/user/family/members', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.currentUser?.id, identifier })
-        });
-        const data = await response.json();
-        if (data.success) {
-            elements.familyMemberIdentifier.value = '';
-            showToast('✅', 'Da them thanh vien vao goi Family');
-            await loadFamilyMembers();
-        } else {
-            showToast('❌', data.error || 'Khong the them thanh vien');
-        }
-    } catch (error) {
-        console.error('Add family member error:', error);
-        showToast('❌', 'Loi ket noi khi them thanh vien');
-    }
-}
 
-async function removeFamilyMember(familyMemberId) {
-    if (!confirm('Xoa thanh vien nay khoi goi Family?')) return;
     try {
-        const response = await fetch(`/api/user/family/members/${familyMemberId}`, { method: 'DELETE' });
-        const data = await response.json();
-        if (data.success) {
-            showToast('✅', 'Da xoa thanh vien');
-            await loadFamilyMembers();
-        } else {
-            showToast('❌', data.error || 'Khong the xoa thanh vien');
-        }
-    } catch (error) {
-        console.error('Remove family member error:', error);
-        showToast('❌', 'Loi ket noi khi xoa thanh vien');
-    }
-}
-
-function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chu tai khoan: Nguyen Quoc Tuan\nNgan hang: ACB\nSo tai khoan: 13184397\nLien he admin: 0939489139';
-    const lines = bankInfo.split('\n').filter(Boolean);
-    const note = payment.transfer_note || payment.reference_code;
-    return `
-        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
-            <h3 style="margin-top:0;color:#2c3e50;">Thong tin chuyen khoan</h3>
-            <p><strong>So tien:</strong> ${formatPlanPrice(payment.amount)} VND</p>
-            <p><strong>Noi dung chuyen khoan:</strong> <code>${note}</code></p>
-            ${lines.map((line) => `<p>${line}</p>`).join('')}
-            <p style="color:#666;margin-top:12px;">Sau khi chuyen khoan xong, bam <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="copyText('${note}')">Sao chep noi dung chuyen khoan</button>
-                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Da thanh toan</button>
-            </div>
-            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
-        </div>
-    `;
-}
-
-async function confirmPaymentSent(paymentId) {
-    try {
-        const response = await fetch(`/api/payment/${paymentId}/confirm`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.currentUser?.id })
-        });
-        const data = await response.json();
-        if (data.success) {
-            const status = document.getElementById('paymentConfirmStatus');
-            if (status) {
-                const adminPhone = data.admin_contact?.phone || '0939489139';
-                status.textContent = `Da bao admin. Neu can lien he nhanh, goi/Zalo admin: ${adminPhone}. Admin se kiem tra giao dich va bam Duyet - mo goi trong trang Thanh toan.`;
+        state.isSpeaking = true;
+        await MsSmileSpeech.speakText(cleanText, {
+            audioUrl,
+            rate: rate || state.ttsSpeed || 1,
+            onEnd: () => {
+                state.isSpeaking = false;
             }
-            showToast('✅', 'Da bao admin kiem tra thanh toan');
-        } else {
-            showToast('❌', data.error || 'Khong the xac nhan thanh toan');
-        }
+        });
     } catch (error) {
-        console.error('Confirm payment error:', error);
-        showToast('❌', 'Loi ket noi khi xac nhan thanh toan');
+        state.isSpeaking = false;
+        console.error('Speech synthesis error:', error);
+        showToast('❌', error.message || 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
     }
 }
 
-function formatPlanPrice(value) {
-    return Number(value || 0).toLocaleString('vi-VN');
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    state.isSpeaking = false;
 }
 
-function copyText(text) {
-    if (!text) return;
-    navigator.clipboard.writeText(text)
-        .then(() => showToast('✅', 'Đã sao chép'))
-        .catch(() => showToast('❌', 'Không sao chép được'));
+function setListeningButton(button, isListening, idleHtml) {
+    if (!button) return;
+    if (!button.dataset.idleHtml) {
+        button.dataset.idleHtml = idleHtml || button.innerHTML;
+    }
+
+    button.classList.toggle('recording', isListening);
+    button.innerHTML = isListening ? 'Đang nghe...' : button.dataset.idleHtml;
 }
 
-async function loadPlanOptions() {
-    try {
-        const response = await fetch('/api/plans');
-        const data = await response.json();
-        const planOptions = document.getElementById('planOptions');
-        if (!planOptions) return;
-        if (!data.success) {
-            planOptions.innerHTML = '<p>Không tải được danh sách gói.</p>';
-            return;
-        }
-
-        const groups = {};
-        data.plans.forEach((plan) => {
-            if (plan.name === 'free_trial') return;
-            const baseName = plan.name.replace(/_monthly|_six_months|_yearly$/, '');
-            groups[baseName] = groups[baseName] || [];
-            groups[baseName].push(plan);
-        });
-
-        let html = `
-            <div style="text-align:center;margin-bottom:20px;">
-                <h3 style="color:#2c3e50;">Chọn gói dịch vụ phù hợp với em</h3>
-                <p style="color:#666;">Chọn gói, chuyển khoản đúng nội dung, admin sẽ duyệt để mở gói.</p>
-            </div>
-        `;
-
-        Object.keys(groups).forEach((baseName) => {
-            const plans = groups[baseName].sort((a, b) => a.duration_days - b.duration_days);
-            const monthlyPlan = plans.find((p) => p.plan_type === 'monthly') || plans[0];
-            const displayName = baseName === 'basic' ? 'Basic' : baseName === 'pro' ? 'Pro' : 'Family';
-            html += `
-                <div class="plan-card-group" style="margin-bottom:30px;border:1px solid #eee;border-radius:8px;padding:20px;background:#fff;">
-                    <h4 style="color:#2c3e50;margin-bottom:6px;">${displayName}</h4>
-                    <p style="color:#666;margin:0 0 14px;">
-                        ${monthlyPlan.chat_per_day || monthlyPlan.chat_limit} lượt chat/ngày ·
-                        ${monthlyPlan.lesson_limit} bài học/ngày ·
-                        ${baseName === 'family' ? 'Tối đa 5 tài khoản gia đình' : '1 tài khoản'}
-                    </p>
-            `;
-
-            plans.forEach((plan) => {
-                const typeLabel = plan.plan_type === 'six_months' ? '6 tháng' : plan.plan_type === 'yearly' ? '1 năm' : 'Hàng tháng';
-                const multiplier = plan.plan_type === 'six_months' ? 6 : plan.plan_type === 'yearly' ? 12 : 1;
-                const originalTotal = (plan.original_price || monthlyPlan.price || plan.price) * multiplier;
-                const discountPercent = Math.round((plan.discount_percent || 0) * 100);
-                const perMonth = plan.duration_days > 30 ? Math.round(plan.price / multiplier) : plan.price;
-                html += `
-                    <div class="plan-option" style="display:inline-block;vertical-align:top;margin:10px;padding:15px;border:2px solid #eee;border-radius:8px;min-width:220px;text-align:center;">
-                        <div style="font-size:1.2rem;font-weight:bold;margin-bottom:5px;">${typeLabel}</div>
-                        <div style="font-size:1.5rem;color:#e74c3c;font-weight:bold;margin-bottom:5px;">${formatPlanPrice(plan.price)}đ</div>
-                        ${discountPercent > 0 ? `<div style="color:#888;text-decoration:line-through;font-size:.95rem;">${formatPlanPrice(originalTotal)}đ</div><div style="display:inline-block;background:#16a34a;color:#fff;padding:3px 8px;border-radius:12px;font-size:.8rem;margin-bottom:10px;">Tiết kiệm ${discountPercent}%</div>` : ''}
-                        <div style="color:#666;font-size:.9rem;margin-bottom:10px;">
-                            ${plan.duration_days} ngày · ~${formatPlanPrice(perMonth)}đ/tháng · ${plan.chat_per_day || plan.chat_limit} lượt chat/ngày
-                        </div>
-                        <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width:100%;">Chọn gói này</button>
-                    </div>
-                `;
-            });
-            html += '</div>';
-        });
-        planOptions.innerHTML = html;
-    } catch (error) {
-        console.error('Error loading plans:', error);
-        showToast('❌', 'Không thể tải danh sách gói');
+function setMainListeningState(isListening) {
+    state.isRecording = isListening;
+    setListeningButton(elements.micBtn, isListening, '<i class="fas fa-microphone"></i>');
+    if (elements.recordingIndicator) {
+        elements.recordingIndicator.classList.toggle('hidden', !isListening);
     }
 }
 
-function renderPaymentInstructions(payment) {
-    const bankInfo = payment.bank_info || 'Chủ tài khoản: Nguyen Quoc Tuan\nNgân hàng: ACB\nSố tài khoản: 13184397\nLiên hệ admin: 0939489139';
-    const lines = bankInfo.split('\n').filter(Boolean);
-    return `
-        <div style="padding:18px;border:2px solid #f4d5e4;border-radius:8px;background:#fff;">
-            <h3 style="margin-top:0;color:#2c3e50;">Thông tin chuyển khoản</h3>
-            <p><strong>Số tiền:</strong> ${formatPlanPrice(payment.amount)} VND</p>
-            <p><strong>Nội dung chuyển khoản:</strong> <code>${payment.transfer_note || payment.reference_code}</code></p>
-            ${lines.map((line) => `<p>${line}</p>`).join('')}
-            <p style="color:#666;margin-top:12px;">Sau khi em chuyển khoản, admin sẽ vào mục Thanh toán và bấm <strong>Duyệt - mở gói</strong> để kích hoạt gói cho em.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-secondary" type="button" onclick="copyText('${payment.transfer_note || payment.reference_code}')">Sao chép nội dung chuyển khoản</button>
-                <button class="btn btn-primary" type="button" onclick="confirmPaymentSent(${payment.id})">Đã thanh toán</button>
-            </div>
-            <p id="paymentConfirmStatus" style="color:#27ae60;margin-top:10px;"></p>
-        </div>
-    `;
-}
-
-async function selectPlan(planName) {
-    if (!state.currentUser) {
-        showToast('❌', 'Vui lòng đăng nhập trước');
+async function runSpeechRecognition({ button, idleHtml, onResult, onStart, onEnd }) {
+    if (!window.MsSmileSpeech) {
+        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
         return;
     }
 
     try {
-        const response = await fetch('/api/payment/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.currentUser.id, plan_name: planName })
+        const transcript = await MsSmileSpeech.startSpeechRecognition({
+            lang: 'en-US',
+            onStart: () => {
+                state.isRecording = true;
+                if (button) setListeningButton(button, true, idleHtml);
+                showToast('🎤', 'Đang nghe...');
+                if (typeof onStart === 'function') onStart();
+            },
+            onEnd: () => {
+                state.isRecording = false;
+                if (button) setListeningButton(button, false, idleHtml);
+                if (typeof onEnd === 'function') onEnd();
+            }
         });
-        const data = await response.json();
-        if (!data.success) {
-            showToast('❌', data.error || 'Không thể tạo yêu cầu thanh toán');
-            return;
+
+        if (transcript && typeof onResult === 'function') {
+            onResult(transcript);
+        } else if (!transcript) {
+            showToast('⚠️', 'Không nghe thấy giọng nói. Bạn thử bấm micro và nói lại rõ hơn nhé.');
         }
-        const payment = data.payment_request;
-        const planOptions = document.getElementById('planOptions');
-        if (planOptions) {
-            planOptions.innerHTML = renderPaymentInstructions(payment);
-        }
-        showToast('✅', 'Đã tạo yêu cầu thanh toán');
     } catch (error) {
-        console.error('Error creating payment request:', error);
-        showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
+        state.isRecording = false;
+        if (button) setListeningButton(button, false, idleHtml);
+        if (typeof onEnd === 'function') onEnd();
+        console.error('Speech recognition error:', error);
+        showToast('❌', getSpeechErrorMessage(error));
+    }
+}
+
+function toggleRecording() {
+    if (state.isRecording) {
+        stopRecording();
+        return;
+    }
+    startRecording();
+}
+
+function startRecording() {
+    runSpeechRecognition({
+        button: elements.micBtn,
+        idleHtml: '<i class="fas fa-microphone"></i>',
+        onStart: () => {
+            setMainListeningState(true);
+        },
+        onEnd: () => {
+            setMainListeningState(false);
+        },
+        onResult: (transcript) => {
+            elements.messageInput.value = transcript;
+            if (state.isPracticeMode) {
+                evaluatePracticeSpeech(transcript);
+            }
+        }
+    });
+}
+
+function stopRecording() {
+    if (window.MsSmileSpeech) {
+        MsSmileSpeech.stopSpeechRecognition();
+    }
+    setMainListeningState(false);
+}
+
+function startVoiceRecording() {
+    startRecording();
+}
+
+function startRecordingWithFeedback() {
+    startRecording();
+}
+
+function togglePracticeRecording() {
+    if (state.isRecording) {
+        stopPracticeRecording();
+        return;
+    }
+    startPracticeRecording();
+}
+
+function startPracticeRecording() {
+    state.isPracticeMode = true;
+    runSpeechRecognition({
+        button: elements.recordPracticeBtn,
+        idleHtml: '<i class="fas fa-microphone"></i> Bấm để nói',
+        onResult: (transcript) => {
+            evaluatePracticeSpeech(transcript);
+        },
+        onEnd: () => {
+            state.isPracticeMode = false;
+        }
+    });
+}
+
+function stopPracticeRecording() {
+    if (window.MsSmileSpeech) {
+        MsSmileSpeech.stopSpeechRecognition();
+    }
+    state.isRecording = false;
+    state.isPracticeMode = false;
+    setListeningButton(elements.recordPracticeBtn, false, '<i class="fas fa-microphone"></i> Bấm để nói');
+}
+
+function openSpeakingPractice(index) {
+    if (!state.currentLesson || !state.currentLesson.practice) return;
+
+    state.currentPracticeIndex = index;
+    const sentence = state.currentLesson.practice[index];
+
+    elements.practiceText.textContent = sentence;
+    elements.speakingResult.classList.add('hidden');
+    elements.speakingResult.innerHTML = '';
+
+    closeModal('lessonModal');
+    openModal('speakingModal');
+}
+
+function toggleRoleplayRecording() {
+    if (state.isRecording) {
+        stopRoleplayRecording();
+        return;
+    }
+    startRoleplayRecording();
+}
+
+function startRoleplayRecording() {
+    runSpeechRecognition({
+        button: elements.roleplayMicBtn,
+        idleHtml: '<i class="fas fa-microphone"></i>',
+        onResult: (transcript) => {
+            elements.roleplayInput.value = transcript;
+        }
+    });
+}
+
+function stopRoleplayRecording() {
+    if (window.MsSmileSpeech) {
+        MsSmileSpeech.stopSpeechRecognition();
+    }
+    state.isRecording = false;
+    setListeningButton(elements.roleplayMicBtn, false, '<i class="fas fa-microphone"></i>');
+}
+
+function toggleSituationPracticeRecording() {
+    if (state.isRecording) {
+        stopSituationPracticeRecording();
+        return;
+    }
+    startSituationPracticeRecording();
+}
+
+function startSituationPracticeRecording() {
+    runSpeechRecognition({
+        button: elements.situationPracticeMicBtn,
+        idleHtml: '<i class="fas fa-microphone"></i>',
+        onResult: (transcript) => {
+            elements.situationPracticeInput.value = transcript;
+        }
+    });
+}
+
+function stopSituationPracticeRecording() {
+    if (window.MsSmileSpeech) {
+        MsSmileSpeech.stopSpeechRecognition();
+    }
+    state.isRecording = false;
+    setListeningButton(elements.situationPracticeMicBtn, false, '<i class="fas fa-microphone"></i>');
+}
+
+// ==========================================
+// Global Speech Functions (wrappers for HTML onclick)
+// ==========================================
+async function speakText(text, rate, audioUrl) {
+    if (!window.MsSmileSpeech) {
+        showToast('❌', 'Hệ thống phát âm chưa sẵn sàng. Vui lòng refresh trang.');
+        return;
+    }
+    
+    const options = {};
+    if (rate) options.rate = rate;
+    if (audioUrl) options.audioUrl = audioUrl;
+    
+    try {
+        await window.MsSmileSpeech.speakText(text, options);
+    } catch (error) {
+        console.error('speakText error:', error);
+        showToast('❌', error.message || 'Không thể phát âm thanh.');
     }
 }

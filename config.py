@@ -68,11 +68,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 5,
         "chat_per_month": 100,
         "max_tokens_per_chat": 1000,
-        "max_tokens_per_day": 5000,
-        "max_tokens_per_month": 100000,
         "max_cost_per_day_vnd": 0.0,  # unlimited
         "max_cost_per_month_vnd": 0.0,
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 7,
         "plan_type": "trial",
@@ -95,11 +92,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 10,
         "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
-        "max_tokens_per_day": 20000,
-        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,  # ~1 USD
         "max_cost_per_month_vnd": 600000.0,  # ~24 USD
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -121,11 +115,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 10,
         "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
-        "max_tokens_per_day": 20000,
-        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,
         "max_cost_per_month_vnd": 600000.0,
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -147,11 +138,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 10,
         "chat_per_month": 300,
         "max_tokens_per_chat": 2000,
-        "max_tokens_per_day": 20000,
-        "max_tokens_per_month": 600000,
         "max_cost_per_day_vnd": 30000.0,
         "max_cost_per_month_vnd": 600000.0,
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
@@ -174,11 +162,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 30,
         "chat_per_month": 900,
         "max_tokens_per_chat": 4000,
-        "max_tokens_per_day": 60000,
-        "max_tokens_per_month": 1800000,
         "max_cost_per_day_vnd": 60000.0,  # ~2.4 USD
         "max_cost_per_month_vnd": 1200000.0,  # ~48 USD
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -200,11 +185,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 30,
         "chat_per_month": 900,
         "max_tokens_per_chat": 4000,
-        "max_tokens_per_day": 60000,
-        "max_tokens_per_month": 1800000,
         "max_cost_per_day_vnd": 60000.0,
         "max_cost_per_month_vnd": 1200000.0,
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -226,11 +208,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 30,
         "chat_per_month": 900,
         "max_tokens_per_chat": 4000,
-        "max_tokens_per_day": 60000,
-        "max_tokens_per_month": 1800000,
         "max_cost_per_day_vnd": 60000.0,
         "max_cost_per_month_vnd": 1200000.0,
-        "family_member_limit": 1,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
@@ -253,11 +232,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 999,
         "chat_per_month": 29970,
         "max_tokens_per_chat": 8000,
-        "max_tokens_per_day": 150000,
-        "max_tokens_per_month": 4500000,
         "max_cost_per_day_vnd": 0.0,  # unlimited
         "max_cost_per_month_vnd": 0.0,
-        "family_member_limit": 5,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -279,11 +255,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 999,
         "chat_per_month": 29970,
         "max_tokens_per_chat": 8000,
-        "max_tokens_per_day": 150000,
-        "max_tokens_per_month": 4500000,
         "max_cost_per_day_vnd": 0.0,
         "max_cost_per_month_vnd": 0.0,
-        "family_member_limit": 5,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -305,11 +278,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 999,
         "chat_per_month": 29970,
         "max_tokens_per_chat": 8000,
-        "max_tokens_per_day": 150000,
-        "max_tokens_per_month": 4500000,
         "max_cost_per_day_vnd": 0.0,
         "max_cost_per_month_vnd": 0.0,
-        "family_member_limit": 5,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
@@ -327,19 +297,7 @@ APP_NAME = "Ms. Smile English"
 
 
 def get_plan_by_name(name):
-    plan = next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
-    if plan:
-        return plan
-    legacy_aliases = {
-        'basic': 'basic_monthly',
-        'pro': 'pro_monthly',
-        'family': 'family_monthly',
-        'monthly': 'basic_monthly'
-    }
-    alias = legacy_aliases.get(name)
-    if alias:
-        return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == alias), None)
-    return None
+    return next((plan for plan in PLAN_DEFINITIONS if plan['name'] == name), None)
 
 
 def get_model_config():
@@ -372,10 +330,6 @@ SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/success")
 PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
 PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
-PAYMENT_BANK_OWNER = os.getenv("PAYMENT_BANK_OWNER", "Nguyen Quoc Tuan")
-PAYMENT_BANK_NAME = os.getenv("PAYMENT_BANK_NAME", "ACB")
-PAYMENT_BANK_ACCOUNT = os.getenv("PAYMENT_BANK_ACCOUNT", "13184397")
-ADMIN_PHONE = os.getenv("ADMIN_PHONE", "0939489139")
 
 # Affiliate marketing defaults
 AFFILIATE_COMMISSION_RATE = float(os.getenv("AFFILIATE_COMMISSION_RATE", "20.0"))
@@ -387,28 +341,7 @@ AFFILIATE_COMMISSION_FIXED_AMOUNT = int(os.getenv("AFFILIATE_COMMISSION_FIXED_AM
 # PART 1 & 3: AI Cost Calculation Configuration
 # ==========================================
 # Exchange rate USD to VND
-USD_TO_VND = float(os.getenv("USD_TO_VND", "26000.0"))
-
-AI_COST_CONFIG = {
-    "gpt-4o-mini": {
-        "input_per_1m_usd": float(os.getenv("GPT_4O_MINI_INPUT_PER_1M_USD", "0.15")),
-        "output_per_1m_usd": float(os.getenv("GPT_4O_MINI_OUTPUT_PER_1M_USD", "0.60")),
-    },
-    "gpt-4o": {
-        "input_per_1m_usd": float(os.getenv("GPT_4O_INPUT_PER_1M_USD", "5.0")),
-        "output_per_1m_usd": float(os.getenv("GPT_4O_OUTPUT_PER_1M_USD", "15.0")),
-    },
-    "gpt-3.5-turbo": {
-        "input_per_1m_usd": float(os.getenv("GPT_35_INPUT_PER_1M_USD", "0.50")),
-        "output_per_1m_usd": float(os.getenv("GPT_35_OUTPUT_PER_1M_USD", "1.50")),
-    },
-}
-
-TRIAL_COST_LIMIT_VND = float(os.getenv("TRIAL_COST_LIMIT_VND", "3000"))
-TRIAL_HARD_LIMIT_VND = float(os.getenv("TRIAL_HARD_LIMIT_VND", "5000"))
-USER_WARNING_COST_RATIO = float(os.getenv("USER_WARNING_COST_RATIO", "0.30"))
-USER_DANGER_COST_RATIO = float(os.getenv("USER_DANGER_COST_RATIO", "0.60"))
-USER_LOSS_COST_RATIO = float(os.getenv("USER_LOSS_COST_RATIO", "1.0"))
+USD_TO_VND = float(os.getenv("USD_TO_VND", "25000.0"))
 
 # PART 1: Cost per token (in USD) for different models
 # Updated with current OpenAI pricing (as of 2024)

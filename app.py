@@ -57,9 +57,6 @@ _roleplay_service = None
 @app.route('/')
 def index():
     """Trang chủ - Render giao diện chính"""
-    referrer = request.headers.get('Referer', '')
-    if request.args.get('guest') == '1' or request.args.get('public') == '1' or 'bit.ly' in referrer.lower():
-        session.clear()
     return render_template('index.html')
 
 @app.route('/api/health/domain', methods=['GET'])
@@ -226,8 +223,7 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
         if user_id:
             user = user_service.get_user(user_id)
             if user:
-                billing_user = user_service.get_effective_billing_user(user.id)
-                plan_name = (billing_user.plan_name if billing_user else user.plan_name) or "free_trial"
+                plan_name = user.plan_name or "free_trial"
                 
                 # Check if user is locked or expired
                 if user.is_locked or user.status == 'banned':
@@ -262,33 +258,11 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
                 'limits': quota_check['limits']
             }), 429  # 429 = Too Many Requests
         
-        cost_policy = {'allowed': True, 'risk_level': 'safe', 'short_answer': False}
-        if user_id and user:
-            cost_policy = cost_service.check_chat_cost_policy(user.id)
-            if not cost_policy.get('allowed'):
-                hard_limit_message = """US English:
-You have reached today's learning limit.
-
-VN Tiếng Việt:
-Em đã dùng hết giới hạn học hôm nay. Vui lòng nâng cấp gói hoặc quay lại ngày mai.
-
-Giải thích:
-Giới hạn này giúp hệ thống duy trì ổn định."""
-                return jsonify({
-                    'success': False,
-                    'error': hard_limit_message,
-                    'message': hard_limit_message,
-                    'risk_level': cost_policy.get('risk_level')
-                }), 429
-
         # Lấy AI service
         service = get_ai_service()
-        original_max_tokens = service.config.get("max_tokens", 1000)
-        if cost_policy.get('short_answer'):
-            service.config["max_tokens"] = min(original_max_tokens, 350)
-            user_message = "Hôm nay em đã học khá nhiều rồi, cô sẽ trả lời ngắn gọn hơn nhé.\n\n" + user_message
         
         # DEBUG LOG
+        import config as app_config
         print(f"[CHAT DEBUG] Provider: {app_config.AI_PROVIDER}")
         print(f"[CHAT DEBUG] Bilingual format: ENABLED")
         
@@ -329,10 +303,8 @@ Giới hạn này giúp hệ thống duy trì ổn định."""
             
             # Gọi AI với user profile để cá nhân hóa
             ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
-            service.config["max_tokens"] = original_max_tokens
             
         except Exception as e:
-            service.config["max_tokens"] = original_max_tokens
             print(f"[CHAT ERROR] Exception caught: {str(e)}")
             import traceback
             print(traceback.format_exc())
@@ -624,30 +596,6 @@ def create_payment_request():
         success, result = user_service.create_payment_request(user_id, plan_name)
         if success:
             return jsonify({"success": True, **result})
-        return jsonify({"success": False, **result}), 400
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/payment/<int:payment_id>/confirm', methods=['POST'])
-def confirm_payment_sent(payment_id):
-    """Customer confirms they have transferred money for a manual payment."""
-    try:
-        data = request.get_json(silent=True) or {}
-        user_id = session.get('user_id') or data.get('user_id')
-        if not user_id:
-            return jsonify({"success": False, "error": "Login required"}), 401
-
-        success, result = get_user_service().confirm_payment_sent(payment_id, int(user_id))
-        if success:
-            return jsonify({
-                "success": True,
-                **result,
-                "admin_contact": {
-                    "email": os.getenv("ADMIN_EMAIL", ""),
-                    "phone": getattr(app_config, "ADMIN_PHONE", "")
-                }
-            })
         return jsonify({"success": False, **result}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1045,43 +993,6 @@ def admin_reset_quota(user_id):
     user_service = get_user_service()
     success, result = user_service.reset_user_quota(user_id)
     
-    if success:
-        return jsonify({"success": True, **result})
-    return jsonify({"success": False, **result}), 400
-
-
-@app.route('/api/admin/family/<int:owner_user_id>/members', methods=['GET'])
-def admin_family_members(owner_user_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    success, result = get_user_service().get_family_members(owner_user_id)
-    if success:
-        return jsonify({"success": True, **result})
-    return jsonify({"success": False, **result}), 400
-
-
-@app.route('/api/admin/family/<int:owner_user_id>/members', methods=['POST'])
-def admin_add_family_member(owner_user_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    data = request.get_json() or {}
-    member_user_id = data.get('member_user_id')
-    if not member_user_id:
-        return jsonify({"success": False, "error": "member_user_id required"}), 400
-    success, result = get_user_service().add_family_member(owner_user_id, int(member_user_id))
-    if success:
-        return jsonify({"success": True, **result})
-    return jsonify({"success": False, **result}), 400
-
-
-@app.route('/api/admin/family/members/<int:family_member_id>', methods=['DELETE'])
-def admin_remove_family_member(family_member_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    success, result = get_user_service().remove_family_member(family_member_id)
     if success:
         return jsonify({"success": True, **result})
     return jsonify({"success": False, **result}), 400
@@ -1510,123 +1421,6 @@ def admin_costs():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/admin/cost/summary', methods=['GET'])
-def admin_cost_summary():
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        return jsonify({"success": True, "summary": get_cost_service().get_cost_summary()})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/cost/users', methods=['GET'])
-def admin_cost_users():
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        risk = request.args.get('risk', 'all')
-        return jsonify({"success": True, "users": get_cost_service().get_cost_users(risk_filter=risk)})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/cost/user/<int:user_id>', methods=['GET'])
-def admin_cost_user_detail(user_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        return jsonify({"success": True, **get_cost_service().get_user_cost_detail(user_id)})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/cost/user/<int:user_id>/reset', methods=['POST'])
-def admin_cost_user_reset(user_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        get_cost_service().reset_user_cost(user_id)
-        return jsonify({"success": True, "message": "Usage reset"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/cost/user/<int:user_id>/limit', methods=['POST'])
-def admin_cost_user_limit(user_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        data = request.get_json(silent=True) or {}
-        from models import User
-        user = User.query.get(user_id)
-        if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
-
-        def optional_int(key):
-            value = data.get(key)
-            if value in (None, ''):
-                return None
-            return max(0, int(value))
-
-        def optional_float(key):
-            value = data.get(key)
-            if value in (None, ''):
-                return None
-            return max(0.0, float(value))
-
-        if 'max_tokens_per_day' in data:
-            user.max_tokens_per_day_override = optional_int('max_tokens_per_day')
-        if 'max_tokens_per_month' in data:
-            user.max_tokens_per_month_override = optional_int('max_tokens_per_month')
-        if 'max_cost_per_day_vnd' in data:
-            user.max_cost_per_day_vnd_override = optional_float('max_cost_per_day_vnd')
-        db.session.commit()
-        return jsonify({"success": True, "user": user.to_dict(), "message": "Limit override saved"})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/alerts', methods=['GET'])
-def admin_alerts():
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        from models import AdminAlert
-        query = AdminAlert.query
-        if request.args.get('unread') == '1':
-            query = query.filter_by(is_read=False)
-        alerts = [alert.to_dict() for alert in query.order_by(AdminAlert.created_at.desc()).limit(100).all()]
-        unread_count = AdminAlert.query.filter_by(is_read=False).count()
-        return jsonify({"success": True, "alerts": alerts, "unread_count": unread_count})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/admin/alerts/<int:alert_id>/read', methods=['POST'])
-def admin_alert_read(alert_id):
-    admin_id, resp, code = require_admin(request)
-    if resp:
-        return resp, code
-    try:
-        from models import AdminAlert
-        alert = AdminAlert.query.get(alert_id)
-        if not alert:
-            return jsonify({"success": False, "error": "Alert not found"}), 404
-        alert.is_read = True
-        db.session.commit()
-        return jsonify({"success": True, "alert": alert.to_dict()})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route('/api/admin/affiliate/stats', methods=['GET'])
 def admin_affiliate_stats():
     """Get affiliate statistics"""
@@ -1706,13 +1500,7 @@ def check_reminder():
 @app.route('/admin')
 def admin_page():
     # Check admin authentication
-    user_id = session.get('user_id') or request.args.get('admin_id', type=int)
-    if user_id and not session.get('user_id'):
-        user = get_user_service().get_user(user_id)
-        if user and user.role == 'admin':
-            session['user_id'] = user.id
-            session['user_email'] = user.email
-            session['user_role'] = user.role
+    user_id = session.get('user_id')
     user_role = session.get('user_role')
     if not user_id or user_role != 'admin':
         return jsonify({"success": False, "error": "Admin access required"}), 403
@@ -2255,74 +2043,6 @@ def user_affiliate():
         user_service = get_user_service()
         affiliate_data = user_service.get_user_affiliate(user_id)
         return jsonify({"success": True, "affiliate": affiliate_data})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/user/family/members', methods=['GET'])
-def user_family_members():
-    try:
-        user_id = session.get('user_id') or request.args.get('user_id', type=int)
-        if not user_id:
-            return jsonify({"success": False, "error": "Login required"}), 401
-        user_service = get_user_service()
-        user = user_service.get_user(user_id)
-        if not user:
-            return jsonify({"success": False, "error": "User not found"}), 404
-        if not (user.plan_name == 'family' or str(user.plan_name or '').startswith('family_')) or user.status != 'active':
-            return jsonify({
-                "success": False,
-                "error": "Chi chu goi Family dang active moi quan ly thanh vien"
-            }), 403
-        success, result = user_service.get_family_members(user.id)
-        if success:
-            return jsonify({"success": True, **result})
-        return jsonify({"success": False, **result}), 400
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/user/family/members', methods=['POST'])
-def user_add_family_member():
-    try:
-        data = request.get_json() or {}
-        user_id = session.get('user_id') or data.get('user_id')
-        if not user_id:
-            return jsonify({"success": False, "error": "Login required"}), 401
-        identifier = data.get('identifier')
-        if not identifier:
-            return jsonify({"success": False, "error": "Nhap email hoac so dien thoai thanh vien"}), 400
-        user_service = get_user_service()
-        owner = user_service.get_user(user_id)
-        if not owner:
-            return jsonify({"success": False, "error": "User not found"}), 404
-        if not (owner.plan_name == 'family' or str(owner.plan_name or '').startswith('family_')) or owner.status != 'active':
-            return jsonify({
-                "success": False,
-                "error": "Chi chu goi Family dang active moi them thanh vien"
-            }), 403
-        success, result = user_service.add_family_member_by_identifier(owner.id, identifier)
-        if success:
-            return jsonify({"success": True, **result})
-        return jsonify({"success": False, **result}), 400
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/user/family/members/<int:family_member_id>', methods=['DELETE'])
-def user_remove_family_member(family_member_id):
-    try:
-        user_id = session.get('user_id')
-        if not user_id:
-            return jsonify({"success": False, "error": "Login required"}), 401
-        from models import FamilyMember
-        family_member = FamilyMember.query.get(family_member_id)
-        if not family_member or family_member.owner_user_id != user_id:
-            return jsonify({"success": False, "error": "Khong co quyen xoa thanh vien nay"}), 403
-        success, result = get_user_service().remove_family_member(family_member_id)
-        if success:
-            return jsonify({"success": True, **result})
-        return jsonify({"success": False, **result}), 400
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
