@@ -2,6 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
+console.log('[APP_VERSION] daily-lesson-audio-final-fix-002');
 
 // ==========================================
 // Global State
@@ -781,11 +782,36 @@ function setupEventListeners() {
 }
 
 function initializeSpeechRecognition() {
-    // Dùng MsSmileSpeech helper
-    state.recognition = null;
-    state.speechRecognitionSupported = !!(window.MsSmileSpeech && MsSmileSpeech.isSpeechRecognitionSupported());
-    if (!state.speechRecognitionSupported) {
-        console.log('Speech Recognition is not supported in this browser.');
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        state.recognition = new SpeechRecognition();
+        state.recognition.continuous = false;
+        state.recognition.interimResults = false;
+        state.recognition.lang = 'en-US'; // Mặc định tiếng Anh
+        
+        state.recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            elements.messageInput.value = transcript;
+            stopRecording();
+            
+            // Tự động gửi nếu đang trong chế độ practice
+            if (state.isPracticeMode) {
+                evaluatePracticeSpeech(transcript);
+            }
+        };
+        
+        state.recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            stopRecording();
+            showToast('❌', 'Không nhận diện được giọng nói. Em thử lại nhé!');
+        };
+        
+        state.recognition.onend = () => {
+            stopRecording();
+        };
+    } else {
+        elements.micBtn.style.display = 'none';
+        console.log('Browser không hỗ trợ Speech Recognition');
     }
 }
 
@@ -974,6 +1000,47 @@ function clearChat() {
 }
 
 // ==========================================
+// Speech Functions
+// ==========================================
+function toggleRecording() {
+    if (!state.recognition) {
+        showToast('❌', 'Trình duyệt của em không hỗ trợ nhận diện giọng nói.');
+        return;
+    }
+    
+    if (state.isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    state.isRecording = true;
+    elements.micBtn.classList.add('recording');
+    elements.recordingIndicator.classList.remove('hidden');
+    
+    try {
+        state.recognition.start();
+    } catch (error) {
+        console.error('Recording error:', error);
+        stopRecording();
+    }
+}
+
+function stopRecording() {
+    state.isRecording = false;
+    elements.micBtn.classList.remove('recording');
+    elements.recordingIndicator.classList.add('hidden');
+    
+    try {
+        state.recognition.stop();
+    } catch (error) {
+        // Ignore stop errors
+    }
+}
+
+// ==========================================
 // Lesson Functions
 // ==========================================
 async function loadLesson() {
@@ -1024,7 +1091,7 @@ function renderLesson(lesson) {
                 <div class="vocab-card">
                     <div class="vocab-word">
                         ${item.word}
-                        <button class="speak-btn" onclick="speakText('${item.word}', null, ${JSON.stringify(item.audioUrl || '')})">
+                        <button class="speak-btn" onclick="speakText('${item.word.replace(/'/g, "\\'")}')">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1050,7 +1117,7 @@ function renderLesson(lesson) {
                 <div class="sentence-card">
                     <div class="sentence-en">
                         ${item.english}
-                        <button class="speak-btn" onclick="speakText('${item.english.replace(/'/g, "\\'")}', null, ${JSON.stringify(item.audioUrl || '')})">
+                        <button class="speak-btn" onclick="speakText('${item.english.replace(/'/g, "\\'")}')">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1078,7 +1145,7 @@ function renderLesson(lesson) {
                     <div class="dialogue-content">
                         <div class="dialogue-en">
                             ${line.text}
-                            <button class="speak-btn" onclick="speakText('${line.text.replace(/'/g, "\\'")}', null, ${JSON.stringify(line.audioUrl || '')})">
+                            <button class="speak-btn" onclick="speakText('${line.text.replace(/'/g, "\\'")}')">
                                 <i class="fas fa-volume-up"></i>
                             </button>
                         </div>
@@ -1194,11 +1261,13 @@ function openSpeakingPractice(index) {
     closeModal('lessonModal');
     openModal('speakingModal');
     
+    // Tự động đọc câu
+    setTimeout(() => speakText(sentence), 500);
 }
 
 function togglePracticeRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
+        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói.');
         return;
     }
     
@@ -1216,7 +1285,7 @@ function startPracticeRecording() {
     elements.recordPracticeBtn.innerHTML = '<i class="fas fa-stop"></i> Dừng';
     
     try {
-        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
+        state.recognition.start();
     } catch (error) {
         console.error('Practice recording error:', error);
         stopPracticeRecording();
@@ -1467,6 +1536,9 @@ async function startRoleplay() {
             addRoleplayMessage(data.greeting, 'ai', data.role.name);
             state.currentAIResponse = data.greeting;
             
+            // Auto speak greeting
+            speakText(data.greeting);
+            
             showToast('🎭', `Bắt đầu luyện với ${data.role.name}!`);
         } else {
             showToast('❌', data.error || 'Không thể bắt đầu luyện hội thoại');
@@ -1507,6 +1579,9 @@ async function sendRoleplayMessage() {
             // Show analysis
             state.currentAnalysis = data.analysis;
             renderRoleplayAnalysis(data.analysis);
+            
+            // Auto speak AI response
+            speakText(data.ai_response);
             
         } else {
             showToast('❌', data.error || 'Không thể gửi tin nhắn');
@@ -1663,7 +1738,7 @@ function renderRoleplayAnalysis(analysis) {
 
 function toggleRoleplayRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
+        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
         return;
     }
     
@@ -1687,7 +1762,7 @@ function startRoleplayRecording() {
     };
     
     try {
-        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
+        state.recognition.start();
         showToast('🎤', 'Đang nghe em nói tiếng Anh...');
     } catch (error) {
         console.error('Recording error:', error);
@@ -1886,6 +1961,9 @@ async function analyzeSituation() {
             // Render analysis
             renderSituationAnalysis(data);
             
+            // Auto speak simple sentence
+            speakText(data.simple_en || '');
+            
             showToast('✅', 'Cô đã phân tích xong! Nghe câu gợi ý nhé.');
         } else {
             showToast('❌', data.error || 'Không thể phân tích tình huống');
@@ -2056,7 +2134,7 @@ function resetSituationPractice() {
 
 function toggleSituationPracticeRecording() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
+        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
         return;
     }
     
@@ -2080,7 +2158,7 @@ function startSituationPracticeRecording() {
     };
     
     try {
-        window.MsSmileSpeech?.startSpeechRecognition({ lang: 'en-US' });
+        state.recognition.start();
         showToast('🎤', 'Đang nghe em nói tiếng Anh...');
     } catch (error) {
         console.error('Recording error:', error);
@@ -2547,12 +2625,35 @@ function updateUserBadge() {
 function loadVoices() {
     const voices = speechSynthesis.getVoices();
     englishVoices = voices.filter(v => v.lang.startsWith('en'));
-    console.log('English voices loaded:', englishVoices.length);
+    console.log('[TTS] English voices loaded:', englishVoices.length, englishVoices.map(v => v.name));
+}
+
+function jsStringEscape(str) {
+    return String(str || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, ' ');
+}
+
+function playLessonAudio(text) {
+    console.log('[DailyLesson] playLessonAudio called');
+    console.log('[DailyLesson] text:', text);
+    
+    if (!text || !text.trim()) {
+        console.warn('[DailyLesson] Empty text, skipping');
+        return;
+    }
+    
+    console.log('[DailyLesson] Calling speakText from lesson');
+    speakText(text);
 }
 
 function speakText(text, rate = null) {
+    console.log('[TTS] speakText called with text:', text ? text.substring(0, 50) : 'null');
+    
     if (!('speechSynthesis' in window)) {
-        showToast('❌', 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
+        console.error('[TTS] speechSynthesis not supported');
+        showToast('❌', 'Trình duyệt không hỗ trợ đọc văn bản');
         return;
     }
     
@@ -2566,6 +2667,9 @@ function speakText(text, rate = null) {
         // Prefer US English, then any English
         const usVoice = englishVoices.find(v => v.lang === 'en-US');
         utterance.voice = usVoice || englishVoices[0];
+        console.log('[TTS] Using voice:', utterance.voice.name, utterance.voice.lang);
+    } else {
+        console.warn('[TTS] No English voices available');
     }
     
     // Set rate (speed)
@@ -2575,18 +2679,20 @@ function speakText(text, rate = null) {
     
     utterance.onstart = () => {
         state.isSpeaking = true;
-        console.log('TTS started:', text.substring(0, 50));
+        console.log('[TTS] Speech started');
     };
     
     utterance.onend = () => {
         state.isSpeaking = false;
+        console.log('[TTS] Speech ended');
     };
     
     utterance.onerror = (e) => {
-        console.error('TTS error:', e);
+        console.error('[TTS] Speech error:', e);
         state.isSpeaking = false;
     };
     
+    console.log('[TTS] Speaking text with', englishVoices.length, 'voices available');
     speechSynthesis.speak(utterance);
 }
 
@@ -2621,7 +2727,7 @@ function addSpeakButtonToMessage(messageContent, text) {
 // ==========================================
 function startRecordingWithFeedback() {
     if (!state.recognition) {
-        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
+        showToast('❌', 'Trình duyệt không hỗ trợ nhận diện giọng nói');
         return;
     }
     
@@ -2634,7 +2740,7 @@ function startRecordingWithFeedback() {
     state.recognition.lang = isVietnamese ? 'vi-VN' : 'en-US';
     
     try {
-        window.MsSmileSpeech?.startSpeechRecognition({ lang: state.recognition.lang || 'en-US' });
+        state.recognition.start();
         showToast('🎤', 'Đang nghe... Em nói đi!');
     } catch (error) {
         console.error('Recording error:', error);
@@ -2912,282 +3018,5 @@ async function selectPlan(planName) {
     } catch (error) {
         console.error('Error creating payment request:', error);
         showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
-    }
-}
-
-// ==========================================
-// Audio and Speech Overrides
-// ==========================================
-function getSpeechErrorMessage(error) {
-    if (!error) return 'Chưa nhận diện được giọng nói. Bạn thử lại nhé.';
-    return error.message || window.MsSmileSpeech?.getSpeechRecognitionErrorMessage?.(error.code) || 'Chưa nhận diện được giọng nói. Bạn thử lại nhé.';
-}
-
-function shouldAllowUserSpeechAction() {
-    return true;
-}
-
-function initializeSpeechRecognition() {
-    state.recognition = null;
-    state.speechRecognitionSupported = !!(window.MsSmileSpeech && MsSmileSpeech.isSpeechRecognitionSupported());
-    if (!state.speechRecognitionSupported) {
-        console.log('Speech Recognition is not supported in this browser.');
-    }
-}
-
-function initializeTTS() {
-    if (!window.MsSmileSpeech || !MsSmileSpeech.isSpeechSynthesisSupported()) {
-        console.log('Speech synthesis is not supported in this browser.');
-        return;
-    }
-}
-
-function loadVoices() {
-    return [];
-}
-
-async function speakText(text, rate = null, audioUrl = null) {
-    const cleanText = String(text || '').trim();
-    if (!cleanText) return;
-
-    if (!window.MsSmileSpeech) {
-        showToast('❌', 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
-        return;
-    }
-
-    try {
-        state.isSpeaking = true;
-        await MsSmileSpeech.speakText(cleanText, {
-            audioUrl,
-            rate: rate || state.ttsSpeed || 1,
-            onEnd: () => {
-                state.isSpeaking = false;
-            }
-        });
-    } catch (error) {
-        state.isSpeaking = false;
-        console.error('Speech synthesis error:', error);
-        showToast('❌', error.message || 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.');
-    }
-}
-
-function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-    state.isSpeaking = false;
-}
-
-function setListeningButton(button, isListening, idleHtml) {
-    if (!button) return;
-    if (!button.dataset.idleHtml) {
-        button.dataset.idleHtml = idleHtml || button.innerHTML;
-    }
-
-    button.classList.toggle('recording', isListening);
-    button.innerHTML = isListening ? 'Đang nghe...' : button.dataset.idleHtml;
-}
-
-function setMainListeningState(isListening) {
-    state.isRecording = isListening;
-    setListeningButton(elements.micBtn, isListening, '<i class="fas fa-microphone"></i>');
-    if (elements.recordingIndicator) {
-        elements.recordingIndicator.classList.toggle('hidden', !isListening);
-    }
-}
-
-async function runSpeechRecognition({ button, idleHtml, onResult, onStart, onEnd }) {
-    if (!window.MsSmileSpeech) {
-        showToast('❌', 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.');
-        return;
-    }
-
-    try {
-        const transcript = await MsSmileSpeech.startSpeechRecognition({
-            lang: 'en-US',
-            onStart: () => {
-                state.isRecording = true;
-                if (button) setListeningButton(button, true, idleHtml);
-                showToast('🎤', 'Đang nghe...');
-                if (typeof onStart === 'function') onStart();
-            },
-            onEnd: () => {
-                state.isRecording = false;
-                if (button) setListeningButton(button, false, idleHtml);
-                if (typeof onEnd === 'function') onEnd();
-            }
-        });
-
-        if (transcript && typeof onResult === 'function') {
-            onResult(transcript);
-        } else if (!transcript) {
-            showToast('⚠️', 'Không nghe thấy giọng nói. Bạn thử bấm micro và nói lại rõ hơn nhé.');
-        }
-    } catch (error) {
-        state.isRecording = false;
-        if (button) setListeningButton(button, false, idleHtml);
-        if (typeof onEnd === 'function') onEnd();
-        console.error('Speech recognition error:', error);
-        showToast('❌', getSpeechErrorMessage(error));
-    }
-}
-
-function toggleRecording() {
-    if (state.isRecording) {
-        stopRecording();
-        return;
-    }
-    startRecording();
-}
-
-function startRecording() {
-    runSpeechRecognition({
-        button: elements.micBtn,
-        idleHtml: '<i class="fas fa-microphone"></i>',
-        onStart: () => {
-            setMainListeningState(true);
-        },
-        onEnd: () => {
-            setMainListeningState(false);
-        },
-        onResult: (transcript) => {
-            elements.messageInput.value = transcript;
-            if (state.isPracticeMode) {
-                evaluatePracticeSpeech(transcript);
-            }
-        }
-    });
-}
-
-function stopRecording() {
-    if (window.MsSmileSpeech) {
-        MsSmileSpeech.stopSpeechRecognition();
-    }
-    setMainListeningState(false);
-}
-
-function startVoiceRecording() {
-    startRecording();
-}
-
-function startRecordingWithFeedback() {
-    startRecording();
-}
-
-function togglePracticeRecording() {
-    if (state.isRecording) {
-        stopPracticeRecording();
-        return;
-    }
-    startPracticeRecording();
-}
-
-function startPracticeRecording() {
-    state.isPracticeMode = true;
-    runSpeechRecognition({
-        button: elements.recordPracticeBtn,
-        idleHtml: '<i class="fas fa-microphone"></i> Bấm để nói',
-        onResult: (transcript) => {
-            evaluatePracticeSpeech(transcript);
-        },
-        onEnd: () => {
-            state.isPracticeMode = false;
-        }
-    });
-}
-
-function stopPracticeRecording() {
-    if (window.MsSmileSpeech) {
-        MsSmileSpeech.stopSpeechRecognition();
-    }
-    state.isRecording = false;
-    state.isPracticeMode = false;
-    setListeningButton(elements.recordPracticeBtn, false, '<i class="fas fa-microphone"></i> Bấm để nói');
-}
-
-function openSpeakingPractice(index) {
-    if (!state.currentLesson || !state.currentLesson.practice) return;
-
-    state.currentPracticeIndex = index;
-    const sentence = state.currentLesson.practice[index];
-
-    elements.practiceText.textContent = sentence;
-    elements.speakingResult.classList.add('hidden');
-    elements.speakingResult.innerHTML = '';
-
-    closeModal('lessonModal');
-    openModal('speakingModal');
-}
-
-function toggleRoleplayRecording() {
-    if (state.isRecording) {
-        stopRoleplayRecording();
-        return;
-    }
-    startRoleplayRecording();
-}
-
-function startRoleplayRecording() {
-    runSpeechRecognition({
-        button: elements.roleplayMicBtn,
-        idleHtml: '<i class="fas fa-microphone"></i>',
-        onResult: (transcript) => {
-            elements.roleplayInput.value = transcript;
-        }
-    });
-}
-
-function stopRoleplayRecording() {
-    if (window.MsSmileSpeech) {
-        MsSmileSpeech.stopSpeechRecognition();
-    }
-    state.isRecording = false;
-    setListeningButton(elements.roleplayMicBtn, false, '<i class="fas fa-microphone"></i>');
-}
-
-function toggleSituationPracticeRecording() {
-    if (state.isRecording) {
-        stopSituationPracticeRecording();
-        return;
-    }
-    startSituationPracticeRecording();
-}
-
-function startSituationPracticeRecording() {
-    runSpeechRecognition({
-        button: elements.situationPracticeMicBtn,
-        idleHtml: '<i class="fas fa-microphone"></i>',
-        onResult: (transcript) => {
-            elements.situationPracticeInput.value = transcript;
-        }
-    });
-}
-
-function stopSituationPracticeRecording() {
-    if (window.MsSmileSpeech) {
-        MsSmileSpeech.stopSpeechRecognition();
-    }
-    state.isRecording = false;
-    setListeningButton(elements.situationPracticeMicBtn, false, '<i class="fas fa-microphone"></i>');
-}
-
-// ==========================================
-// Global Speech Functions (wrappers for HTML onclick)
-// ==========================================
-async function speakText(text, rate, audioUrl) {
-    if (!window.MsSmileSpeech) {
-        showToast('❌', 'Hệ thống phát âm chưa sẵn sàng. Vui lòng refresh trang.');
-        return;
-    }
-    
-    const options = {};
-    if (rate) options.rate = rate;
-    if (audioUrl) options.audioUrl = audioUrl;
-    
-    try {
-        await window.MsSmileSpeech.speakText(text, options);
-    } catch (error) {
-        console.error('speakText error:', error);
-        showToast('❌', error.message || 'Không thể phát âm thanh.');
     }
 }

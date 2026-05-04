@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TTS Test</title>
+</head>
+<body>
+    <h1>TTS Test</h1>
+    <button onclick="testTTS()">Test TTS</button>
+    <button onclick="testLessonAudio()">Test Lesson Audio</button>
+    <script>
+        function jsStringEscape(str) {
+            return String(str || '')
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/\n/g, ' ');
+        }
+
+        function playLessonAudio(text) {
+            console.log('[DailyLesson] playLessonAudio called');
+            console.log('[DailyLesson] text:', text);
+
+            if (!text || !text.trim()) {
+                console.warn('[DailyLesson] Empty text, skipping');
+                return;
+            }
+
+            console.log('[DailyLesson] Calling speakText from lesson');
+            speakText(text);
+        }
+
+        function speakText(text, rate = null) {
+            console.log('[TTS] speakText called with text:', text ? text.substring(0, 50) : 'null');
+
+            if (!('speechSynthesis' in window)) {
+                console.error('[TTS] speechSynthesis not supported');
+                alert('Trình duyệt không hỗ trợ đọc văn bản');
+                return;
+            }
+
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+
+            // Set voice to English if available
+            const voices = speechSynthesis.getVoices();
+            const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+            if (englishVoices.length > 0) {
+                // Prefer US English, then any English
+                const usVoice = englishVoices.find(v => v.lang === 'en-US');
+                utterance.voice = usVoice || englishVoices[0];
+                console.log('[TTS] Using voice:', utterance.voice.name, utterance.voice.lang);
+            } else {
+                console.warn('[TTS] No English voices available');
+            }
+
+            // Set rate (speed)
+            utterance.rate = rate || 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            utterance.onstart = () => {
+                console.log('[TTS] Speech started');
+            };
+
+            utterance.onend = () => {
+                console.log('[TTS] Speech ended');
+            };
+
+            utterance.onerror = (e) => {
+                console.error('[TTS] Speech error:', e);
+            };
+
+            console.log('[TTS] Speaking text with', englishVoices.length, 'voices available');
+            speechSynthesis.speak(utterance);
+        }
+
+        function testTTS() {
+            speakText('Hello world, this is a test');
+        }
+
+        function testLessonAudio() {
+            playLessonAudio('This is a lesson test');
+        }
+    </script>
+</body>
+</html>

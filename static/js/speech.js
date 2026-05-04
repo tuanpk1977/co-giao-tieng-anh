@@ -2,12 +2,23 @@
     const NO_TTS_MESSAGE = 'Máy này chưa hỗ trợ giọng đọc. Vui lòng mở bằng Chrome hoặc Edge, hoặc bật Google Text-to-Speech.';
     const NO_RECOGNITION_MESSAGE = 'Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Vui lòng dùng Chrome hoặc Edge trên máy tính/Android.';
     const OPEN_BROWSER_MESSAGE = 'Bạn hãy mở bằng Chrome hoặc Edge để dùng chức năng nghe/nói.';
-    const NEED_MIC_MESSAGE = 'Bạn cần cho phép quyền micro để luyện nói.';
-    const NEED_SECURE_CONTEXT_MESSAGE = 'Micro chỉ hoạt động trên HTTPS hoặc localhost. Vui lòng mở app bằng Chrome/Edge qua HTTPS hoặc chạy trên localhost.';
+    const NEED_MIC_MESSAGE = 'Bạn chưa cấp quyền micro. Hãy bấm biểu tượng ổ khóa trên trình duyệt và Allow Microphone.';
+    const NEED_SECURE_CONTEXT_MESSAGE = 'Micro chỉ hoạt động trên HTTPS hoặc localhost.';
+    const WEBVIEW_MESSAGE = 'Trình duyệt trong app có thể không hỗ trợ âm thanh. Vui lòng mở bằng Chrome hoặc Safari.';
 
     let voicesReadyPromise = null;
     let activeRecognition = null;
     let isListening = false;
+    let retryCount = 0;
+    const MAX_RETRY = 10; // Retry trong 5 giây (10 * 500ms)
+
+    // Logging helper
+    function log(level, ...args) {
+        const prefix = `[MsSmileSpeech ${level.toUpperCase()}]`;
+        if (level === 'error') console.error(prefix, ...args);
+        else if (level === 'warn') console.warn(prefix, ...args);
+        else console.log(prefix, ...args);
+    }
 
     function getSpeechSynthesis() {
         return window.speechSynthesis || null;
@@ -31,11 +42,14 @@
 
     function loadVoices() {
         if (!isSpeechSynthesisSupported()) {
+            log('warn', 'speechSynthesis not supported');
             return Promise.resolve([]);
         }
 
         const synthesis = getSpeechSynthesis();
         const currentVoices = synthesis.getVoices();
+        log('info', `Current voices count: ${currentVoices.length}`);
+        
         if (currentVoices.length > 0) {
             return Promise.resolve(currentVoices);
         }
@@ -46,21 +60,34 @@
 
         voicesReadyPromise = new Promise((resolve) => {
             let settled = false;
-            const finish = () => {
+            let attempts = 0;
+            const maxAttempts = 10; // 5 giây total (10 * 500ms)
+            
+            const checkVoices = () => {
                 if (settled) return;
                 const voices = synthesis.getVoices();
-                if (voices.length === 0) return;
-                settled = true;
-                resolve(voices);
+                attempts++;
+                log('info', `Attempt ${attempts}: voices count = ${voices.length}`);
+                
+                if (voices.length > 0) {
+                    settled = true;
+                    resolve(voices);
+                } else if (attempts >= maxAttempts) {
+                    settled = true;
+                    log('warn', 'Max attempts reached, resolving with empty voices');
+                    resolve([]);
+                } else {
+                    setTimeout(checkVoices, 500);
+                }
             };
 
-            synthesis.onvoiceschanged = finish;
-            setTimeout(() => {
-                if (!settled) {
-                    settled = true;
-                    resolve(synthesis.getVoices());
-                }
-            }, 1500);
+            synthesis.onvoiceschanged = () => {
+                log('info', 'onvoiceschanged triggered');
+                checkVoices();
+            };
+            
+            // Bắt đầu retry
+            setTimeout(checkVoices, 100);
         });
 
         return voicesReadyPromise;
@@ -77,28 +104,57 @@
 
     async function speakText(text, options = {}) {
         const cleanText = String(text || '').trim();
-        if (!cleanText) return;
+        log('info', 'speakText called:', cleanText.substring(0, 50));
+        
+        if (!cleanText) {
+            log('warn', 'Empty text, skipping');
+            return;
+        }
 
+        // 1. Thử audioUrl trước nếu có
         if (options.audioUrl) {
+            log('info', 'Trying audioUrl:', options.audioUrl);
             try {
                 await playAudioUrl(options.audioUrl);
+                log('info', 'audioUrl played successfully');
                 return;
             } catch (error) {
-                console.warn('Audio URL failed, falling back to speechSynthesis:', error);
+                log('warn', 'Audio URL failed, falling back to speechSynthesis:', error.message);
             }
         }
 
+        // 2. Kiểm tra speechSynthesis support
         if (!isSpeechSynthesisSupported()) {
-            throw new Error(isWebViewOrInAppBrowser() ? OPEN_BROWSER_MESSAGE : NO_TTS_MESSAGE);
+            log('error', 'speechSynthesis not supported');
+            const isWebView = isWebViewOrInAppBrowser();
+            log('info', 'isWebView:', isWebView);
+            throw new Error(isWebView ? WEBVIEW_MESSAGE : NO_TTS_MESSAGE);
         }
 
         const synthesis = getSpeechSynthesis();
-        const voices = synthesis.getVoices();
-        const voice = getEnglishVoice(voices);
-        if (!voice) {
-            loadVoices().catch((error) => console.warn('Voice warmup failed:', error));
+        
+        // 3. Load voices với retry
+        let voices = synthesis.getVoices();
+        log('info', `Available voices: ${voices.length}`);
+        
+        if (voices.length === 0) {
+            log('info', 'No voices available, loading...');
+            voices = await loadVoices();
         }
+        
+        // 4. Chọn voice
+        let voice = getEnglishVoice(voices);
+        if (voice) {
+            log('info', 'Using voice:', voice.name, voice.lang);
+        } else {
+            log('warn', 'No English voice found, using default');
+            // Không throw error, dùng default voice
+            voice = voices[0] || null;
+        }
+        
+        // 5. Cancel trước khi speak
         synthesis.cancel();
+        log('info', 'Cancelled previous speech');
 
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -109,15 +165,28 @@
             utterance.rate = options.rate || 1;
             utterance.pitch = options.pitch || 1;
             utterance.volume = options.volume || 1;
-            utterance.onstart = options.onStart || null;
+            
+            utterance.onstart = () => {
+                log('info', 'Speech started');
+                if (typeof options.onStart === 'function') options.onStart();
+            };
+            
             utterance.onend = () => {
+                log('info', 'Speech ended');
                 if (typeof options.onEnd === 'function') options.onEnd();
                 resolve();
             };
+            
             utterance.onerror = (event) => {
+                log('error', 'Speech error:', event.error);
                 if (typeof options.onEnd === 'function') options.onEnd();
-                reject(new Error(event.error === 'not-allowed' ? NO_TTS_MESSAGE : (event.error || NO_TTS_MESSAGE)));
+                const errorMsg = event.error === 'not-allowed' ? NO_TTS_MESSAGE : 
+                                event.error === 'canceled' ? 'Speech canceled' : 
+                                (event.error || NO_TTS_MESSAGE);
+                reject(new Error(errorMsg));
             };
+            
+            log('info', 'Calling synthesis.speak()');
             synthesis.speak(utterance);
         });
     }
@@ -127,19 +196,29 @@
     }
 
     async function requestMicrophonePermission() {
+        log('info', 'Requesting mic permission...');
+        log('info', 'isSecureContext:', window.isSecureContext);
+        log('info', 'protocol:', window.location.protocol);
+        
         if (!window.isSecureContext) {
+            log('error', 'Not secure context');
             throw createSpeechError('insecure-context');
         }
 
         if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+            log('error', 'mediaDevices not supported');
             throw createSpeechError('audio-capture');
         }
 
         try {
+            log('info', 'Calling getUserMedia...');
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            log('info', 'getUserMedia success, stopping tracks');
             stream.getTracks().forEach((track) => track.stop());
+            log('info', 'Mic permission granted');
             return true;
         } catch (error) {
+            log('error', 'getUserMedia failed:', error.name, error.message);
             if (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
                 throw createSpeechError('not-allowed');
             }
@@ -179,16 +258,21 @@
     }
 
     async function startSpeechRecognition(options = {}) {
+        log('info', 'startSpeechRecognition called, lang:', options.lang || 'en-US');
+        
         if (!isSpeechRecognitionSupported()) {
+            log('error', 'SpeechRecognition not supported');
             throw createSpeechError('unsupported');
         }
         if (isListening) {
+            log('warn', 'Already listening, throwing busy error');
             throw createSpeechError('busy');
         }
 
         await requestMicrophonePermission();
 
         const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        log('info', 'Creating SpeechRecognition instance');
         const recognition = new Recognition();
         activeRecognition = recognition;
         isListening = true;
@@ -201,22 +285,29 @@
             let hasResult = false;
 
             recognition.onstart = () => {
+                log('info', 'Recognition started');
                 if (typeof options.onStart === 'function') options.onStart();
             };
 
             recognition.onresult = (event) => {
+                log('info', 'Recognition got result');
                 hasResult = true;
                 const transcript = event.results && event.results[0] && event.results[0][0]
                     ? event.results[0][0].transcript
                     : '';
+                log('info', 'Transcript:', transcript);
                 resolve(transcript);
             };
 
             recognition.onerror = (event) => {
+                log('error', 'Recognition error:', event.error);
+                isListening = false;
+                activeRecognition = null;
                 reject(createSpeechError(event.error || 'unknown'));
             };
 
             recognition.onend = () => {
+                log('info', 'Recognition ended, hasResult:', hasResult);
                 isListening = false;
                 activeRecognition = null;
                 if (typeof options.onEnd === 'function') options.onEnd();
@@ -226,8 +317,10 @@
             };
 
             try {
+                log('info', 'Calling recognition.start()');
                 recognition.start();
             } catch (error) {
+                log('error', 'recognition.start() failed:', error);
                 isListening = false;
                 activeRecognition = null;
                 reject(createSpeechError(error && error.name === 'InvalidStateError' ? 'busy' : 'unknown'));
@@ -246,11 +339,29 @@
         isListening = false;
     }
 
+    function debugSupport() {
+        const synthesis = getSpeechSynthesis();
+        const voices = synthesis ? synthesis.getVoices() : [];
+        const result = {
+            protocol: window.location.protocol,
+            userAgent: navigator.userAgent,
+            isSecureContext: window.isSecureContext,
+            speechSynthesisSupported: isSpeechSynthesisSupported(),
+            voicesCount: voices.length,
+            speechRecognitionSupported: isSpeechRecognitionSupported(),
+            mediaDevicesSupported: !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function'),
+            isWebViewOrInAppBrowser: isWebViewOrInAppBrowser()
+        };
+        log('info', 'Debug Support:', result);
+        return result;
+    }
+
     window.MsSmileSpeech = {
         NO_TTS_MESSAGE,
         NO_RECOGNITION_MESSAGE,
         OPEN_BROWSER_MESSAGE,
         NEED_SECURE_CONTEXT_MESSAGE,
+        WEBVIEW_MESSAGE,
         isWebViewOrInAppBrowser,
         isSpeechSynthesisSupported,
         speakText,
@@ -258,6 +369,19 @@
         requestMicrophonePermission,
         startSpeechRecognition,
         stopSpeechRecognition,
-        getSpeechRecognitionErrorMessage
+        getSpeechRecognitionErrorMessage,
+        debugSupport
     };
+    
+    // Log thông tin khởi tạo
+    log('info', 'MsSmileSpeech initialized');
+    log('info', 'Protocol:', window.location.protocol);
+    log('info', 'isSecureContext:', window.isSecureContext);
+    log('info', 'speechSynthesis supported:', isSpeechSynthesisSupported());
+    log('info', 'SpeechRecognition supported:', isSpeechRecognitionSupported());
+    
+    // Auto warmup voices
+    if (isSpeechSynthesisSupported()) {
+        loadVoices().catch(err => log('warn', 'Voice warmup failed:', err));
+    }
 })();
