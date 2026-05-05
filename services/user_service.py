@@ -208,6 +208,16 @@ class UserService:
     def get_all_plans(self):
         return Plan.query.filter_by(enabled=True).all()
 
+    def get_payment_info(self):
+        payment_info = config.get_payment_info()
+        admin = User.query.filter_by(role='admin').first()
+        if admin:
+            if not payment_info.get('admin_phone'):
+                payment_info['admin_phone'] = admin.phone or ''
+            if not payment_info.get('account_name'):
+                payment_info['account_name'] = admin.name or payment_info.get('account_name') or ''
+        return payment_info
+
     def get_plan(self, plan_name: str):
         if not plan_name:
             return None
@@ -495,12 +505,24 @@ class UserService:
         return log
 
     def create_payment_request(self, user_id: int, plan_name: str):
+        user = self.get_user(user_id)
+        if not user:
+            return False, {'error': 'User khong ton tai'}
+
         plan = self.get_plan(plan_name)
         if not plan:
             return False, {'error': 'Plan không tồn tại'}
 
         reference_code = f"MSE-{user_id}-{plan_name}-{int(datetime.utcnow().timestamp())}"
         transfer_note = f"MSE-{user_id}-{plan_name}"
+        payment_info = self.get_payment_info()
+        bank_lines = [
+            f"Ngan hang: {payment_info.get('bank_name') or 'Chua cau hinh'}",
+            f"Chu tai khoan: {payment_info.get('account_name') or 'Chua cau hinh'}",
+            f"So tai khoan: {payment_info.get('account_number') or 'Chua cau hinh'}",
+            f"So dien thoai admin: {payment_info.get('admin_phone') or 'Chua cau hinh'}",
+            f"Noi dung chuyen khoan: {transfer_note}"
+        ]
         payment_request = PaymentRequest(
             user_id=user_id,
             plan_name=plan_name,
@@ -509,12 +531,15 @@ class UserService:
             status='pending',
             reference_code=reference_code,
             transfer_note=transfer_note,
-            bank_info='Chủ tài khoản: Nguyễn Quốc Tuấn'
+            bank_info='\n'.join(bank_lines)
         )
         db.session.add(payment_request)
         db.session.commit()
 
-        return True, {'payment_request': payment_request.to_dict()}
+        return True, {
+            'payment_request': payment_request.to_dict(),
+            'payment_info': payment_info
+        }
 
     def approve_payment(self, payment_id: int):
         payment = PaymentRequest.query.get(payment_id)

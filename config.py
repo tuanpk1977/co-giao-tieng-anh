@@ -330,6 +330,21 @@ SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/success")
 PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
 PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
+PAYMENT_BANK_NAME = os.getenv("PAYMENT_BANK_NAME", "")
+PAYMENT_BANK_ACCOUNT_NAME = os.getenv("PAYMENT_BANK_ACCOUNT_NAME", "Nguyen Quoc Tuan")
+PAYMENT_BANK_ACCOUNT_NUMBER = os.getenv("PAYMENT_BANK_ACCOUNT_NUMBER", "")
+PAYMENT_ADMIN_PHONE = os.getenv("PAYMENT_ADMIN_PHONE", os.getenv("ADMIN_PHONE", ""))
+PAYMENT_SUPPORT_NOTE = os.getenv("PAYMENT_SUPPORT_NOTE", "Sau khi chuyen khoan, admin se doi chieu ma noi dung va duyet goi trong tab Thanh toan.")
+
+
+def get_payment_info():
+    return {
+        "bank_name": PAYMENT_BANK_NAME,
+        "account_name": PAYMENT_BANK_ACCOUNT_NAME,
+        "account_number": PAYMENT_BANK_ACCOUNT_NUMBER,
+        "admin_phone": PAYMENT_ADMIN_PHONE,
+        "support_note": PAYMENT_SUPPORT_NOTE
+    }
 
 # Affiliate marketing defaults
 AFFILIATE_COMMISSION_RATE = float(os.getenv("AFFILIATE_COMMISSION_RATE", "20.0"))

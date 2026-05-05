@@ -513,9 +513,13 @@ class PaymentRequest(db.Model):
     approved_at = db.Column(db.DateTime)
 
     def to_dict(self):
+        user = self.user
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'user_name': user.name if user else None,
+            'user_email': user.email if user else None,
+            'user_phone': user.phone if user else None,
             'plan_name': self.plan_name,
             'amount': self.amount,
             'currency': self.currency,

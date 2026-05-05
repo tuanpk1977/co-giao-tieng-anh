@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=payment-flow-006">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -44,6 +44,10 @@
                 <i class="fas fa-comments"></i> Phản hồi
             </button>
             
+            <button id="plansBtn" class="btn btn-plans">
+                <i class="fas fa-credit-card"></i> Goi dich vu
+            </button>
+
             <!-- User Badge -->
             <div id="userBadge" class="user-badge guest-badge">
                 <i class="fas fa-user-circle"></i>
@@ -981,8 +985,8 @@
     </div>
 
     <!-- Version indicator -->
-    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: health-audio-fix-005</div>
+    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: payment-flow-006</div>
     
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=health-audio-fix-005"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=payment-flow-006"></script>
 </body>
 </html>

@@ -225,6 +225,10 @@
         let allUsers = [];
         let allFeedback = [];
 
+        function getAdminId() {
+            return new URLSearchParams(window.location.search).get('admin_id') || 1;
+        }
+
         function formatDate(timestamp) {
             return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
         }
@@ -391,21 +395,52 @@
             try {
                 const response = await fetch('/api/admin/payments');
                 const data = await response.json();
-                
                 if (data.success) {
-                    document.getElementById('paymentRequests').innerHTML = data.payments.length ? 
+                    document.getElementById('paymentRequests').innerHTML = data.payments.length ?
                         data.payments.map(payment => `
                             <div class="admin-list-item">
                                 <strong>${payment.reference_code}</strong>
-                                <div>${payment.plan_name} - ${payment.amount} ${payment.currency}</div>
-                                <div>Trạng thái: ${payment.status}</div>
-                                <div>Người dùng: ${payment.user_id}</div>
+                                <div>${payment.plan_name} - ${formatMoney(payment.amount)} ${payment.currency}</div>
+                                <div>Trang thai: ${payment.status}</div>
+                                <div>Nguoi dung: ${payment.user_name || ''} (#${payment.user_id})</div>
+                                <div>Email/SDT: ${payment.user_email || '-'} / ${payment.user_phone || '-'}</div>
+                                <div>Noi dung CK: <code>${payment.transfer_note || payment.reference_code}</code></div>
+                                <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 8px; border-radius: 6px;">${payment.bank_info || ''}</pre>
+                                ${payment.status === 'pending' ? `
+                                    <button class="btn btn-sm btn-success" onclick="approvePayment(${payment.id})">Duyet mo goi</button>
+                                    <button class="btn btn-sm btn-danger" onclick="rejectPayment(${payment.id})">Tu choi</button>
+                                ` : ''}
                             </div>
-                        `).join('') : '<p>Không có yêu cầu thanh toán.</p>';
+                        `).join('') : '<p>Khong co yeu cau thanh toan.</p>';
                 }
             } catch (error) {
                 console.error('Error loading payments:', error);
             }
+        }
+
+        async function approvePayment(paymentId) {
+            if (!confirm('Duyet thanh toan va mo goi cho nguoi dung nay?')) return;
+            const response = await fetch(`/api/admin/payments/${paymentId}/approve`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_id: getAdminId() })
+            });
+            const data = await response.json();
+            alert(data.success ? 'Da duyet va mo goi.' : (data.error || 'Duyet that bai'));
+            loadPayments();
+            loadUsers();
+        }
+
+        async function rejectPayment(paymentId) {
+            if (!confirm('Tu choi yeu cau thanh toan nay?')) return;
+            const response = await fetch(`/api/admin/payments/${paymentId}/reject`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ admin_id: getAdminId() })
+            });
+            const data = await response.json();
+            alert(data.success ? 'Da tu choi yeu cau.' : (data.error || 'Tu choi that bai'));
+            loadPayments();
         }
 
         async function loadCosts() {

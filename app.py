@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "health-audio-fix-005"
+APP_VERSION = "payment-flow-006"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -595,9 +595,23 @@ def get_plans():
         from services.user_service import get_user_service
         user_service = get_user_service()
         plans = [plan.to_dict() for plan in user_service.get_all_plans()]
-        return jsonify({"success": True, "plans": plans})
+        return jsonify({
+            "success": True,
+            "plans": plans,
+            "payment_info": user_service.get_payment_info()
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/payment/info', methods=['GET'])
+def get_payment_info():
+    """Return manual payment instructions shown to users before checkout."""
+    user_service = get_user_service()
+    return jsonify({
+        "success": True,
+        "payment_info": user_service.get_payment_info()
+    })
 
 
 @app.route('/api/payment/request', methods=['POST'])

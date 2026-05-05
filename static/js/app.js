@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "health-audio-fix-005";
+const APP_VERSION = "payment-flow-006";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -66,6 +66,7 @@ const elements = {
     startLessonBtn: document.getElementById('startLessonBtn'),
     profileBtn: document.getElementById('profileBtn'),
     feedbackBtn: document.getElementById('feedbackBtn'),
+    plansBtn: document.getElementById('plansBtn'),
     
     // Modals
     lessonModal: document.getElementById('lessonModal'),
@@ -453,6 +454,12 @@ function setupEventListeners() {
         openModal('statsModal');
     });
     elements.startLessonBtn.addEventListener('click', () => openModal('lessonModal'));
+    if (elements.plansBtn) {
+        elements.plansBtn.addEventListener('click', () => {
+            loadPlanOptions();
+            openModal('planModal');
+        });
+    }
     
     // Close modals
     document.querySelectorAll('.modal').forEach(modal => {
@@ -2977,85 +2984,109 @@ async function loadPlanOptions() {
     try {
         const response = await fetch('/api/plans');
         const data = await response.json();
-        
-        if (data.success) {
-            const planOptions = document.getElementById('planOptions');
-            if (!planOptions) return;
-            
-            // Group plans by base name (basic, pro, family)
-            const planGroups = {};
-            
-            data.plans.forEach(plan => {
-                if (plan.name === 'free_trial') return; // Skip free trial
-                
-                const baseName = plan.name.replace(/_monthly|_six_months|_yearly$/, '');
-                if (!planGroups[baseName]) {
-                    planGroups[baseName] = [];
-                }
-                planGroups[baseName].push(plan);
-            });
-            
-            let html = '<div style="text-align: center; margin-bottom: 20px;">';
-            html += '<h3 style="color: #2c3e50;">Chọn gói dịch vụ phù hợp với em</h3>';
-            html += '<p style="color: #666;">Tất cả gói đều có đầy đủ tính năng học tập</p>';
-            html += '</div>';
-            
-            Object.keys(planGroups).forEach(baseName => {
-                const plans = planGroups[baseName].sort((a, b) => a.duration_days - b.duration_days);
-                const monthlyPlan = plans.find(p => p.plan_type === 'monthly');
-                
-                if (monthlyPlan) {
-                    html += '<div class="plan-card-group" style="margin-bottom: 30px; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">';
-                    html += `<h4 style="text-transform: capitalize; color: #2c3e50; margin-bottom: 15px;">${baseName}</h4>`;
-                    
-                    plans.forEach(plan => {
-                        const savings = plan.discount_percent > 0 ? 
-                            `Tiết kiệm ${(plan.discount_percent * 100).toFixed(0)}%` : '';
-                        const badgeClass = plan.discount_percent > 0 ? 'badge-success' : 'badge-primary';
-                        
-                        html += `
-                            <div class="plan-option" style="display: inline-block; margin: 10px; padding: 15px; border: 2px solid #eee; border-radius: 8px; min-width: 200px; text-align: center;">
-                                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
-                                    ${plan.title}
-                                </div>
-                                <div style="font-size: 1.5rem; color: #e74c3c; font-weight: bold; margin-bottom: 5px;">
-                                    ${plan.price.toLocaleString()}đ
-                                </div>
-                                ${savings ? `<div class="badge ${badgeClass}" style="display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin-bottom: 10px;">${savings}</div>` : ''}
-                                <div style="color: #666; font-size: 0.9rem; margin-bottom: 10px;">
-                                    ${plan.description}
-                                </div>
-                                <button class="btn btn-primary" onclick="selectPlan('${plan.name}')" style="width: 100%;">
-                                    Chọn gói này
-                                </button>
-                            </div>
-                        `;
-                    });
-                    
-                    html += '</div>';
-                }
-            });
-            
-            planOptions.innerHTML = html;
-        }
+        if (!data.success) return;
+
+        const planOptions = document.getElementById('planOptions');
+        if (!planOptions) return;
+
+        const plans = data.plans
+            .filter(plan => plan.enabled && plan.name !== 'free_trial')
+            .sort((a, b) => (a.price || 0) - (b.price || 0));
+        const paymentInfo = data.payment_info || {};
+
+        planOptions.innerHTML = renderPlanCheckout(plans, paymentInfo);
+        setupPlanCheckoutEvents(plans, paymentInfo);
     } catch (error) {
         console.error('Error loading plans:', error);
-        showToast('❌', 'Không thể tải danh sách gói');
+        showToast('?', 'Khong the tai danh sach goi');
     }
 }
 
-async function selectPlan(planName) {
+function renderPlanCheckout(plans, paymentInfo) {
+    if (!plans.length) {
+        return '<p>Chua co goi dich vu dang mo ban.</p>';
+    }
+
+    const planOptions = plans.map(plan => `
+        <option value="${plan.name}">${escapeHtml(plan.title)} - ${formatMoneyVnd(plan.price)} VND</option>
+    `).join('');
+
+    return `
+        <div class="plan-checkout">
+            <div class="plan-checkout-grid">
+                <div class="plan-picker">
+                    <h3>Chon goi dang ky</h3>
+                    <div class="form-group">
+                        <label>Goi dich vu</label>
+                        <select id="planSelect">${planOptions}</select>
+                    </div>
+                    <div id="selectedPlanDetail" class="selected-plan-detail"></div>
+                    <button id="createPaymentRequestBtn" class="btn btn-primary btn-block">Tao yeu cau thanh toan</button>
+                    ${state.currentUser ? '' : '<p class="payment-hint">Ban can dang nhap hoac dang ky truoc khi tao yeu cau thanh toan.</p>'}
+                </div>
+                <div class="payment-info-card">
+                    <h3>Thong tin chuyen khoan</h3>
+                    <div><strong>Ngan hang:</strong> ${escapeHtml(paymentInfo.bank_name || 'Chua cau hinh')}</div>
+                    <div><strong>Chu tai khoan:</strong> ${escapeHtml(paymentInfo.account_name || 'Chua cau hinh')}</div>
+                    <div><strong>So tai khoan:</strong> ${escapeHtml(paymentInfo.account_number || 'Chua cau hinh')}</div>
+                    <div><strong>So dien thoai admin:</strong> ${escapeHtml(paymentInfo.admin_phone || 'Chua cau hinh')}</div>
+                    <p>${escapeHtml(paymentInfo.support_note || '')}</p>
+                    <div id="paymentResult" class="payment-result hidden"></div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function setupPlanCheckoutEvents(plans, paymentInfo) {
+    const select = document.getElementById('planSelect');
+    const createBtn = document.getElementById('createPaymentRequestBtn');
+    const detail = document.getElementById('selectedPlanDetail');
+    if (!select || !createBtn || !detail) return;
+
+    const renderSelected = () => {
+        const plan = plans.find(item => item.name === select.value) || plans[0];
+        if (!plan) return;
+        detail.innerHTML = `
+            <div><strong>${escapeHtml(plan.title)}</strong></div>
+            <div class="plan-price">${formatMoneyVnd(plan.price)} VND</div>
+            <div>Thoi han: ${plan.duration_days || 30} ngay</div>
+            <div>Chat: ${plan.chat_per_day || plan.chat_limit || 0}/ngay</div>
+            <div>Bai hoc: ${plan.lesson_limit || 0}/ngay</div>
+            <div>${escapeHtml(plan.description || '')}</div>
+        `;
+    };
+
+    select.addEventListener('change', renderSelected);
+    createBtn.addEventListener('click', () => selectPlan(select.value, paymentInfo));
+    renderSelected();
+}
+
+function formatMoneyVnd(value) {
+    return Number(value || 0).toLocaleString('vi-VN');
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function selectPlan(planName, paymentInfo = {}) {
     if (!state.currentUser) {
-        showToast('❌', 'Vui lòng đăng nhập trước');
+        showToast('?', 'Vui long dang nhap hoac dang ky truoc');
+        closeModal('planModal');
+        openModal('loginModal');
         return;
     }
 
     try {
         const response = await fetch('/api/payment/request', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: state.currentUser.id,
                 plan_name: planName
@@ -3064,16 +3095,30 @@ async function selectPlan(planName) {
 
         const data = await response.json();
         if (!data.success) {
-            showToast('❌', data.error || 'Không thể tạo yêu cầu thanh toán');
+            showToast('?', data.error || 'Khong the tao yeu cau thanh toan');
             return;
         }
 
         const payment = data.payment_request;
-        const message = `Yêu cầu thanh toán đã tạo: ${payment.reference_code}. Vui lòng chuyển khoản ${payment.amount.toLocaleString()}đ với nội dung ${payment.transfer_note}.`;
-        showToast('✅', message);
-        closeModal('planModal');
+        const info = data.payment_info || paymentInfo;
+        const result = document.getElementById('paymentResult');
+        if (result) {
+            result.classList.remove('hidden');
+            result.innerHTML = `
+                <h4>Yeu cau thanh toan da tao</h4>
+                <div><strong>Ma yeu cau:</strong> ${escapeHtml(payment.reference_code)}</div>
+                <div><strong>So tien:</strong> ${formatMoneyVnd(payment.amount)} ${escapeHtml(payment.currency)}</div>
+                <div><strong>Noi dung chuyen khoan:</strong> <code>${escapeHtml(payment.transfer_note)}</code></div>
+                <div><strong>Ngan hang:</strong> ${escapeHtml(info.bank_name || 'Chua cau hinh')}</div>
+                <div><strong>Chu tai khoan:</strong> ${escapeHtml(info.account_name || 'Chua cau hinh')}</div>
+                <div><strong>So tai khoan:</strong> ${escapeHtml(info.account_number || 'Chua cau hinh')}</div>
+                <div><strong>So dien thoai admin:</strong> ${escapeHtml(info.admin_phone || 'Chua cau hinh')}</div>
+                <p>Sau khi admin thay giao dich dung noi dung tren, admin bam Duyet trong tab Thanh toan de mo goi cho ban.</p>
+            `;
+        }
+        showToast('?', 'Da tao yeu cau thanh toan. Vui long chuyen khoan dung noi dung hien tren man hinh.');
     } catch (error) {
         console.error('Error creating payment request:', error);
-        showToast('❌', 'Lỗi kết nối server khi tạo yêu cầu thanh toán');
+        showToast('?', 'Loi ket noi server khi tao yeu cau thanh toan');
     }
 }
