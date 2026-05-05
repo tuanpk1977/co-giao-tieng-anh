@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "api-health-audio-debug-004";
+const APP_VERSION = "health-audio-fix-005";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -461,20 +461,6 @@ function setupEventListeners() {
         });
     });
     
-    // Global click handler for dynamically rendered buttons
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.daily-audio-btn');
-        if (btn && btn.dataset.speakText) {
-            e.stopPropagation();
-            const text = btn.dataset.speakText;
-            const section = btn.dataset.section || 'unknown';
-            console.log('[DailyLessonAudio] clicked, section:', section);
-            console.log('[DailyLessonAudio] text:', text);
-            playDailyLessonAudio(text);
-            console.log('[DailyLessonAudio] playDailyLessonAudio called');
-        }
-    });
-    
     // Speaking practice
     elements.playPracticeBtn.addEventListener('click', () => {
         const text = elements.practiceText.textContent;
@@ -598,15 +584,14 @@ function setupEventListeners() {
 
     // Daily lesson audio buttons (event delegation)
     document.addEventListener('click', (e) => {
-        console.log('[GlobalClick] clicked:', { target: e.target, tagName: e.target.tagName });
-        
         const btn = e.target.closest('.daily-audio-btn');
-        console.log('[DailyLessonAudio] closest .daily-audio-btn found:', !!btn);
         
         if (!btn) {
-            console.log('[DailyLessonAudio] not a daily-audio-btn, ignoring');
             return;
         }
+
+        e.preventDefault();
+        e.stopPropagation();
 
         const text = btn.dataset.speakText;
         const section = btn.dataset.section;
@@ -617,8 +602,7 @@ function setupEventListeners() {
             return;
         }
 
-        console.log('[DailyLessonAudio] calling playDailyLessonAudio');
-        playDailyLessonAudio(text);
+        playDailyLessonAudio(text, btn);
     });
     
     // Record again button (focus input and start voice recognition)
@@ -2650,6 +2634,11 @@ function updateUserBadge() {
 }
 
 function loadVoices() {
+    if (!('speechSynthesis' in window)) {
+        englishVoices = [];
+        return;
+    }
+
     const voices = speechSynthesis.getVoices();
     englishVoices = voices.filter(v => v.lang.startsWith('en'));
     console.log('[TTS] English voices loaded:', englishVoices.length, englishVoices.map(v => v.name));
@@ -2665,7 +2654,7 @@ function escapeAttr(value) {
         .replace(/>/g, '&gt;');
 }
 
-function playDailyLessonAudio(text) {
+function playDailyLessonAudio(text, button = null) {
     console.log('[DailyLessonAudio] playDailyLessonAudio called');
     console.log('[DailyLessonAudio] text:', text ? text.substring(0, 50) : 'null');
     console.log('[DailyLessonAudio] typeof text:', typeof text);
@@ -2676,11 +2665,11 @@ function playDailyLessonAudio(text) {
     }
     
     console.log('[DailyLessonAudio] calling speakText');
-    speakText(text);
+    speakText(text, null, button);
     console.log('[DailyLessonAudio] speakText called');
 }
 
-function speakText(text, rate = null) {
+function speakText(text, rate = null, sourceButton = null) {
     console.log('[TTS] speakText called with text:', text ? text.substring(0, 50) : 'null');
     
     if (!('speechSynthesis' in window)) {
@@ -2689,20 +2678,31 @@ function speakText(text, rate = null) {
         return;
     }
     
+    const cleanText = String(text || '').trim();
+    if (!cleanText) {
+        return;
+    }
+
+    if (englishVoices.length === 0) {
+        loadVoices();
+    }
+
     // Cancel any ongoing speech
     console.log('[TTS] Cancelling previous speech');
     speechSynthesis.cancel();
     
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     
     // Set voice to English if available
     if (englishVoices.length > 0) {
         // Prefer US English, then any English
         const usVoice = englishVoices.find(v => v.lang === 'en-US');
         utterance.voice = usVoice || englishVoices[0];
+        utterance.lang = utterance.voice.lang || 'en-US';
         console.log('[TTS] Using voice:', utterance.voice?.name, utterance.voice?.lang);
     } else {
         console.warn('[TTS] No English voices available');
+        utterance.lang = 'en-US';
     }
     
     // Set rate (speed)
@@ -2715,21 +2715,39 @@ function speakText(text, rate = null) {
     
     utterance.onstart = () => {
         state.isSpeaking = true;
+        if (sourceButton) sourceButton.classList.add('speaking');
         console.log('[TTS] onstart', text.substring(0, 30));
     };
     
     utterance.onend = () => {
         state.isSpeaking = false;
+        if (sourceButton) sourceButton.classList.remove('speaking');
         console.log('[TTS] onend', text.substring(0, 30));
     };
     
     utterance.onerror = (e) => {
         console.error('[TTS] onerror', e.error, e.message || '');
         state.isSpeaking = false;
+        if (sourceButton) sourceButton.classList.remove('speaking');
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+            showToast('❌', 'Chưa phát được âm thanh. Em thử bấm lại một lần nhé.');
+        }
     };
     
     console.log('[TTS] Calling synthesis.speak()');
     speechSynthesis.speak(utterance);
+
+    // Some Android browsers leave synthesis paused after a previous cancel.
+    if (speechSynthesis.paused) {
+        speechSynthesis.resume();
+    }
+
+    setTimeout(() => {
+        if (speechSynthesis.paused) {
+            speechSynthesis.resume();
+        }
+    }, 100);
+
     console.log('[TTS] speak() called');
 }
 

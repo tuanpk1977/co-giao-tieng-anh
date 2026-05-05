@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "api-health-audio-debug-004"
+APP_VERSION = "health-audio-fix-005"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -62,7 +62,7 @@ def index():
 @app.route('/api/version')
 def api_version():
     return jsonify({
-        "version": "api-health-audio-debug-004",
+        "version": APP_VERSION,
         "file": "app.py",
         "ok": True
     })
@@ -72,7 +72,7 @@ def api_health():
     return jsonify({
         "ok": True,
         "status": "healthy",
-        "version": "api-health-audio-debug-004",
+        "version": APP_VERSION,
         "timestamp": datetime.utcnow().isoformat()
     })
 
@@ -89,15 +89,6 @@ def health_domain():
         "session_secure": app_config.SESSION_COOKIE_SECURE,
         "session_samesite": app_config.SESSION_COOKIE_SAMESITE,
         "version": "domain-ready-v1"
-    })
-
-@app.route('/api/health', methods=['GET'])
-def api_health():
-    """Health check endpoint cho frontend"""
-    return jsonify({
-        "ok": True,
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat()
     })
 
 @app.route('/version')
