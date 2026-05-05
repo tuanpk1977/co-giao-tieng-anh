@@ -2,7 +2,8 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-console.log('[APP_VERSION] daily-lesson-audio-final-fix-002');
+const APP_VERSION = "api-health-audio-debug-004";
+console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
 // Global State
@@ -454,24 +455,33 @@ function setupEventListeners() {
     elements.startLessonBtn.addEventListener('click', () => openModal('lessonModal'));
     
     // Close modals
-    document.querySelectorAll('.modal-close').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const modal = e.target.closest('.modal');
-            closeModal(modal.id);
-        });
-    });
-    
-    // Close modal when clicking outside
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal(modal.id);
         });
     });
     
+    // Global click handler for dynamically rendered buttons
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.daily-audio-btn');
+        if (btn && btn.dataset.speakText) {
+            e.stopPropagation();
+            const text = btn.dataset.speakText;
+            const section = btn.dataset.section || 'unknown';
+            console.log('[DailyLessonAudio] clicked, section:', section);
+            console.log('[DailyLessonAudio] text:', text);
+            playDailyLessonAudio(text);
+            console.log('[DailyLessonAudio] playDailyLessonAudio called');
+        }
+    });
+    
     // Speaking practice
     elements.playPracticeBtn.addEventListener('click', () => {
         const text = elements.practiceText.textContent;
+        console.log('[PracticeAudio] loa xanh clicked');
+        console.log('[PracticeAudio] text:', text);
         speakText(text);
+        console.log('[PracticeAudio] speakText called');
     });
     elements.recordPracticeBtn.addEventListener('click', togglePracticeRecording);
     
@@ -585,6 +595,31 @@ function setupEventListeners() {
             }
         });
     }
+
+    // Daily lesson audio buttons (event delegation)
+    document.addEventListener('click', (e) => {
+        console.log('[GlobalClick] clicked:', { target: e.target, tagName: e.target.tagName });
+        
+        const btn = e.target.closest('.daily-audio-btn');
+        console.log('[DailyLessonAudio] closest .daily-audio-btn found:', !!btn);
+        
+        if (!btn) {
+            console.log('[DailyLessonAudio] not a daily-audio-btn, ignoring');
+            return;
+        }
+
+        const text = btn.dataset.speakText;
+        const section = btn.dataset.section;
+        console.log('[DailyLessonAudio] clicked', { section, text });
+
+        if (!text || !text.trim()) {
+            console.warn('[DailyLessonAudio] empty text, skipping');
+            return;
+        }
+
+        console.log('[DailyLessonAudio] calling playDailyLessonAudio');
+        playDailyLessonAudio(text);
+    });
     
     // Record again button (focus input and start voice recognition)
     if (elements.recordAgainBtn) {
@@ -812,39 +847,6 @@ function initializeSpeechRecognition() {
     } else {
         elements.micBtn.style.display = 'none';
         console.log('Browser không hỗ trợ Speech Recognition');
-    }
-}
-
-async function loadInitialData() {
-    // Kiểm tra kết nối server
-    try {
-        const response = await fetch('/api/health');
-        const data = await response.json();
-        console.log('Server status:', data.message);
-    } catch (error) {
-        console.error('Không kết nối được server:', error);
-    }
-    
-    // Kiểm tra session hiện tại
-    try {
-        const response = await fetch('/api/auth/me');
-        const data = await response.json();
-        
-        if (data.success) {
-            state.currentUser = data.user;
-            state.isGuest = false;
-            updateAuthUI();
-            updateUserBadge();
-            await loadUserProfile();
-            console.log('Restored session for user:', data.user.name);
-        } else {
-            state.isGuest = true;
-            loadGuestLimits();
-        }
-    } catch (error) {
-        console.error('Session check failed:', error);
-        state.isGuest = true;
-        loadGuestLimits();
     }
 }
 
@@ -1076,6 +1078,7 @@ async function loadLesson() {
 }
 
 function renderLesson(lesson) {
+    console.log('[DailyLessonAudit] renderLesson called with lesson:', lesson);
     let html = '';
     
     // Vocabulary Section
@@ -1091,7 +1094,7 @@ function renderLesson(lesson) {
                 <div class="vocab-card">
                     <div class="vocab-word">
                         ${item.word}
-                        <button class="speak-btn" onclick="speakText('${item.word.replace(/'/g, "\\'")}')">
+                        <button type="button" class="speak-btn daily-audio-btn" data-speak-text="${escapeAttr(item.word)}" data-section="vocabulary">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1117,7 +1120,7 @@ function renderLesson(lesson) {
                 <div class="sentence-card">
                     <div class="sentence-en">
                         ${item.english}
-                        <button class="speak-btn" onclick="speakText('${item.english.replace(/'/g, "\\'")}')">
+                        <button type="button" class="speak-btn daily-audio-btn" data-speak-text="${escapeAttr(item.english)}" data-section="sentence">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -1145,7 +1148,7 @@ function renderLesson(lesson) {
                     <div class="dialogue-content">
                         <div class="dialogue-en">
                             ${line.text}
-                            <button class="speak-btn" onclick="speakText('${line.text.replace(/'/g, "\\'")}')">
+                            <button type="button" class="speak-btn daily-audio-btn" data-speak-text="${escapeAttr(line.text)}" data-section="dialogue">
                                 <i class="fas fa-volume-up"></i>
                             </button>
                         </div>
@@ -1171,7 +1174,7 @@ function renderLesson(lesson) {
                 <li class="practice-item">
                     <span class="practice-text">${sentence}</span>
                     <div class="practice-actions">
-                        <button class="btn btn-audio" onclick="speakText('${sentence.replace(/'/g, "\\'")}')">
+                        <button type="button" class="btn btn-audio daily-audio-btn" data-speak-text="${escapeAttr(sentence)}" data-section="practice">
                             <i class="fas fa-volume-up"></i>
                         </button>
                         <button class="btn btn-record" onclick="openSpeakingPractice(${index})" style="padding: 8px 15px; font-size: 0.9rem;">
@@ -1220,6 +1223,30 @@ function renderLesson(lesson) {
     `;
     
     elements.lessonContent.innerHTML = html;
+    
+    // Audit rendered DOM
+    setTimeout(() => {
+        console.log('[DailyLessonAudit] DOM audit starting...');
+        
+        const inlineButtons = elements.lessonContent.querySelectorAll('[onclick]');
+        console.warn('[DailyLessonAudit] inline onclick count:', inlineButtons.length);
+        if (inlineButtons.length > 0) {
+            inlineButtons.forEach((btn, idx) => {
+                console.warn(`  [${idx}] ${btn.tagName} onclick="${btn.getAttribute('onclick')?.substring(0, 80)}..."`);
+            });
+        }
+        
+        const dailyButtons = elements.lessonContent.querySelectorAll('.daily-audio-btn');
+        console.log('[DailyLessonAudit] daily-audio-btn count:', dailyButtons.length);
+        if (dailyButtons.length > 0) {
+            dailyButtons.forEach((btn, idx) => {
+                console.log(`  [${idx}] text="${btn.dataset.speakText?.substring(0, 40)}..." section="${btn.dataset.section}"`);
+            });
+        }
+        
+        const speakBtns = elements.lessonContent.querySelectorAll('.speak-btn');
+        console.log('[DailyLessonAudit] speak-btn total count:', speakBtns.length);
+    }, 100);
 }
 
 function checkAnswer(element, selected, correct) {
@@ -2628,24 +2655,29 @@ function loadVoices() {
     console.log('[TTS] English voices loaded:', englishVoices.length, englishVoices.map(v => v.name));
 }
 
-function jsStringEscape(str) {
-    return String(str || '')
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/\n/g, ' ');
+
+
+function escapeAttr(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
-function playLessonAudio(text) {
-    console.log('[DailyLesson] playLessonAudio called');
-    console.log('[DailyLesson] text:', text);
+function playDailyLessonAudio(text) {
+    console.log('[DailyLessonAudio] playDailyLessonAudio called');
+    console.log('[DailyLessonAudio] text:', text ? text.substring(0, 50) : 'null');
+    console.log('[DailyLessonAudio] typeof text:', typeof text);
     
     if (!text || !text.trim()) {
-        console.warn('[DailyLesson] Empty text, skipping');
+        console.warn('[DailyLessonAudio] empty text, skipping');
         return;
     }
     
-    console.log('[DailyLesson] Calling speakText from lesson');
+    console.log('[DailyLessonAudio] calling speakText');
     speakText(text);
+    console.log('[DailyLessonAudio] speakText called');
 }
 
 function speakText(text, rate = null) {
@@ -2658,6 +2690,7 @@ function speakText(text, rate = null) {
     }
     
     // Cancel any ongoing speech
+    console.log('[TTS] Cancelling previous speech');
     speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -2667,7 +2700,7 @@ function speakText(text, rate = null) {
         // Prefer US English, then any English
         const usVoice = englishVoices.find(v => v.lang === 'en-US');
         utterance.voice = usVoice || englishVoices[0];
-        console.log('[TTS] Using voice:', utterance.voice.name, utterance.voice.lang);
+        console.log('[TTS] Using voice:', utterance.voice?.name, utterance.voice?.lang);
     } else {
         console.warn('[TTS] No English voices available');
     }
@@ -2677,24 +2710,30 @@ function speakText(text, rate = null) {
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     
+    console.log('[TTS] volume/rate/pitch:', utterance.volume, utterance.rate, utterance.pitch);
+    console.log('[TTS] text length:', text.length);
+    
     utterance.onstart = () => {
         state.isSpeaking = true;
-        console.log('[TTS] Speech started');
+        console.log('[TTS] onstart', text.substring(0, 30));
     };
     
     utterance.onend = () => {
         state.isSpeaking = false;
-        console.log('[TTS] Speech ended');
+        console.log('[TTS] onend', text.substring(0, 30));
     };
     
     utterance.onerror = (e) => {
-        console.error('[TTS] Speech error:', e);
+        console.error('[TTS] onerror', e.error, e.message || '');
         state.isSpeaking = false;
     };
     
-    console.log('[TTS] Speaking text with', englishVoices.length, 'voices available');
+    console.log('[TTS] Calling synthesis.speak()');
     speechSynthesis.speak(utterance);
+    console.log('[TTS] speak() called');
 }
+
+window.speakText = speakText;
 
 function stopSpeaking() {
     if ('speechSynthesis' in window) {
