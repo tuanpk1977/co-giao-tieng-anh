@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "payment-flow-006"
+APP_VERSION = "payment-profile-007"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -413,11 +413,23 @@ def get_lesson():
     """
     try:
         # Lấy level từ query params hoặc body
+        profile = {}
         if request.method == 'POST':
             data = request.json or {}
             level = data.get('level', 'beginner')
+            user_id = data.get('user_id') or session.get('user_id')
         else:
             level = request.args.get('level', 'beginner')
+            user_id = request.args.get('user_id', type=int) or session.get('user_id')
+        if user_id:
+            try:
+                from models import User
+                user = User.query.get(user_id)
+                if user:
+                    profile = user.get_profile_for_ai()
+                    level = profile.get('level') or level
+            except Exception as e:
+                print(f"Could not load lesson profile: {e}")
         
         # Validate level
         valid_levels = ['beginner', 'elementary', 'intermediate']
@@ -426,7 +438,7 @@ def get_lesson():
         
         # Lấy AI service và tạo bài học
         service = get_ai_service()
-        lesson = service.generate_lesson(level)
+        lesson = service.generate_lesson(level, profile)
         
         # Lưu vào lịch sử
         try:

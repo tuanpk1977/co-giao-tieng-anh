@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=payment-flow-006">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=payment-profile-007">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -869,6 +869,19 @@
                             <option value="intermediate">Trung cấp</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Lo trinh hoc</label>
+                        <select id="profileLearningPath">
+                            <option value="communication">Giao tiep nen tang</option>
+                            <option value="school">Bam chuong trinh pho thong</option>
+                            <option value="cambridge">Cambridge Starters/Movers/Flyers</option>
+                            <option value="ielts">IELTS</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lop hoac chung chi muc tieu</label>
+                        <input type="text" id="profileGradeLevel" placeholder="Vi du: lop 7, Flyers, IELTS 5.5">
+                    </div>
                     <button type="submit" class="btn btn-primary btn-block">Hoàn tất đăng ký 🎉</button>
                 </form>
             </div>
@@ -985,8 +998,8 @@
     </div>
 
     <!-- Version indicator -->
-    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: payment-flow-006</div>
+    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: payment-profile-007</div>
     
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=payment-flow-006"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=payment-profile-007"></script>
 </body>
 </html>

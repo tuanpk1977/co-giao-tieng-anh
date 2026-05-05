@@ -35,6 +35,8 @@ class User(db.Model):
     english_usage = db.Column(db.String(200))  # what they use English for
     goal = db.Column(db.String(50))  # daily, work, travel
     english_level = db.Column(db.String(20), default='beginner')
+    learning_path = db.Column(db.String(50), default='communication')
+    grade_level = db.Column(db.String(50))
     
     # Subscription and payment info
     role = db.Column(db.String(20), default='user')  # user, agent, admin
@@ -93,6 +95,8 @@ class User(db.Model):
             'english_usage': self.english_usage,
             'goal': self.goal,
             'english_level': self.english_level,
+            'learning_path': self.learning_path,
+            'grade_level': self.grade_level,
             'role': self.role,
             'status': self.status,
             'agent_status': self.agent_status,
@@ -124,7 +128,9 @@ class User(db.Model):
             'goal': self.goal or 'communication',
             'meet_foreigners': self.meet_foreigners,
             'english_usage': self.english_usage or '',
-            'age': self.age
+            'age': self.age,
+            'learning_path': self.learning_path or 'communication',
+            'grade_level': self.grade_level or ''
         }
 
     @property
@@ -750,6 +756,10 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN max_tokens_per_month_override INTEGER")
     if 'max_cost_per_day_vnd_override' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN max_cost_per_day_vnd_override FLOAT")
+    if 'learning_path' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN learning_path VARCHAR(50) DEFAULT 'communication'")
+    if 'grade_level' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN grade_level VARCHAR(50)")
     
     # New columns for fixed account model (BenNha style)
     if 'user_code' not in existing_columns:

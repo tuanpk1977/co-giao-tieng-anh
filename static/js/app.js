@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "payment-flow-006";
+const APP_VERSION = "payment-profile-007";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -1044,7 +1044,10 @@ async function loadLesson() {
         const response = await fetch('/api/lesson', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ level: 'beginner' })
+            body: JSON.stringify({
+                level: state.currentUser?.english_level || 'beginner',
+                user_id: state.currentUser?.id || null
+            })
         });
         
         const data = await response.json();
@@ -2279,7 +2282,9 @@ async function handleProfileSetup(e) {
         meet_foreigners: document.querySelector('input[name="meetForeigners"]:checked').value === 'true',
         english_usage: document.getElementById('profileUsage').value,
         goal: document.getElementById('profileGoal').value,
-        level: document.getElementById('profileLevel').value
+        level: document.getElementById('profileLevel').value,
+        learning_path: document.getElementById('profileLearningPath')?.value || 'communication',
+        grade_level: document.getElementById('profileGradeLevel')?.value || ''
     };
     
     try {

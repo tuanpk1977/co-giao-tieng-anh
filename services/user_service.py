@@ -196,6 +196,8 @@ class UserService:
         user.english_usage = profile_data.get('english_usage')
         user.goal = profile_data.get('goal')
         user.english_level = profile_data.get('level', 'beginner')
+        user.learning_path = profile_data.get('learning_path', 'communication')
+        user.grade_level = profile_data.get('grade_level')
         
         db.session.commit()
         
