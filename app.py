@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-020"
+APP_VERSION = "hybrid-roadmap-021"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -46,7 +46,15 @@ app.config['SESSION_COOKIE_SAMESITE'] = app_config.SESSION_COOKIE_SAMESITE
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=180)
 
 # Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///ms_smile.db')
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
+    if volume_path:
+        os.makedirs(volume_path, exist_ok=True)
+        database_url = f"sqlite:///{os.path.join(volume_path, 'ms_smile.db')}"
+    else:
+        database_url = 'sqlite:///ms_smile.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database

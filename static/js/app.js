@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-020";
+const APP_VERSION = "hybrid-roadmap-021";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
