@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "payment-profile-007";
+const APP_VERSION = "hybrid-roadmap-008";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -62,6 +62,7 @@ const elements = {
     
     // Buttons
     lessonBtn: document.getElementById('lessonBtn'),
+    roadmapBtn: document.getElementById('roadmapBtn'),
     statsBtn: document.getElementById('statsBtn'),
     startLessonBtn: document.getElementById('startLessonBtn'),
     profileBtn: document.getElementById('profileBtn'),
@@ -70,6 +71,7 @@ const elements = {
     
     // Modals
     lessonModal: document.getElementById('lessonModal'),
+    roadmapModal: document.getElementById('roadmapModal'),
     statsModal: document.getElementById('statsModal'),
     speakingModal: document.getElementById('speakingModal'),
     onboardingModal: document.getElementById('onboardingModal'),
@@ -449,6 +451,12 @@ function setupEventListeners() {
     
     // Buttons
     elements.lessonBtn.addEventListener('click', () => openModal('lessonModal'));
+    if (elements.roadmapBtn) {
+        elements.roadmapBtn.addEventListener('click', () => {
+            openModal('roadmapModal');
+            loadRoadmapLevels();
+        });
+    }
     elements.statsBtn.addEventListener('click', () => {
         loadStats();
         openModal('statsModal');
@@ -459,6 +467,14 @@ function setupEventListeners() {
             loadPlanOptions();
             openModal('planModal');
         });
+    }
+    const placementBtn = document.getElementById('placementTestBtn');
+    if (placementBtn) {
+        placementBtn.addEventListener('click', startPlacementTest);
+    }
+    const continueRoadmapBtn = document.getElementById('continueRoadmapBtn');
+    if (continueRoadmapBtn) {
+        continueRoadmapBtn.addEventListener('click', loadRoadmapLevels);
     }
     
     // Close modals
@@ -1265,6 +1281,185 @@ function completeLesson() {
     closeModal('lessonModal');
     showToast('🎉', 'Chúc mừng em đã hoàn thành bài học! Cô tự hào về em!');
 }
+
+// ==========================================
+// Hybrid Roadmap Functions
+// ==========================================
+async function loadRoadmapLevels() {
+    const container = document.getElementById('roadmapLevels');
+    const detail = document.getElementById('roadmapDetail');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai lo trinh...</p></div>';
+    if (detail) detail.classList.add('hidden');
+    try {
+        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const response = await fetch(`/api/roadmap/levels${userParam}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Roadmap error');
+        container.innerHTML = data.levels.map(level => `
+            <div class="roadmap-level-card">
+                <div class="roadmap-level-main">
+                    <h3>${escapeHtml(level.title)}</h3>
+                    <p>${escapeHtml(level.description)}</p>
+                    <div class="roadmap-meta">${escapeHtml(level.target)} · ${level.unitCount} units · ${level.lessonCount} lessons</div>
+                    <div class="roadmap-progress"><span style="width:${level.progressPercent}%"></span></div>
+                    <div class="roadmap-percent">${level.progressPercent}% hoan thanh</div>
+                </div>
+                <button class="btn btn-primary" onclick="loadRoadmapLevel('${level.id}')">Hoc tu dau</button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Roadmap load error:', error);
+        container.innerHTML = '<p>Khong tai duoc lo trinh hoc.</p>';
+    }
+}
+
+async function loadRoadmapLevel(levelId) {
+    const detail = document.getElementById('roadmapDetail');
+    if (!detail) return;
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai bai hoc...</p></div>';
+    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`);
+    const data = await response.json();
+    if (!data.success) {
+        detail.innerHTML = '<p>Khong tim thay level.</p>';
+        return;
+    }
+    const level = data.level;
+    detail.innerHTML = `
+        <div class="roadmap-detail-header">
+            <h3>${escapeHtml(level.title)}</h3>
+            <p>${escapeHtml(level.description)}</p>
+        </div>
+        ${level.units.map(unit => `
+            <div class="roadmap-unit">
+                <h4>${escapeHtml(unit.title)}</h4>
+                <p>${escapeHtml(unit.description)}</p>
+                <div class="roadmap-lessons">
+                    ${unit.lessons.map(lesson => `
+                        <button class="roadmap-lesson ${lesson.status === 'completed' ? 'completed' : ''}" onclick="openRoadmapLesson('${lesson.id}')">
+                            <span>${escapeHtml(lesson.title)}</span>
+                            <small>${lesson.type}${lesson.isAiEnabled ? ' · AI optional' : ''}</small>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('')}
+    `;
+}
+
+async function openRoadmapLesson(lessonId) {
+    const response = await fetch(`/api/roadmap/lessons/${lessonId}`);
+    const data = await response.json();
+    if (!data.success) return;
+    const lesson = data.lesson;
+    const detail = document.getElementById('roadmapDetail');
+    detail.innerHTML = `
+        <div class="roadmap-lesson-view">
+            <button class="btn btn-secondary" onclick="loadRoadmapLevel('${lesson.levelId}')">Quay lai unit</button>
+            <h3>${escapeHtml(lesson.title)}</h3>
+            <div class="roadmap-content-block">${renderRoadmapContent(lesson)}</div>
+            <div class="roadmap-actions">
+                ${lesson.isAiEnabled ? `<button class="btn btn-stats" onclick="logRoadmapAiUse('${lesson.aiFeatureType}')">AI giai thich giup toi</button>` : ''}
+                <button class="btn btn-primary" onclick="completeRoadmapLesson('${lesson.id}', '${lesson.levelId}')">Hoan thanh bai</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderRoadmapContent(lesson) {
+    const content = lesson.content || {};
+    if (lesson.type === 'vocabulary') {
+        return `<div class="roadmap-vocab">${(content.words || []).map(w => `<div><strong>${escapeHtml(w.word)}</strong>: ${escapeHtml(w.meaning)}<br><small>${escapeHtml(w.example)}</small></div>`).join('')}</div>`;
+    }
+    if (lesson.type === 'grammar') {
+        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p>${escapeHtml(ex)}</p>`).join('')}</div>`;
+    }
+    if (lesson.type === 'quiz') {
+        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Dap an: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
+    }
+    if (lesson.type === 'listening') {
+        return (content.dialogue || []).map(line => `<p><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)}</p>`).join('');
+    }
+    return `<pre>${escapeHtml(JSON.stringify(content, null, 2))}</pre>`;
+}
+
+async function completeRoadmapLesson(lessonId, levelId) {
+    if (state.currentUser) {
+        await fetch('/api/roadmap/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id, lesson_id: lessonId, status: 'completed' })
+        });
+    }
+    showToast('✅', 'Da luu tien do bai hoc');
+    loadRoadmapLevel(levelId);
+}
+
+async function logRoadmapAiUse(featureType) {
+    const response = await fetch('/api/ai/usage/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: state.currentUser?.id || null, featureType, tokenUsed: 80, estimatedCost: 0 })
+    });
+    const data = await response.json();
+    showToast(data.success ? '🤖' : '⚠️', data.success ? `AI ${featureType}: ${data.limit.used + 1}/${data.limit.limit} hom nay` : data.error);
+}
+
+async function startPlacementTest() {
+    const detail = document.getElementById('roadmapDetail');
+    if (!detail) return;
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai test...</p></div>';
+    const response = await fetch('/api/placement-test');
+    const data = await response.json();
+    if (!data.success) {
+        detail.innerHTML = '<p>Khong tai duoc test dau vao.</p>';
+        return;
+    }
+    detail.innerHTML = `
+        <div class="placement-test">
+            <h3>Placement Test</h3>
+            ${data.questions.map((q, idx) => `
+                <div class="placement-question">
+                    <strong>${idx + 1}. ${escapeHtml(q.question)}</strong>
+                    <div>
+                        ${q.options.map(option => `
+                            <label><input type="radio" name="placement_${q.id}" value="${escapeHtml(option)}"> ${escapeHtml(option)}</label>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('')}
+            <button class="btn btn-primary" onclick="submitPlacementTest()">Xem goi y level</button>
+        </div>
+    `;
+}
+
+async function submitPlacementTest() {
+    const answers = {};
+    document.querySelectorAll('.placement-question input:checked').forEach(input => {
+        answers[input.name.replace('placement_', '')] = input.value;
+    });
+    const response = await fetch('/api/placement-test/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers })
+    });
+    const data = await response.json();
+    const detail = document.getElementById('roadmapDetail');
+    if (!data.success || !detail) return;
+    const result = data.result;
+    detail.innerHTML = `
+        <div class="placement-result">
+            <h3>Ket qua: ${result.correct}/${result.total} (${result.percent}%)</h3>
+            <p>App goi y level: <strong>${escapeHtml(result.recommendedLevel.title)}</strong></p>
+            <p>${escapeHtml(result.recommendedLevel.description)}</p>
+            <button class="btn btn-primary" onclick="loadRoadmapLevel('${result.recommendedLevelId}')">Bat dau level nay</button>
+        </div>
+    `;
+}
+
 
 // ==========================================
 // Speaking Practice

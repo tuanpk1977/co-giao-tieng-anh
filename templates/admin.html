@@ -311,19 +311,26 @@
                 }
 
                 // Load AI stats and feedback stats
-                const [aiRes, feedbackRes] = await Promise.all([
+                const [aiRes, hybridAiRes, feedbackRes] = await Promise.all([
                     fetch('/api/admin/analytics/ai-usage?period=today'),
+                    fetch('/api/admin/roadmap/ai-usage'),
                     fetch('/api/admin/feedback')
                 ]);
 
                 const ai = await aiRes.json();
+                const hybridAi = await hybridAiRes.json();
                 const feedback = await feedbackRes.json();
 
                 if (ai.success) {
+                    const hybrid = hybridAi.success ? hybridAi.summary : {};
                     document.getElementById('aiStats').innerHTML = `
                         <p><strong>Chat messages:</strong> ${ai.usage.total_messages}</p>
                         <p><strong>Tokens used:</strong> ${ai.usage.total_tokens}</p>
                         <p><strong>Estimated cost:</strong> ${ai.usage.estimated_cost} USD</p>
+                        <hr>
+                        <p><strong>Hybrid AI calls:</strong> ${hybrid.totalCallsToday || 0}</p>
+                        <p><strong>Hybrid cost today:</strong> ${hybrid.estimatedCostToday || 0} VND</p>
+                        <p><strong>High-risk users:</strong> ${(hybrid.warnings || []).length}</p>
                     `;
                 }
 

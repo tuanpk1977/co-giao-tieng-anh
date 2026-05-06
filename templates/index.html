@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=payment-profile-007">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=hybrid-roadmap-008">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -24,6 +24,9 @@
             </button>
             <button id="lessonBtn" class="btn btn-lesson">
                 <i class="fas fa-book-open"></i> Bài học hôm nay
+            </button>
+            <button id="roadmapBtn" class="btn btn-roadmap">
+                <i class="fas fa-route"></i> Lo trinh
             </button>
             <button id="statsBtn" class="btn btn-stats">
                 <i class="fas fa-chart-line"></i> Lịch sử
@@ -175,6 +178,24 @@
             <div id="recordingIndicator" class="recording-indicator hidden">
                 <span class="recording-dot"></span>
                 <span>Đang nghe em nói...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hybrid Roadmap Modal -->
+    <div id="roadmapModal" class="modal hidden">
+        <div class="modal-content roadmap-content">
+            <div class="modal-header">
+                <h2>Hybrid Learning Roadmap</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="roadmap-actions">
+                    <button id="continueRoadmapBtn" class="btn btn-primary">Tiep tuc bai dang hoc</button>
+                    <button id="placementTestBtn" class="btn btn-secondary">Lam test dau vao</button>
+                </div>
+                <div id="roadmapLevels" class="roadmap-levels"></div>
+                <div id="roadmapDetail" class="roadmap-detail hidden"></div>
             </div>
         </div>
     </div>
@@ -998,8 +1019,8 @@
     </div>
 
     <!-- Version indicator -->
-    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: payment-profile-007</div>
+    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: hybrid-roadmap-008</div>
     
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=payment-profile-007"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=hybrid-roadmap-008"></script>
 </body>
 </html>

@@ -667,6 +667,62 @@ class UserProgress(db.Model):
         }
 
 
+class UserRoadmapProgress(db.Model):
+    """Progress inside the fixed Hybrid Learning Roadmap."""
+    __tablename__ = 'user_roadmap_progress'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    level_id = db.Column(db.String(80), nullable=False)
+    unit_id = db.Column(db.String(80), nullable=True)
+    lesson_id = db.Column(db.String(120), nullable=True)
+    status = db.Column(db.String(20), default='in_progress')
+    score = db.Column(db.Float, default=0.0)
+    completed_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'lesson_id', name='uq_user_roadmap_lesson'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'level_id': self.level_id,
+            'unit_id': self.unit_id,
+            'lesson_id': self.lesson_id,
+            'status': self.status,
+            'score': self.score,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class AIUsageLog(db.Model):
+    """Feature-level AI usage log for cost controls in the hybrid roadmap."""
+    __tablename__ = 'ai_usage_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    feature_type = db.Column(db.String(50), nullable=False)
+    token_used = db.Column(db.Integer, default=0)
+    estimated_cost = db.Column(db.Float, default=0.0)
+    plan_type = db.Column(db.String(50), default='free')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'userId': self.user_id,
+            'featureType': self.feature_type,
+            'tokenUsed': self.token_used,
+            'estimatedCost': self.estimated_cost,
+            'planType': self.plan_type,
+            'createdAt': self.created_at.isoformat() if self.created_at else None
+        }
+
+
 class LearningSession(db.Model):
     """Record of each learning session"""
     __tablename__ = 'learning_sessions'

@@ -1950,6 +1950,131 @@ body {
     background: #138a72;
 }
 
+.btn-roadmap {
+    background: #2f80ed;
+    color: #fff;
+}
+
+.btn-roadmap:hover {
+    background: #2568c7;
+}
+
+.roadmap-content {
+    max-width: 1080px;
+}
+
+.roadmap-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.roadmap-levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.roadmap-level-card,
+.roadmap-unit,
+.roadmap-lesson-view,
+.placement-question,
+.placement-result {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    background: #fff;
+}
+
+.roadmap-level-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.roadmap-level-card h3,
+.roadmap-detail h3,
+.roadmap-unit h4 {
+    margin-bottom: 6px;
+    color: #2c3e50;
+}
+
+.roadmap-meta,
+.roadmap-percent,
+.roadmap-lesson small {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.roadmap-progress {
+    height: 8px;
+    border-radius: 99px;
+    background: #edf2f7;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.roadmap-progress span {
+    display: block;
+    height: 100%;
+    background: #2f80ed;
+}
+
+.roadmap-detail {
+    margin-top: 18px;
+}
+
+.roadmap-unit {
+    margin-bottom: 12px;
+    background: #f9fafb;
+}
+
+.roadmap-lessons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.roadmap-lesson {
+    border: 1px solid #d8dee9;
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.roadmap-lesson.completed {
+    border-color: #10b981;
+    background: #ecfdf5;
+}
+
+.roadmap-vocab {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.roadmap-vocab > div,
+.roadmap-quiz {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.placement-question {
+    margin-bottom: 10px;
+}
+
+.placement-question label {
+    display: inline-flex;
+    gap: 6px;
+    margin: 8px 12px 0 0;
+}
+
 .plan-checkout-grid {
     display: grid;
     grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);

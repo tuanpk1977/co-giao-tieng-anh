@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "payment-profile-007"
+APP_VERSION = "hybrid-roadmap-008"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -18,6 +18,8 @@ from services.situation_advisor import get_situation_advisor
 from services.user_service import get_user_service
 from services.cost_service import get_cost_service  # PART 1 & 3: Cost tracking
 from services.quota_service import get_quota_service  # PART 2: Quota enforcement
+from services.roadmap_service import get_roadmap_service
+from services.ai_usage_service import get_ai_usage_service
 from utils.history import get_history_manager
 from utils.user_profile import (
     load_profile, save_profile, update_profile, is_onboarded,
@@ -374,6 +376,13 @@ Lỗi kỹ thuật: {str(e)}"""
                 
                 # Update cost analytics for admin dashboard
                 cost_service.update_cost_analytics(user_id)
+                get_ai_usage_service().log_usage(
+                    user_id=user_id,
+                    feature_type="chat",
+                    token_used=input_tokens + output_tokens,
+                    estimated_cost=0.0,
+                    plan_type=plan_name
+                )
                 
                 print(f"[COST LOG] Logged {input_tokens + output_tokens} tokens for user {user_id}")
         except Exception as e:
@@ -487,6 +496,16 @@ def evaluate_speech():
         # Lấy AI service và đánh giá
         service = get_ai_service()
         evaluation = service.evaluate_speech(spoken_text, expected_text)
+        try:
+            user_id = session.get('user_id') or data.get('user_id')
+            get_ai_usage_service().log_usage(
+                user_id=user_id,
+                feature_type="speaking_correction",
+                token_used=(len(spoken_text) + len(expected_text)) // 4 or 1,
+                estimated_cost=0.0
+            )
+        except Exception as e:
+            print(f"[AI USAGE LOG] Failed to log evaluate usage: {e}")
         
         # Lưu vào lịch sử
         try:
@@ -598,6 +617,90 @@ def require_admin(request):
     if not is_admin_user(admin_id):
         return None, jsonify({"success": False, "error": "Unauthorized"}), 403
     return admin_id, None, None
+
+
+# ==========================================
+# Hybrid Learning Roadmap API
+# ==========================================
+@app.route('/api/roadmap/levels', methods=['GET'])
+def roadmap_levels():
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    service = get_roadmap_service()
+    return jsonify({"success": True, "levels": service.get_levels(user_id)})
+
+
+@app.route('/api/roadmap/levels/<level_id>', methods=['GET'])
+def roadmap_level_detail(level_id):
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    service = get_roadmap_service()
+    detail = service.get_level_detail(level_id, user_id)
+    if not detail:
+        return jsonify({"success": False, "error": "Level not found"}), 404
+    return jsonify({"success": True, "level": detail})
+
+
+@app.route('/api/roadmap/lessons/<lesson_id>', methods=['GET'])
+def roadmap_lesson_detail(lesson_id):
+    lesson = get_roadmap_service().get_lesson(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "error": "Lesson not found"}), 404
+    return jsonify({"success": True, "lesson": lesson})
+
+
+@app.route('/api/roadmap/progress', methods=['POST'])
+def roadmap_save_progress():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    lesson_id = data.get('lesson_id')
+    if not user_id or not lesson_id:
+        return jsonify({"success": False, "error": "user_id and lesson_id are required"}), 400
+    row = get_roadmap_service().save_progress(
+        user_id=user_id,
+        lesson_id=lesson_id,
+        status=data.get('status', 'completed'),
+        score=data.get('score', 0),
+    )
+    if not row:
+        return jsonify({"success": False, "error": "Lesson not found"}), 404
+    return jsonify({"success": True, "progress": row.to_dict()})
+
+
+@app.route('/api/placement-test', methods=['GET'])
+def placement_test():
+    return jsonify({"success": True, "questions": get_roadmap_service().get_placement_questions()})
+
+
+@app.route('/api/placement-test/submit', methods=['POST'])
+def placement_test_submit():
+    data = request.get_json() or {}
+    result = get_roadmap_service().score_placement(data.get('answers') or {})
+    return jsonify({"success": True, "result": result})
+
+
+@app.route('/api/ai/usage/log', methods=['POST'])
+def ai_usage_log():
+    data = request.get_json() or {}
+    user_id = data.get('userId') or data.get('user_id') or session.get('user_id')
+    feature_type = data.get('featureType') or data.get('feature_type') or 'unknown'
+    limit = get_roadmap_service().get_ai_limit_status(user_id, feature_type)
+    if user_id and not limit["allowed"]:
+        return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
+    log = get_ai_usage_service().log_usage(
+        user_id=user_id,
+        feature_type=feature_type,
+        token_used=data.get('tokenUsed') or data.get('token_used') or 0,
+        estimated_cost=data.get('estimatedCost') or data.get('estimated_cost') or 0,
+        plan_type=limit.get('planType')
+    )
+    return jsonify({"success": True, "log": log.to_dict(), "limit": limit})
+
+
+@app.route('/api/admin/roadmap/ai-usage', methods=['GET'])
+def admin_roadmap_ai_usage():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    return jsonify({"success": True, "summary": get_ai_usage_service().today_summary()})
 
 
 @app.route('/api/plans', methods=['GET'])
