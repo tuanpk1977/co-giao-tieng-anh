@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-014";
+const APP_VERSION = "hybrid-roadmap-015";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -1604,8 +1604,8 @@ async function loadRoadmapLevels() {
 async function openSavedRoadmap() {
     const savedLevel = state.currentUser?.selected_roadmap_level || state.selectedRoadmapLevelId || localStorage.getItem('selectedRoadmapLevelId');
     if (savedLevel) {
-        await loadRoadmapLevel(savedLevel, { persist: false });
-        return;
+        const loaded = await loadRoadmapLevel(savedLevel, { persist: false, fallbackToList: true });
+        if (loaded) return;
     }
     await loadRoadmapLevels();
 }
@@ -1638,14 +1638,35 @@ async function loadRoadmapLevel(levelId, options = {}) {
     if (container) container.classList.add('hidden');
     detail.classList.remove('hidden');
     detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai bai hoc...</p></div>';
-    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
-    const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`);
-    const data = await response.json();
-    if (!data.success) {
-        detail.innerHTML = '<p>Khong tim thay level.</p>';
-        return;
+    let level;
+    try {
+        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 12000);
+        const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`, { signal: controller.signal });
+        clearTimeout(timer);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success || !data.level) {
+            throw new Error(data.error || `Roadmap level load failed (${response.status})`);
+        }
+        level = data.level;
+    } catch (error) {
+        console.error('Roadmap level load error:', error);
+        if (options.fallbackToList) {
+            localStorage.removeItem('selectedRoadmapLevelId');
+            state.selectedRoadmapLevelId = null;
+            showToast('⚠️', 'Lo trinh da luu chua tai duoc. Vui long chon lai.');
+            await loadRoadmapLevels();
+            return false;
+        }
+        detail.innerHTML = `
+            <div class="roadmap-error-state">
+                <p>Khong tai duoc bai hoc trong lo trinh nay.</p>
+                <button class="btn btn-secondary" onclick="loadRoadmapLevels()">Chon lo trinh khac</button>
+            </div>
+        `;
+        return false;
     }
-    const level = data.level;
     renderRoadmapDashboard(level.dashboard);
     detail.innerHTML = `
         <div class="roadmap-detail-header">
@@ -1676,6 +1697,7 @@ async function loadRoadmapLevel(levelId, options = {}) {
         `).join('')}
     `;
     detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
 }
 
 async function openRoadmapLesson(lessonId) {
