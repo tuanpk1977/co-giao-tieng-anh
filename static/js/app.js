@@ -1361,7 +1361,7 @@ async function openRoadmapLesson(lessonId) {
             <h3>${escapeHtml(lesson.title)}</h3>
             <div class="roadmap-content-block">${renderRoadmapContent(lesson)}</div>
             <div class="roadmap-actions">
-                ${lesson.isAiEnabled ? `<button class="btn btn-stats" onclick="logRoadmapAiUse('${lesson.aiFeatureType}')">AI giai thich giup toi</button>` : ''}
+                ${lesson.isAiEnabled ? `<button class="btn btn-stats" onclick="logRoadmapAiUse('${lesson.aiFeatureType}', '${lesson.id}')">AI giai thich giup toi</button>` : ''}
                 <button class="btn btn-primary" onclick="completeRoadmapLesson('${lesson.id}', '${lesson.levelId}')">Hoan thanh bai</button>
             </div>
         </div>
@@ -1397,14 +1397,28 @@ async function completeRoadmapLesson(lessonId, levelId) {
     loadRoadmapLevel(levelId);
 }
 
-async function logRoadmapAiUse(featureType) {
-    const response = await fetch('/api/ai/usage/log', {
+async function logRoadmapAiUse(featureType, lessonId = null) {
+    const response = await fetch(lessonId ? '/api/roadmap/ai/explain' : '/api/ai/usage/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: state.currentUser?.id || null, featureType, tokenUsed: 80, estimatedCost: 0 })
+        body: JSON.stringify({
+            userId: state.currentUser?.id || null,
+            user_id: state.currentUser?.id || null,
+            featureType,
+            feature_type: featureType,
+            lesson_id: lessonId,
+            tokenUsed: 80,
+            estimatedCost: 0
+        })
     });
     const data = await response.json();
-    showToast(data.success ? '🤖' : '⚠️', data.success ? `AI ${featureType}: ${data.limit.used + 1}/${data.limit.limit} hom nay` : data.error);
+    showToast(data.success ? '??' : '??', data.success ? `AI ${featureType}: ${data.limit.used}/${data.limit.limit} hom nay` : data.error);
+    if (data.success && data.explanation) {
+        const block = document.querySelector('.roadmap-content-block');
+        if (block) {
+            block.insertAdjacentHTML('beforeend', `<div class="roadmap-ai-explanation"><h4>AI Coach</h4><pre>${escapeHtml(data.explanation)}</pre></div>`);
+        }
+    }
 }
 
 async function startPlacementTest() {

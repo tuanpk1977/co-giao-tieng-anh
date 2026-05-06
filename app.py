@@ -695,6 +695,43 @@ def ai_usage_log():
     return jsonify({"success": True, "log": log.to_dict(), "limit": limit})
 
 
+@app.route('/api/roadmap/ai/explain', methods=['POST'])
+def roadmap_ai_explain():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    lesson_id = data.get('lesson_id')
+    feature_type = data.get('feature_type') or 'explain'
+    lesson = get_roadmap_service().get_lesson(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "error": "Lesson not found"}), 404
+    limit = get_roadmap_service().get_ai_limit_status(user_id, feature_type)
+    if user_id and not limit["allowed"]:
+        return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
+    prompt = f"""Explain this fixed English lesson in Vietnamese for the learner.
+Keep it short, practical, and personalized. Do not create a new lesson.
+
+Lesson title: {lesson.get('title')}
+Lesson type: {lesson.get('type')}
+Content: {lesson.get('content')}
+Feature: {feature_type}
+"""
+    explanation = get_ai_service().chat(prompt)
+    token_used = (len(prompt) + len(explanation)) // 4 or 1
+    log = get_ai_usage_service().log_usage(
+        user_id=user_id,
+        feature_type=feature_type,
+        token_used=token_used,
+        estimated_cost=0.0,
+        plan_type=limit.get('planType')
+    )
+    return jsonify({
+        "success": True,
+        "explanation": explanation,
+        "limit": {**limit, "used": limit["used"] + 1},
+        "log": log.to_dict()
+    })
+
+
 @app.route('/api/admin/roadmap/ai-usage', methods=['GET'])
 def admin_roadmap_ai_usage():
     admin_id, resp, code = require_admin(request)

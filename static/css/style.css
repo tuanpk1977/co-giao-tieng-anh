@@ -2075,6 +2075,20 @@ body {
     margin: 8px 12px 0 0;
 }
 
+.roadmap-ai-explanation {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #b7d7ff;
+    background: #eef6ff;
+}
+
+.roadmap-ai-explanation pre {
+    white-space: pre-wrap;
+    margin: 8px 0 0;
+    font-family: inherit;
+}
+
 .plan-checkout-grid {
     display: grid;
     grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
