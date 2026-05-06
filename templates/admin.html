@@ -87,6 +87,10 @@
                 <div id="aiStats"></div>
             </div>
             <div class="admin-card">
+                <div class="admin-section-title"><i class="fas fa-route"></i><h2>Learning Analytics</h2></div>
+                <div id="learningStats"></div>
+            </div>
+            <div class="admin-card">
                 <div class="admin-section-title"><i class="fas fa-comments"></i><h2>Phản hồi mới</h2></div>
                 <div id="feedbackStats"></div>
             </div>
@@ -233,6 +237,10 @@
             return timestamp ? new Date(timestamp).toLocaleString('vi-VN') : '—';
         }
 
+        function formatMoney(value) {
+            return Number(value || 0).toLocaleString('vi-VN');
+        }
+
         function getStatusBadge(status) {
             const badges = {
                 'trial': 'status-trial',
@@ -311,14 +319,16 @@
                 }
 
                 // Load AI stats and feedback stats
-                const [aiRes, hybridAiRes, feedbackRes] = await Promise.all([
+                const [aiRes, hybridAiRes, learningRes, feedbackRes] = await Promise.all([
                     fetch('/api/admin/analytics/ai-usage?period=today'),
                     fetch('/api/admin/roadmap/ai-usage'),
+                    fetch('/api/admin/roadmap/learning-analytics'),
                     fetch('/api/admin/feedback')
                 ]);
 
                 const ai = await aiRes.json();
                 const hybridAi = await hybridAiRes.json();
+                const learning = await learningRes.json();
                 const feedback = await feedbackRes.json();
 
                 if (ai.success) {
@@ -331,6 +341,19 @@
                         <p><strong>Hybrid AI calls:</strong> ${hybrid.totalCallsToday || 0}</p>
                         <p><strong>Hybrid cost today:</strong> ${hybrid.estimatedCostToday || 0} VND</p>
                         <p><strong>High-risk users:</strong> ${(hybrid.warnings || []).length}</p>
+                    `;
+                }
+
+                if (learning.success) {
+                    const l = learning.analytics || {};
+                    document.getElementById('learningStats').innerHTML = `
+                        <p><strong>DAU:</strong> ${l.dau || 0}</p>
+                        <p><strong>Lesson completed:</strong> ${l.lessonCompletedToday || 0}</p>
+                        <p><strong>AI usage/day:</strong> ${l.aiUsageToday || 0}</p>
+                        <p><strong>Average XP:</strong> ${l.averageXP || 0}</p>
+                        <p><strong>Speaking usage:</strong> ${l.speakingUsageToday || 0}</p>
+                        <h4>Top active users</h4>
+                        ${(l.topActiveUsers || []).map(u => `<div>User #${u.userId}: ${u.totalXP} XP - streak ${u.streakDays}</div>`).join('') || '<p>No active users yet.</p>'}
                     `;
                 }
 
@@ -400,7 +423,7 @@
 
         async function loadPayments() {
             try {
-                const response = await fetch('/api/admin/payments');
+                const response = await fetch(`/api/admin/payments?status=actionable&admin_id=${getAdminId()}`);
                 const data = await response.json();
                 if (data.success) {
                     document.getElementById('paymentRequests').innerHTML = data.payments.length ?
@@ -408,21 +431,36 @@
                             <div class="admin-list-item">
                                 <strong>${payment.reference_code}</strong>
                                 <div>${payment.plan_name} - ${formatMoney(payment.amount)} ${payment.currency}</div>
-                                <div>Trang thai: ${payment.status}</div>
+                                <div>Trang thai: ${renderPaymentStatus(payment.status)}</div>
                                 <div>Nguoi dung: ${payment.user_name || ''} (#${payment.user_id})</div>
                                 <div>Email/SDT: ${payment.user_email || '-'} / ${payment.user_phone || '-'}</div>
                                 <div>Noi dung CK: <code>${payment.transfer_note || payment.reference_code}</code></div>
+                                ${payment.customer_confirmed_at ? `<div><strong>Khach bam da thanh toan luc:</strong> ${formatDate(payment.customer_confirmed_at)}</div>` : '<div><strong>Khach chua bam Da thanh toan.</strong></div>'}
+                                ${payment.customer_note ? `<div>Ghi chu khach: ${payment.customer_note}</div>` : ''}
                                 <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 8px; border-radius: 6px;">${payment.bank_info || ''}</pre>
-                                ${payment.status === 'pending' ? `
+                                ${['pending', 'paid_confirmed'].includes(payment.status) ? `
                                     <button class="btn btn-sm btn-success" onclick="approvePayment(${payment.id})">Duyet mo goi</button>
                                     <button class="btn btn-sm btn-danger" onclick="rejectPayment(${payment.id})">Tu choi</button>
                                 ` : ''}
                             </div>
                         `).join('') : '<p>Khong co yeu cau thanh toan.</p>';
+                } else {
+                    document.getElementById('paymentRequests').innerHTML = `<p>${data.error || 'Khong tai duoc danh sach thanh toan.'}</p>`;
                 }
             } catch (error) {
                 console.error('Error loading payments:', error);
+                document.getElementById('paymentRequests').innerHTML = '<p>Loi tai danh sach thanh toan. Vui long dang nhap admin lai.</p>';
             }
+        }
+
+        function renderPaymentStatus(status) {
+            const labels = {
+                pending: 'Cho khach chuyen khoan',
+                paid_confirmed: 'Khach da bao thanh toan',
+                approved: 'Da duyet',
+                rejected: 'Da tu choi'
+            };
+            return `<span class="status-badge ${status === 'paid_confirmed' ? 'status-active' : 'status-trial'}">${labels[status] || status}</span>`;
         }
 
         async function approvePayment(paymentId) {

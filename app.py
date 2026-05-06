@@ -4,12 +4,13 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-008"
+APP_VERSION = "hybrid-roadmap-013"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 from datetime import datetime
 import os
+import json
 
 # Import services
 from services.ai_service import get_ai_service
@@ -426,9 +427,11 @@ def get_lesson():
         if request.method == 'POST':
             data = request.json or {}
             level = data.get('level', 'beginner')
+            roadmap_level = data.get('roadmap_level') or data.get('level_id')
             user_id = data.get('user_id') or session.get('user_id')
         else:
             level = request.args.get('level', 'beginner')
+            roadmap_level = request.args.get('roadmap_level') or request.args.get('level_id')
             user_id = request.args.get('user_id', type=int) or session.get('user_id')
         if user_id:
             try:
@@ -441,13 +444,10 @@ def get_lesson():
                 print(f"Could not load lesson profile: {e}")
         
         # Validate level
-        valid_levels = ['beginner', 'elementary', 'intermediate']
-        if level not in valid_levels:
-            level = 'beginner'
+        roadmap_level_id = normalize_daily_lesson_level(roadmap_level or level)
         
         # Lấy AI service và tạo bài học
-        service = get_ai_service()
-        lesson = service.generate_lesson(level, profile)
+        lesson = get_daily_lesson_from_roadmap(roadmap_level_id, user_id)
         
         # Lưu vào lịch sử
         try:
@@ -458,7 +458,7 @@ def get_lesson():
         
         return jsonify({
             "success": True,
-            "level": level,
+            "level": roadmap_level_id,
             "lesson": lesson,
             "timestamp": get_timestamp()
         })
@@ -602,6 +602,194 @@ def get_timestamp():
     return datetime.now().isoformat()
 
 
+def normalize_daily_lesson_level(level):
+    value = (level or "starter").strip().lower()
+    mapping = {
+        "beginner": "starter",
+        "pre-a1": "starter",
+        "pre_a1": "starter",
+        "starter": "starter",
+        "elementary": "flyer",
+        "a1": "flyer",
+        "a2": "flyer",
+        "flyer": "flyer",
+        "intermediate": "ket",
+        "ket": "ket",
+        "pet": "pet",
+        "ielts": "ielts_foundation",
+        "ielts_foundation": "ielts_foundation",
+        "ielts_50": "ielts_50",
+        "ielts_65": "ielts_65",
+        "business": "business",
+        "sales": "sales",
+        "cafe": "cafe",
+        "factory": "factory",
+    }
+    return mapping.get(value, "starter")
+
+
+def roadmap_lesson_to_daily_lesson(lesson):
+    content = lesson.get("content") or {}
+    vocab = content.get("vocabulary") or content.get("words") or []
+    sentences = []
+    for pattern in content.get("sentencePatterns") or content.get("examples") or []:
+        sentences.append({
+            "english": pattern,
+            "vietnamese": "",
+            "situation": lesson.get("topic") or lesson.get("title") or "Daily practice",
+        })
+    dialogue = []
+    for line in content.get("dialogue") or []:
+        dialogue.append({
+            "speaker": line.get("speaker", "A") if isinstance(line, dict) else "A",
+            "text": line.get("text", "") if isinstance(line, dict) else str(line),
+            "translation": line.get("translation", "") if isinstance(line, dict) else "",
+        })
+    practice = []
+    for item in content.get("speaking") or content.get("practice") or []:
+        practice.append(item.get("text", "") if isinstance(item, dict) else str(item))
+    quiz = content.get("quiz") or content.get("questions") or []
+    exercise = None
+    if quiz:
+        first = quiz[0]
+        exercise = {
+            "type": "multiple_choice",
+            "question": first.get("question", "Choose the best answer."),
+            "options": first.get("options", []),
+            "correct": first.get("answer") or first.get("correct") or "",
+        }
+    return {
+        "id": lesson.get("id"),
+        "source": "roadmap",
+        "levelId": lesson.get("levelId"),
+        "title": lesson.get("title"),
+        "topic": lesson.get("topic") or lesson.get("title"),
+        "vocabulary": vocab,
+        "sentences": sentences,
+        "dialogue": dialogue,
+        "practice": [item for item in practice if item],
+        "exercise": exercise,
+    }
+
+
+def fallback_daily_lesson_for_level(level_id):
+    lessons = {
+        "ket": {
+            "title": "KET Daily Life Messages",
+            "vocabulary": [
+                {"word": "message", "ipa": "", "meaning": "tin nhan", "example": "I sent a short message."},
+                {"word": "appointment", "ipa": "", "meaning": "cuoc hen", "example": "I have an appointment at ten."},
+                {"word": "platform", "ipa": "", "meaning": "san ga", "example": "The train leaves from platform two."},
+            ],
+            "sentences": [
+                {"english": "Could you call me later?", "vietnamese": "Ban goi lai cho toi sau duoc khong?", "situation": "Short message"},
+                {"english": "The train leaves at nine thirty.", "vietnamese": "Tau roi luc 9:30.", "situation": "Travel"},
+            ],
+            "practice": ["Could you call me later?", "The train leaves at nine thirty.", "I have an appointment today."],
+        },
+        "pet": {
+            "title": "PET Opinions and Plans",
+            "vocabulary": [
+                {"word": "opinion", "ipa": "", "meaning": "y kien", "example": "In my opinion, it is useful."},
+                {"word": "although", "ipa": "", "meaning": "mac du", "example": "Although it rained, we went out."},
+                {"word": "recommend", "ipa": "", "meaning": "de xuat", "example": "I recommend this book."},
+            ],
+            "sentences": [
+                {"english": "In my opinion, learning English is important.", "vietnamese": "Theo toi, hoc tieng Anh rat quan trong.", "situation": "Giving opinions"},
+                {"english": "I would recommend this place because it is quiet.", "vietnamese": "Toi de xuat noi nay vi no yen tinh.", "situation": "Recommendation"},
+            ],
+            "practice": ["In my opinion, learning English is important.", "I would recommend this place.", "Although it is hard, I can try."],
+        },
+        "business": {
+            "title": "Business Meeting Basics",
+            "vocabulary": [
+                {"word": "meeting", "ipa": "", "meaning": "cuoc hop", "example": "We have a meeting at 3 p.m."},
+                {"word": "deadline", "ipa": "", "meaning": "han chot", "example": "The deadline is Friday."},
+                {"word": "proposal", "ipa": "", "meaning": "de xuat", "example": "Please read my proposal."},
+            ],
+            "sentences": [
+                {"english": "Could we move the meeting to Friday?", "vietnamese": "Minh doi cuoc hop sang thu Sau duoc khong?", "situation": "Scheduling"},
+                {"english": "I will send the proposal today.", "vietnamese": "Toi se gui de xuat hom nay.", "situation": "Work update"},
+            ],
+            "practice": ["Could we move the meeting to Friday?", "I will send the proposal today.", "The deadline is Friday."],
+        },
+        "sales": {
+            "title": "Sales Customer Needs",
+            "vocabulary": [
+                {"word": "customer", "ipa": "", "meaning": "khach hang", "example": "The customer needs help."},
+                {"word": "discount", "ipa": "", "meaning": "giam gia", "example": "We have a ten percent discount."},
+                {"word": "recommend", "ipa": "", "meaning": "gioi thieu", "example": "I recommend this product."},
+            ],
+            "sentences": [
+                {"english": "What are you looking for today?", "vietnamese": "Hom nay anh chi dang tim san pham gi?", "situation": "Sales opening"},
+                {"english": "I recommend this one because it is easy to use.", "vietnamese": "Toi goi y cai nay vi no de dung.", "situation": "Product pitch"},
+            ],
+            "practice": ["What are you looking for today?", "I recommend this one.", "We have a ten percent discount."],
+        },
+        "cafe": {
+            "title": "Cafe Staff Orders",
+            "vocabulary": [
+                {"word": "order", "ipa": "", "meaning": "goi mon", "example": "May I take your order?"},
+                {"word": "receipt", "ipa": "", "meaning": "hoa don", "example": "Here is your receipt."},
+                {"word": "recommend", "ipa": "", "meaning": "gioi thieu", "example": "I recommend iced coffee."},
+            ],
+            "sentences": [
+                {"english": "May I take your order?", "vietnamese": "Toi co the nhan order cua anh chi khong?", "situation": "Taking orders"},
+                {"english": "Would you like it hot or iced?", "vietnamese": "Anh chi muon nong hay da?", "situation": "Cafe choice"},
+            ],
+            "practice": ["May I take your order?", "Would you like it hot or iced?", "Here is your receipt."],
+        },
+        "factory": {
+            "title": "Factory Safety English",
+            "vocabulary": [
+                {"word": "helmet", "ipa": "", "meaning": "mu bao ho", "example": "Please wear your helmet."},
+                {"word": "shift", "ipa": "", "meaning": "ca lam", "example": "My shift starts at seven."},
+                {"word": "machine", "ipa": "", "meaning": "may moc", "example": "The machine is not working."},
+            ],
+            "sentences": [
+                {"english": "Please wear your safety helmet.", "vietnamese": "Vui long doi mu bao ho.", "situation": "Safety"},
+                {"english": "The machine is not working.", "vietnamese": "May dang khong hoat dong.", "situation": "Reporting problems"},
+            ],
+            "practice": ["Please wear your safety helmet.", "My shift starts at seven.", "The machine is not working."],
+        },
+    }
+    lesson = dict(lessons.get(level_id, lessons["ket"]))
+    lesson.setdefault("dialogue", [
+        {"speaker": "A", "text": lesson["practice"][0], "translation": ""},
+        {"speaker": "B", "text": "Yes, I understand.", "translation": ""},
+    ])
+    lesson.setdefault("exercise", {
+        "type": "multiple_choice",
+        "question": "Choose the best sentence.",
+        "options": [lesson["practice"][0], "I no understand.", "Yesterday go."],
+        "correct": lesson["practice"][0],
+    })
+    lesson["source"] = "level_fallback"
+    lesson["levelId"] = level_id
+    return lesson
+
+
+def get_daily_lesson_from_roadmap(level_id, user_id=None):
+    service = get_roadmap_service()
+    user = get_user_service().get_user(user_id) if user_id else None
+    progress = service.get_progress_map(user_id) if user_id else {}
+    candidates = []
+    for unit in service.units_by_level.get(level_id, []):
+        candidates.extend(unit.get("lessons", []))
+    candidates.sort(key=lambda item: (item.get("unitId", ""), item.get("order", 0)))
+    for lesson in candidates:
+        content = lesson.get("content") or {}
+        if service.get_lesson_status(lesson, user, progress) == "locked":
+            continue
+        if content.get("vocabulary") or content.get("words"):
+            return roadmap_lesson_to_daily_lesson(lesson)
+    for lesson in candidates:
+        content = lesson.get("content") or {}
+        if content.get("vocabulary") or content.get("words"):
+            return roadmap_lesson_to_daily_lesson(lesson)
+    return fallback_daily_lesson_for_level(level_id)
+
+
 def is_admin_user(user_id):
     if not user_id:
         return False
@@ -641,10 +829,17 @@ def roadmap_level_detail(level_id):
 
 @app.route('/api/roadmap/lessons/<lesson_id>', methods=['GET'])
 def roadmap_lesson_detail(lesson_id):
-    lesson = get_roadmap_service().get_lesson(lesson_id)
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    service = get_roadmap_service()
+    lesson = service.get_lesson(lesson_id)
     if not lesson:
         return jsonify({"success": False, "error": "Lesson not found"}), 404
-    return jsonify({"success": True, "lesson": lesson})
+    progress = service.get_progress_map(user_id) if user_id else {}
+    user = get_user_service().get_user(user_id) if user_id else None
+    status = service.get_lesson_status(lesson, user, progress)
+    if status == "locked":
+        return jsonify({"success": False, "error": "Lesson is locked", "status": status}), 403
+    return jsonify({"success": True, "lesson": {**lesson, "status": status}})
 
 
 @app.route('/api/roadmap/progress', methods=['POST'])
@@ -661,8 +856,22 @@ def roadmap_save_progress():
         score=data.get('score', 0),
     )
     if not row:
-        return jsonify({"success": False, "error": "Lesson not found"}), 404
-    return jsonify({"success": True, "progress": row.to_dict()})
+        return jsonify({"success": False, "error": "Lesson not found or locked"}), 403
+    dashboard = get_roadmap_service().get_dashboard(user_id)
+    return jsonify({"success": True, "progress": row.to_dict(), "dashboard": dashboard})
+
+
+@app.route('/api/roadmap/dashboard', methods=['GET'])
+def roadmap_dashboard():
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    return jsonify({"success": True, "dashboard": get_roadmap_service().get_dashboard(user_id)})
+
+
+@app.route('/api/roadmap/continue', methods=['GET'])
+def roadmap_continue():
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    lesson = get_roadmap_service().get_continue_lesson(user_id)
+    return jsonify({"success": True, "lesson": lesson})
 
 
 @app.route('/api/placement-test', methods=['GET'])
@@ -732,12 +941,124 @@ Feature: {feature_type}
     })
 
 
+@app.route('/api/roadmap/ai/speaking-correction', methods=['POST'])
+def roadmap_ai_speaking_correction():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    lesson_id = data.get('lesson_id')
+    expected = (data.get('expected') or '').strip()
+    transcript = (data.get('transcript') or '').strip()
+    if not expected or not transcript:
+        return jsonify({"success": False, "error": "expected and transcript are required"}), 400
+
+    feature_type = 'speaking_correction'
+    limit = get_roadmap_service().get_ai_limit_status(user_id, feature_type)
+    if user_id and not limit["allowed"]:
+        return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
+
+    prompt = f"""You are a friendly English pronunciation coach for Vietnamese learners.
+Return ONLY compact valid JSON. No markdown. Keep feedback under 45 Vietnamese words.
+Keys: overall_score, pronunciation_score, grammar_score, short_feedback, suggested_sentence.
+Mention practical issues like missing article, unclear final sound, grammar, or naturalness.
+
+Expected sentence: {expected}
+Learner transcript: {transcript}
+"""
+    raw = get_ai_service().chat(prompt)
+    fallback = {
+        "overall_score": 70,
+        "pronunciation_score": 70,
+        "grammar_score": 70,
+        "short_feedback": raw[:500],
+        "suggested_sentence": expected,
+    }
+    try:
+        start = raw.find('{')
+        end = raw.rfind('}')
+        correction = json.loads(raw[start:end + 1]) if start >= 0 and end >= start else fallback
+    except Exception:
+        correction = fallback
+
+    token_used = (len(prompt) + len(raw)) // 4 or 1
+    log = get_ai_usage_service().log_usage(
+        user_id=user_id,
+        feature_type=feature_type,
+        token_used=token_used,
+        estimated_cost=0.0,
+        plan_type=limit.get('planType')
+    )
+    if user_id:
+        get_roadmap_service().record_speaking_attempt(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            score=correction.get("overall_score") or 0
+        )
+    return jsonify({
+        "success": True,
+        "correction": correction,
+        "limit": {**limit, "used": limit["used"] + 1},
+        "log": log.to_dict()
+    })
+
+
 @app.route('/api/admin/roadmap/ai-usage', methods=['GET'])
 def admin_roadmap_ai_usage():
     admin_id, resp, code = require_admin(request)
     if resp:
         return resp, code
     return jsonify({"success": True, "summary": get_ai_usage_service().today_summary()})
+
+
+@app.route('/api/admin/roadmap/learning-analytics', methods=['GET'])
+def admin_roadmap_learning_analytics():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    return jsonify({"success": True, "analytics": get_roadmap_service().admin_learning_analytics()})
+
+
+@app.route('/api/admin/roadmap/content', methods=['GET'])
+def admin_roadmap_content_index():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    level_id = request.args.get('level_id')
+    service = get_roadmap_service()
+    levels = service.get_levels()
+    if level_id:
+        detail = service.get_level_detail(level_id)
+        return jsonify({"success": True, "level": detail})
+    return jsonify({"success": True, "levels": levels})
+
+
+@app.route('/api/admin/roadmap/content/drafts', methods=['POST'])
+def admin_roadmap_content_draft_upsert():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    data = request.get_json() or {}
+    lesson_id = data.get('lesson_id')
+    lesson = get_roadmap_service().get_lesson(lesson_id)
+    if not lesson:
+        return jsonify({"success": False, "error": "Lesson not found"}), 404
+    from models import RoadmapContentDraft
+    draft = RoadmapContentDraft.query.filter_by(lesson_id=lesson_id).first()
+    if not draft:
+        draft = RoadmapContentDraft(
+            level_id=lesson.get('levelId'),
+            unit_id=lesson.get('unitId'),
+            lesson_id=lesson_id,
+            title=data.get('title') or lesson.get('title'),
+            updated_by=admin_id,
+        )
+        db.session.add(draft)
+    draft.title = data.get('title') or draft.title
+    draft.content_json = json.dumps(data.get('content') or lesson.get('content') or {})
+    draft.audio_manifest_json = json.dumps(data.get('audio_manifest') or lesson.get('audio') or {})
+    draft.status = data.get('status') or draft.status
+    draft.updated_by = admin_id
+    db.session.commit()
+    return jsonify({"success": True, "draft": draft.to_dict()})
 
 
 @app.route('/api/plans', methods=['GET'])
@@ -777,6 +1098,26 @@ def create_payment_request():
             return jsonify({"success": False, "error": "user_id và plan_name là bắt buộc"}), 400
         user_service = get_user_service()
         success, result = user_service.create_payment_request(user_id, plan_name)
+        if success:
+            return jsonify({"success": True, **result})
+        return jsonify({"success": False, **result}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/payment/request/<int:payment_id>/confirm-paid', methods=['POST'])
+def confirm_payment_paid(payment_id):
+    """User confirms they have transferred money for a payment request."""
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id') or session.get('user_id')
+        if not user_id:
+            return jsonify({"success": False, "error": "user_id is required"}), 400
+        success, result = get_user_service().confirm_payment_paid(
+            payment_id=payment_id,
+            user_id=user_id,
+            note=data.get('note') or ''
+        )
         if success:
             return jsonify({"success": True, **result})
         return jsonify({"success": False, **result}), 400
@@ -911,7 +1252,7 @@ def admin_payments():
     admin_id, resp, code = require_admin(request)
     if resp:
         return resp, code
-    status = request.args.get('status', 'pending')
+    status = request.args.get('status', 'actionable')
     user_service = get_user_service()
     payments = [p.to_dict() for p in user_service.get_payment_requests(status=status)]
     return jsonify({"success": True, "payments": payments})
@@ -2431,7 +2772,7 @@ def health():
     return jsonify({
         "status": "ok",
         "app": "Ms. Smile English",
-        "version": "1.0.0"
+        "version": APP_VERSION
     })
 
 

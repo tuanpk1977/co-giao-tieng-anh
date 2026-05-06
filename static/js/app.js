@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-008";
+const APP_VERSION = "hybrid-roadmap-013";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -42,6 +42,15 @@ const state = {
     // Situation Advisor state
     currentSituation: null,
     currentSituationAdvice: null,
+    roadmapCache: null,
+    roadmapCacheAt: 0,
+    currentRoadmapLesson: null,
+    currentSpeakingExpected: '',
+    currentSpeakingTranscript: '',
+    currentUserAudioUrl: null,
+    audioCache: new Map(),
+    mediaRecorder: null,
+    recordedChunks: [],
     
     // User state
     currentUser: null,
@@ -203,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeApp() {
     captureReferralCode();
     setupEventListeners();
+    setupHeaderMoreMenu();
     initializeSpeechRecognition();
     initializeTTS();
     
@@ -213,6 +223,40 @@ function initializeApp() {
     checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
+}
+
+function setupHeaderMoreMenu() {
+    const header = document.querySelector('.header-actions');
+    if (!header || document.getElementById('moreMenuWrap')) return;
+    const movedItems = [
+        elements.statsBtn,
+        elements.dashboardBtn,
+        elements.affiliateBtn,
+        elements.profileBtn,
+        elements.feedbackBtn
+    ].filter(Boolean);
+    if (!movedItems.length) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'moreMenuWrap';
+    wrap.className = 'more-menu-wrap';
+    wrap.innerHTML = `
+        <button id="moreMenuBtn" class="btn btn-more" type="button">
+            <i class="fas fa-ellipsis-h"></i> Them
+        </button>
+        <div id="moreMenuPanel" class="more-menu-panel hidden"></div>
+    `;
+
+    header.insertBefore(wrap, elements.plansBtn || elements.userBadge || null);
+    const panel = document.getElementById('moreMenuPanel');
+    movedItems.forEach(item => panel.appendChild(item));
+
+    document.getElementById('moreMenuBtn').addEventListener('click', (event) => {
+        event.stopPropagation();
+        panel.classList.toggle('hidden');
+    });
+    panel.addEventListener('click', () => panel.classList.add('hidden'));
+    document.addEventListener('click', () => panel.classList.add('hidden'));
 }
 
 function captureReferralCode() {
@@ -327,11 +371,22 @@ async function saveOnboarding(formData) {
             
             // Cập nhật welcome message với tên
             updateWelcomeMessage(formData.name);
+            const recommendedLevel = getOnboardingRecommendedLevel(formData);
+            openModal('roadmapModal');
+            await loadRoadmapLevel(recommendedLevel);
+            const firstLesson = recommendedLevel === 'flyer' ? 'flyer_u1_lesson_1' : 'starter_u1_lesson_1';
+            setTimeout(() => openRoadmapLesson(firstLesson), 250);
         }
     } catch (error) {
         console.error('Lỗi save onboarding:', error);
         showToast('❌', 'Có lỗi xảy ra. Em thử lại nhé!');
     }
+}
+
+function getOnboardingRecommendedLevel(profile) {
+    if (profile.goal === 'ielts') return 'ielts_foundation';
+    if (profile.level === 'intermediate') return 'flyer';
+    return 'starter';
 }
 
 async function updateProfile(formData) {
@@ -474,7 +529,7 @@ function setupEventListeners() {
     }
     const continueRoadmapBtn = document.getElementById('continueRoadmapBtn');
     if (continueRoadmapBtn) {
-        continueRoadmapBtn.addEventListener('click', loadRoadmapLevels);
+        continueRoadmapBtn.addEventListener('click', continueRoadmapLesson);
     }
     
     // Close modals
@@ -1062,6 +1117,7 @@ async function loadLesson() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 level: state.currentUser?.english_level || 'beginner',
+                roadmap_level: state.selectedRoadmapLevelId || null,
                 user_id: state.currentUser?.id || null
             })
         });
@@ -1089,7 +1145,12 @@ async function loadLesson() {
 
 function renderLesson(lesson) {
     console.log('[DailyLessonAudit] renderLesson called with lesson:', lesson);
-    let html = '';
+    let html = lesson.title ? `
+        <div class="lesson-section lesson-title-section">
+            <h3>${escapeHtml(lesson.title)}</h3>
+            ${lesson.topic ? `<p>${escapeHtml(lesson.topic)}</p>` : ''}
+        </div>
+    ` : '';
     
     // Vocabulary Section
     if (lesson.vocabulary && lesson.vocabulary.length > 0) {
@@ -1397,6 +1458,274 @@ async function completeRoadmapLesson(lessonId, levelId) {
     loadRoadmapLevel(levelId);
 }
 
+function renderRoadmapSkeleton() {
+    return Array.from({ length: 4 }).map(() => `
+        <div class="roadmap-level-card skeleton-card">
+            <div class="skeleton-line wide"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line short"></div>
+        </div>
+    `).join('');
+}
+
+function renderRoadmapLevels(levels) {
+    const container = document.getElementById('roadmapLevels');
+    if (!container) return;
+    container.innerHTML = levels.map(level => {
+        const locked = level.status === 'locked';
+        return `
+            <div class="roadmap-level-card ${escapeHtml(level.status)}">
+                <div class="roadmap-level-top">
+                    <div class="roadmap-level-icon"><i class="fas fa-${escapeAttr(level.icon || 'route')}"></i></div>
+                    <span class="roadmap-status-pill ${escapeHtml(level.status)}">${locked ? 'Locked' : level.status === 'completed' ? 'Completed' : 'Open'}</span>
+                </div>
+                <div class="roadmap-level-main">
+                    <h3>${escapeHtml(level.title)}</h3>
+                    <p>${escapeHtml(level.description)}</p>
+                    <div class="roadmap-meta">${escapeHtml(level.target)} · ${level.completedLessons || 0}/${level.lessonCount || 0} lessons</div>
+                    <div class="roadmap-progress"><span style="width:${level.progressPercent || 0}%"></span></div>
+                    <div class="roadmap-percent">${level.progressPercent || 0}% complete</div>
+                </div>
+                <button class="btn btn-primary" ${locked ? 'disabled' : ''} onclick="loadRoadmapLevel('${level.id}')">
+                    <i class="fas fa-play"></i> ${level.progressPercent ? 'Continue' : 'Start'}
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadRoadmapLevels() {
+    const container = document.getElementById('roadmapLevels');
+    const detail = document.getElementById('roadmapDetail');
+    if (!container) return;
+    container.classList.remove('hidden');
+    container.innerHTML = renderRoadmapSkeleton();
+    if (detail) detail.classList.add('hidden');
+    try {
+        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const now = Date.now();
+        if (state.roadmapCache && now - state.roadmapCacheAt < 45000) {
+            renderRoadmapLevels(state.roadmapCache.levels || []);
+            return;
+        }
+        const response = await fetch(`/api/roadmap/levels${userParam}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Roadmap error');
+        state.roadmapCache = data;
+        state.roadmapCacheAt = now;
+        renderRoadmapLevels(data.levels || []);
+    } catch (error) {
+        console.error('Roadmap load error:', error);
+        container.innerHTML = '<p>Khong tai duoc lo trinh hoc.</p>';
+    }
+}
+
+async function loadRoadmapLevel(levelId) {
+    state.selectedRoadmapLevelId = levelId;
+    const detail = document.getElementById('roadmapDetail');
+    const container = document.getElementById('roadmapLevels');
+    if (!detail) return;
+    if (container) container.classList.add('hidden');
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai bai hoc...</p></div>';
+    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`);
+    const data = await response.json();
+    if (!data.success) {
+        detail.innerHTML = '<p>Khong tim thay level.</p>';
+        return;
+    }
+    const level = data.level;
+    renderRoadmapDashboard(level.dashboard);
+    detail.innerHTML = `
+        <div class="roadmap-detail-header">
+            <button class="btn btn-secondary" onclick="loadRoadmapLevels()"><i class="fas fa-arrow-left"></i> Tat ca level</button>
+            <h3><i class="fas fa-${escapeAttr(level.icon || 'route')}"></i> ${escapeHtml(level.title)}</h3>
+            <p>${escapeHtml(level.description)}</p>
+        </div>
+        ${level.units.map(unit => `
+            <div class="roadmap-unit ${escapeHtml(unit.status)}">
+                <div class="roadmap-unit-header">
+                    <div>
+                        <h4>${escapeHtml(unit.title)}</h4>
+                        <p>${escapeHtml(unit.description)}</p>
+                    </div>
+                    <span>${unit.completedLessons || 0}/${unit.lessonCount || 0}</span>
+                </div>
+                <div class="roadmap-progress"><span style="width:${unit.progressPercent || 0}%"></span></div>
+                <div class="roadmap-lessons">
+                    ${unit.lessons.map(lesson => `
+                        <button class="roadmap-lesson ${escapeHtml(lesson.status)}" ${lesson.status === 'locked' ? 'disabled' : ''} onclick="openRoadmapLesson('${lesson.id}')">
+                            <i class="fas fa-${escapeAttr(lesson.icon || 'book')}"></i>
+                            <span>${escapeHtml(lesson.title)}</span>
+                            <small>${lesson.status} · ${lesson.type}${lesson.isAiEnabled ? ' · AI optional' : ''}</small>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('')}
+    `;
+    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function openRoadmapLesson(lessonId) {
+    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const response = await fetch(`/api/roadmap/lessons/${lessonId}${userParam}`);
+    const data = await response.json();
+    if (!data.success) {
+        showToast('🔒', data.error || 'Lesson is locked');
+        return;
+    }
+    const lesson = data.lesson;
+    state.currentRoadmapLesson = lesson;
+    const detail = document.getElementById('roadmapDetail');
+    detail.innerHTML = `
+        <div class="roadmap-lesson-view">
+            <button class="btn btn-secondary" onclick="loadRoadmapLevel('${lesson.levelId}')">Quay lai unit</button>
+            <h3>${escapeHtml(lesson.title)}</h3>
+            <div class="roadmap-content-block">${renderRoadmapContent(lesson)}</div>
+            <div class="roadmap-actions">
+                ${lesson.isAiEnabled && lesson.type !== 'speaking' ? `<button class="btn btn-stats" onclick="logRoadmapAiUse('${lesson.aiFeatureType}', '${lesson.id}')"><i class="fas fa-wand-magic-sparkles"></i> AI giai thich giup toi</button>` : ''}
+                <button class="btn btn-primary" onclick="completeRoadmapLesson('${lesson.id}', '${lesson.levelId}')"><i class="fas fa-check"></i> Hoan thanh bai</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderRoadmapContent(lesson) {
+    const content = lesson.content || {};
+    if (lesson.type === 'integrated') {
+        const vocab = content.vocabulary || [];
+        const patterns = content.sentencePatterns || [];
+        const grammar = content.grammar || [];
+        const dialogue = content.dialogue || [];
+        const speaking = content.speaking || [];
+        const quiz = content.quiz || [];
+        const review = content.review || [];
+        return `
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-spell-check"></i><h4>Vocabulary</h4></div>
+                <div class="roadmap-vocab">${vocab.map(w => `
+                    <div class="vocab-tile">
+                        <strong>${escapeHtml(w.word)}</strong>
+                        <span>${escapeHtml(w.meaning)}</span>
+                        <small>${escapeHtml(w.example)}</small>
+                        <div>
+                            <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.word)}', '${escapeAttr(w.audioUrl || '')}')"><i class="fas fa-volume-up"></i></button>
+                            <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.example)}')"><i class="fas fa-comment-dots"></i></button>
+                        </div>
+                    </div>
+                `).join('')}</div>
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-layer-group"></i><h4>Sentence Patterns</h4></div>
+                ${patterns.map(p => `<p class="pattern-line">${escapeHtml(p)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(p)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-diagram-project"></i><h4>Grammar Mini</h4></div>
+                <ul>${grammar.map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul>
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-headphones"></i><h4>Sample Dialogue</h4></div>
+                <div class="audio-toolbar">
+                    <button class="btn btn-audio" onclick="playDialogueSmart(false)"><i class="fas fa-play"></i> Play dialogue</button>
+                    <button class="btn btn-secondary" onclick="playDialogueSmart(true)"><i class="fas fa-gauge-low"></i> Slow 0.8x</button>
+                    <button class="btn btn-secondary" onclick="repeatDialogueSmart()"><i class="fas fa-repeat"></i> Repeat</button>
+                </div>
+                ${dialogue.map(line => `<p class="dialogue-app-line"><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-microphone-lines"></i><h4>Speaking Practice</h4></div>
+                <div class="speaking-practice-panel">
+                    ${speaking.map(item => {
+                        const sentence = item.text || item;
+                        return `
+                            <div class="speaking-line">
+                                <strong>${escapeHtml(sentence)}</strong>
+                                <div class="speaking-line-actions">
+                                    <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
+                                    <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-microphone"></i> Record</button>
+                                    <button class="btn btn-secondary" onclick="startShadowing('${escapeAttr(sentence)}')"><i class="fas fa-person-running"></i> Shadow</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                    <div id="roadmapSpeakingResult" class="speaking-result hidden"></div>
+                </div>
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-circle-question"></i><h4>Quiz</h4></div>
+                ${quiz.map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Answer: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('')}
+            </div>
+            <div class="lesson-app-card">
+                <div class="lesson-section-header"><i class="fas fa-rotate-right"></i><h4>Review</h4></div>
+                <ul>${review.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </div>
+        `;
+    }
+    if (lesson.type === 'vocabulary') {
+        return `<div class="roadmap-vocab">${(content.words || []).map(w => `
+            <div><strong>${escapeHtml(w.word)}</strong>: ${escapeHtml(w.meaning)}
+            <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(w.word)}')"><i class="fas fa-volume-up"></i></button>
+            <br><small>${escapeHtml(w.example)}</small>
+            <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(w.example)}')"><i class="fas fa-play"></i></button></div>
+        `).join('')}</div>`;
+    }
+    if (lesson.type === 'grammar') {
+        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}</div>`;
+    }
+    if (lesson.type === 'quiz') {
+        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Dap an: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
+    }
+    if (lesson.type === 'listening') {
+        return `
+            <div class="audio-toolbar">
+                <button class="btn btn-audio" onclick="playFullRoadmapLesson(false)"><i class="fas fa-headphones"></i> Play full</button>
+                <button class="btn btn-secondary" onclick="playFullRoadmapLesson(true)"><i class="fas fa-repeat"></i> Repeat slow</button>
+            </div>
+            ${(content.dialogue || []).map(line => `<p><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+        `;
+    }
+    if (lesson.type === 'speaking') {
+        const practice = content.practice || [];
+        return `
+            <div class="speaking-practice-panel">
+                ${practice.map(sentence => `
+                    <div class="speaking-line">
+                        <strong>${escapeHtml(sentence)}</strong>
+                        <div class="speaking-line-actions">
+                            <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
+                            <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-microphone"></i> Record</button>
+                            <button class="btn btn-secondary" onclick="startShadowing('${escapeAttr(sentence)}')"><i class="fas fa-person-running"></i> Shadow</button>
+                        </div>
+                    </div>
+                `).join('')}
+                <div id="roadmapSpeakingResult" class="speaking-result hidden"></div>
+            </div>
+        `;
+    }
+    return `<pre>${escapeHtml(JSON.stringify(content, null, 2))}</pre>`;
+}
+
+async function completeRoadmapLesson(lessonId, levelId) {
+    if (state.currentUser) {
+        const response = await fetch('/api/roadmap/progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id, lesson_id: lessonId, status: 'completed' })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            showToast('🔒', data.error || 'Bai hoc dang khoa');
+            return;
+        }
+        if (data.dashboard) renderRoadmapDashboard(data.dashboard);
+    }
+    state.roadmapCache = null;
+    showToast('✅', 'Da luu tien do bai hoc');
+    loadRoadmapLevel(levelId);
+}
+
 async function logRoadmapAiUse(featureType, lessonId = null) {
     const response = await fetch(lessonId ? '/api/roadmap/ai/explain' : '/api/ai/usage/log', {
         method: 'POST',
@@ -1419,6 +1748,306 @@ async function logRoadmapAiUse(featureType, lessonId = null) {
             block.insertAdjacentHTML('beforeend', `<div class="roadmap-ai-explanation"><h4>AI Coach</h4><pre>${escapeHtml(data.explanation)}</pre></div>`);
         }
     }
+}
+
+function renderRoadmapDashboard(dashboard = {}) {
+    const modalBody = document.querySelector('#roadmapModal .modal-body');
+    if (!modalBody) return;
+    let panel = document.getElementById('roadmapDashboardPanel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'roadmapDashboardPanel';
+        panel.className = 'roadmap-dashboard-panel';
+        modalBody.insertBefore(panel, modalBody.firstChild);
+    }
+    const goal = dashboard.dailyGoalXP || 50;
+    const daily = Math.min(dashboard.dailyProgressXP || 0, goal);
+    const percent = Math.round((daily / goal) * 100);
+    panel.innerHTML = `
+        <div class="roadmap-stat"><strong>${dashboard.totalXP || 0}</strong><span>XP</span></div>
+        <div class="roadmap-stat"><strong>${dashboard.streakDays || 0}</strong><span>day streak</span></div>
+        <div class="roadmap-stat daily-goal">
+            <strong>${daily}/${goal}</strong><span>daily goal</span>
+            <div class="roadmap-progress"><span style="width:${percent}%"></span></div>
+        </div>
+        <div class="roadmap-badges">
+            ${(dashboard.badges || []).slice(-3).map(b => `<span><i class="fas fa-award"></i> ${escapeHtml(b.title)}</span>`).join('') || '<span>No badges yet</span>'}
+        </div>
+        <div class="mission-panel">
+            <h4>Daily Missions</h4>
+            ${(dashboard.dailyMissions || []).map(m => {
+                const done = (m.current || 0) >= (m.target || 1);
+                const pct = Math.min(100, Math.round(((m.current || 0) / (m.target || 1)) * 100));
+                return `<div class="mission-row ${done ? 'done' : ''}">
+                    <div><strong>${escapeHtml(m.title)}</strong><span>${m.current || 0}/${m.target || 0} · +${m.rewardXP || 0} XP</span></div>
+                    <div class="roadmap-progress"><span style="width:${pct}%"></span></div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div class="mission-panel weekly">
+            <h4>Weekly Challenge</h4>
+            ${(dashboard.weeklyChallenge || []).map(m => {
+                const done = (m.current || 0) >= (m.target || 1);
+                const pct = Math.min(100, Math.round(((m.current || 0) / (m.target || 1)) * 100));
+                return `<div class="mission-row ${done ? 'done' : ''}">
+                    <div><strong>${escapeHtml(m.title)}</strong><span>${m.current || 0}/${m.target || 0} · +${m.rewardXP || 0} XP</span></div>
+                    <div class="roadmap-progress"><span style="width:${pct}%"></span></div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div class="continue-card">
+            <strong>Continue Learning</strong>
+            <span>${escapeHtml(dashboard.continueLesson?.title || 'Start your first lesson')}</span>
+            <button class="btn btn-primary" onclick="continueRoadmapLesson()"><i class="fas fa-play"></i> Continue</button>
+        </div>
+    `;
+    if ((dashboard.streakDays || 0) >= 3 && !sessionStorage.getItem('streak_popup_seen')) {
+        sessionStorage.setItem('streak_popup_seen', '1');
+        showToast('🔥', `You are on a ${dashboard.streakDays}-day streak!`);
+    }
+}
+
+async function continueRoadmapLesson() {
+    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const response = await fetch(`/api/roadmap/continue${userParam}`);
+    const data = await response.json();
+    if (data.success && data.lesson) {
+        await loadRoadmapLevel(data.lesson.levelId);
+        await openRoadmapLesson(data.lesson.id);
+    } else {
+        loadRoadmapLevels();
+    }
+}
+
+function playRoadmapAudio(text, slow = false) {
+    speakText(text, slow ? 0.7 : 1.0);
+}
+
+function playSmartAudio(text, audioUrl = '', options = {}) {
+    const slow = Boolean(options.slow);
+    const repeat = Boolean(options.repeat);
+    if (audioUrl && audioUrl.trim()) {
+        const cached = state.audioCache.get(audioUrl) || new Audio(audioUrl);
+        state.audioCache.set(audioUrl, cached);
+        cached.playbackRate = slow ? 0.8 : 1.0;
+        cached.currentTime = 0;
+        cached.onended = repeat ? () => {
+            cached.currentTime = 0;
+            cached.play().catch(() => speakText(text, slow ? 0.8 : 1.0));
+        } : null;
+        cached.play().catch(() => speakText(text, slow ? 0.8 : 1.0));
+        return;
+    }
+    speakText(text, slow ? 0.8 : 1.0);
+    if (repeat) {
+        setTimeout(() => speakText(text, slow ? 0.8 : 1.0), Math.max(1600, String(text).length * 70));
+    }
+}
+
+function getCurrentDialogueText() {
+    const dialogue = state.currentRoadmapLesson?.content?.dialogue || [];
+    return dialogue.map(line => line.text).join(' ');
+}
+
+function playDialogueSmart(slow = false) {
+    const text = getCurrentDialogueText();
+    const audioUrl = state.currentRoadmapLesson?.audio?.dialogueUrl || state.currentRoadmapLesson?.audioUrl || '';
+    playSmartAudio(text, audioUrl, { slow });
+}
+
+function repeatDialogueSmart() {
+    const text = getCurrentDialogueText();
+    const audioUrl = state.currentRoadmapLesson?.audio?.dialogueUrl || state.currentRoadmapLesson?.audioUrl || '';
+    playSmartAudio(text, audioUrl, { repeat: true });
+}
+
+function playFullRoadmapLesson(slow = false) {
+    const lesson = state.currentRoadmapLesson;
+    if (!lesson) return;
+    const dialogue = lesson.content?.dialogue || [];
+    const text = dialogue.map(line => line.text).join(' ');
+    playRoadmapAudio(text, slow);
+}
+
+function startRoadmapSpeaking(sentence) {
+    state.currentSpeakingExpected = sentence;
+    state.currentSpeakingTranscript = '';
+    playRoadmapAudio(sentence);
+    const result = document.getElementById('roadmapSpeakingResult');
+    if (result) {
+        result.classList.remove('hidden');
+        result.innerHTML = `<div class="speaking-flow">Listen, then press Record when ready.</div>`;
+    }
+}
+
+async function recordRoadmapSpeaking(sentence) {
+    state.currentSpeakingExpected = sentence;
+    const result = document.getElementById('roadmapSpeakingResult');
+    if (result) {
+        result.classList.remove('hidden');
+        result.innerHTML = '<div class="record-countdown">3</div><div class="record-hint">Get ready...</div>';
+    }
+    await runRecordCountdown(result);
+    await captureUserAudio();
+    if (!state.recognition) {
+        renderRoadmapSpeakingResult('', sentence, 'Speech recognition is not supported in this browser. You can still listen and repeat out loud.');
+        return;
+    }
+    state.isRoadmapSpeakingMode = true;
+    state.recognition.lang = 'en-US';
+    state.recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        state.currentSpeakingTranscript = transcript;
+        state.isRoadmapSpeakingMode = false;
+        renderRoadmapSpeakingResult(transcript, sentence);
+        setTimeout(initializeSpeechRecognition, 0);
+    };
+    state.recognition.onerror = () => {
+        state.isRoadmapSpeakingMode = false;
+        renderRoadmapSpeakingResult('', sentence, 'Could not hear clearly. Try again in Chrome or Edge.');
+        setTimeout(initializeSpeechRecognition, 0);
+    };
+    try {
+        if (result) result.innerHTML = '<div class="record-waveform"><span></span><span></span><span></span><span></span><span></span></div><div class="record-hint">Recording... speak naturally.</div>';
+        state.recognition.start();
+    } catch (error) {
+        renderRoadmapSpeakingResult('', sentence, 'Microphone is already active. Please try again.');
+    }
+}
+
+function runRecordCountdown(container) {
+    return new Promise(resolve => {
+        let count = 3;
+        const tick = () => {
+            if (container) {
+                container.innerHTML = `<div class="record-countdown">${count}</div><div class="record-hint">Get ready...</div>`;
+            }
+            count -= 1;
+            if (count <= 0) {
+                setTimeout(resolve, 350);
+            } else {
+                setTimeout(tick, 650);
+            }
+        };
+        tick();
+    });
+}
+
+async function captureUserAudio() {
+    if (!navigator.mediaDevices || !window.MediaRecorder) return;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        state.recordedChunks = [];
+        state.mediaRecorder = new MediaRecorder(stream);
+        state.mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) state.recordedChunks.push(event.data);
+        };
+        state.mediaRecorder.onstop = () => {
+            const blob = new Blob(state.recordedChunks, { type: 'audio/webm' });
+            if (state.currentUserAudioUrl) URL.revokeObjectURL(state.currentUserAudioUrl);
+            state.currentUserAudioUrl = URL.createObjectURL(blob);
+            stream.getTracks().forEach(track => track.stop());
+        };
+        state.mediaRecorder.start();
+        setTimeout(() => {
+            if (state.mediaRecorder && state.mediaRecorder.state === 'recording') {
+                state.mediaRecorder.stop();
+            }
+        }, 5500);
+    } catch (error) {
+        console.warn('Audio recording unavailable:', error);
+    }
+}
+
+function startShadowing(sentence) {
+    startRoadmapSpeaking(sentence);
+    setTimeout(() => recordRoadmapSpeaking(sentence), 2000);
+}
+
+function compareSpeech(expected, spoken) {
+    const clean = value => String(value || '').toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/).filter(Boolean);
+    const expectedWords = clean(expected);
+    const spokenWords = clean(spoken);
+    const missing = expectedWords.filter(word => !spokenWords.includes(word));
+    const extra = spokenWords.filter(word => !expectedWords.includes(word));
+    const correct = expectedWords.filter(word => spokenWords.includes(word)).length;
+    const accuracy = expectedWords.length ? Math.round((correct / expectedWords.length) * 100) : 0;
+    const completeness = expectedWords.length ? Math.round(((expectedWords.length - missing.length) / expectedWords.length) * 100) : 0;
+    const lengthRatio = expectedWords.length ? Math.min(spokenWords.length, expectedWords.length) / expectedWords.length : 0;
+    const fluency = Math.round(Math.max(0, Math.min(100, (lengthRatio * 75) + (extra.length ? -10 : 15))));
+    const expectedMarkup = expectedWords.map(word => {
+        const cls = spokenWords.includes(word) ? 'word-ok' : 'word-missing';
+        return `<span class="${cls}">${escapeHtml(word)}</span>`;
+    }).join(' ');
+    const spokenMarkup = spokenWords.map(word => {
+        const cls = expectedWords.includes(word) ? 'word-ok' : 'word-wrong';
+        return `<span class="${cls}">${escapeHtml(word)}</span>`;
+    }).join(' ');
+    return { missing, extra, score: accuracy, accuracy, fluency, completeness, expectedMarkup, spokenMarkup };
+}
+
+function renderRoadmapSpeakingResult(transcript, expected, fallback = '') {
+    const result = document.getElementById('roadmapSpeakingResult');
+    if (!result) return;
+    const feedback = compareSpeech(expected, transcript);
+    result.classList.remove('hidden');
+    result.innerHTML = `
+        <div class="pronunciation-feedback">
+            <div class="feedback-title">Speaking result</div>
+            <p><strong>Expected:</strong> <span class="speech-compare">${feedback.expectedMarkup}</span></p>
+            <p><strong>You said:</strong> <span class="speech-compare">${transcript ? feedback.spokenMarkup : escapeHtml(fallback || 'No transcript')}</span></p>
+            <div class="speaking-score-grid">
+                <div><strong>${feedback.accuracy}%</strong><span>Accuracy</span></div>
+                <div><strong>${feedback.fluency}%</strong><span>Fluency</span></div>
+                <div><strong>${feedback.completeness}%</strong><span>Completeness</span></div>
+            </div>
+            ${feedback.missing.length ? `<div class="feedback-item missing">Missing: ${feedback.missing.map(escapeHtml).join(', ')}</div>` : ''}
+            ${feedback.extra.length ? `<div class="feedback-item">Extra/different: ${feedback.extra.map(escapeHtml).join(', ')}</div>` : ''}
+            ${state.currentUserAudioUrl ? `<audio controls src="${state.currentUserAudioUrl}"></audio>` : ''}
+            <div class="speaking-line-actions">
+                <button class="btn btn-audio" onclick="playRoadmapAudio('${escapeAttr(expected)}', true)"><i class="fas fa-volume-up"></i> Slow sample</button>
+                <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(expected)}')"><i class="fas fa-rotate-right"></i> Retry</button>
+                <button class="btn btn-stats" onclick="requestAiSpeakingCorrection()"><i class="fas fa-wand-magic-sparkles"></i> AI sua phat am cho toi</button>
+            </div>
+            <div id="aiSpeakingCorrection"></div>
+        </div>
+    `;
+}
+
+async function requestAiSpeakingCorrection() {
+    if (!state.currentSpeakingExpected || !state.currentSpeakingTranscript) {
+        showToast('⚠️', 'Hay ghi am va co transcript truoc khi goi AI.');
+        return;
+    }
+    const target = document.getElementById('aiSpeakingCorrection');
+    if (target) target.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>AI dang sua...</p></div>';
+    const response = await fetch('/api/roadmap/ai/speaking-correction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            user_id: state.currentUser?.id || null,
+            lesson_id: state.currentRoadmapLesson?.id || null,
+            expected: state.currentSpeakingExpected,
+            transcript: state.currentSpeakingTranscript
+        })
+    });
+    const data = await response.json();
+    if (!data.success) {
+        if (target) target.innerHTML = `<p>${escapeHtml(data.error || 'AI error')}</p>`;
+        return;
+    }
+    const c = data.correction || {};
+    if (target) {
+        target.innerHTML = `
+            <div class="roadmap-ai-explanation">
+                <h4>AI Speaking Coach</h4>
+                <p>Overall: ${c.overall_score || 0}/100 · Pronunciation: ${c.pronunciation_score || 0}/100 · Grammar: ${c.grammar_score || 0}/100</p>
+                <p>${escapeHtml(c.short_feedback || '')}</p>
+                <p><strong>Suggested:</strong> ${escapeHtml(c.suggested_sentence || '')}</p>
+            </div>
+        `;
+    }
+    showToast('🤖', `AI used ${data.limit.used}/${data.limit.limit} today`);
 }
 
 async function startPlacementTest() {
@@ -2562,10 +3191,15 @@ async function showDashboard() {
     }
     
     try {
-        const response = await fetch(`/api/user/progress?user_id=${state.currentUser.id}`);
-        const data = await response.json();
+        const [progressRes, roadmapRes] = await Promise.all([
+            fetch(`/api/user/progress?user_id=${state.currentUser.id}`),
+            fetch(`/api/roadmap/dashboard?user_id=${state.currentUser.id}`)
+        ]);
+        const data = await progressRes.json();
+        const roadmapData = await roadmapRes.json();
         
         if (data.success) {
+            data.roadmapDashboard = roadmapData.success ? roadmapData.dashboard : {};
             renderDashboard(data);
             openModal('dashboardModal');
         } else {
@@ -2579,8 +3213,29 @@ async function showDashboard() {
 
 function renderDashboard(data) {
     const progress = data.progress || {};
+    const roadmap = data.roadmapDashboard || {};
     const errors = data.common_errors || [];
     const situations = progress.practiced_situations || [];
+    if (elements.dashboardContent) {
+        const existing = document.getElementById('learningProfileSummary');
+        if (!existing) {
+            elements.dashboardContent.insertAdjacentHTML('afterbegin', '<div id="learningProfileSummary" class="learning-profile-summary"></div>');
+        }
+        const summary = document.getElementById('learningProfileSummary');
+        if (summary) {
+            summary.innerHTML = `
+                <div class="profile-level-card">
+                    <span>Current level</span>
+                    <strong>${escapeHtml(roadmap.currentLevel || 'starter')}</strong>
+                </div>
+                <div class="profile-metric"><strong>${roadmap.totalXP || progress.total_xp || 0}</strong><span>XP</span></div>
+                <div class="profile-metric"><strong>${roadmap.completedLessons || progress.completed_lessons || 0}</strong><span>Lessons</span></div>
+                <div class="profile-metric"><strong>${roadmap.speakingPractices || progress.speaking_practices || 0}</strong><span>Speaking</span></div>
+                <div class="profile-metric"><strong>${roadmap.pronunciationScoreAvg || progress.avg_natural_score || 0}</strong><span>Pronunciation</span></div>
+                <div class="profile-badges">${(roadmap.badges || progress.badges || []).slice(-5).map(b => `<span><i class="fas fa-award"></i> ${escapeHtml(b.title)}</span>`).join('') || '<span>No badges yet</span>'}</div>
+            `;
+        }
+    }
     
     // Update streak
     const streakEl = document.getElementById('dashboardStreak');
@@ -3327,12 +3982,44 @@ async function selectPlan(planName, paymentInfo = {}) {
                 <div><strong>Chu tai khoan:</strong> ${escapeHtml(info.account_name || 'Chua cau hinh')}</div>
                 <div><strong>So tai khoan:</strong> ${escapeHtml(info.account_number || 'Chua cau hinh')}</div>
                 <div><strong>So dien thoai admin:</strong> ${escapeHtml(info.admin_phone || 'Chua cau hinh')}</div>
-                <p>Sau khi admin thay giao dich dung noi dung tren, admin bam Duyet trong tab Thanh toan de mo goi cho ban.</p>
+                <button class="btn btn-success btn-block payment-confirm-btn" onclick="confirmPaymentPaid(${payment.id})">
+                    <i class="fas fa-check-circle"></i> Da thanh toan
+                </button>
+                <p>Sau khi chuyen khoan xong, bam nut <strong>Da thanh toan</strong> de bao admin kiem tra va mo goi.</p>
+                <div id="paymentConfirmStatus" class="payment-hint"></div>
             `;
+            result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
         showToast('?', 'Da tao yeu cau thanh toan. Vui long chuyen khoan dung noi dung hien tren man hinh.');
     } catch (error) {
         console.error('Error creating payment request:', error);
         showToast('?', 'Loi ket noi server khi tao yeu cau thanh toan');
+    }
+}
+
+async function confirmPaymentPaid(paymentId) {
+    if (!state.currentUser) {
+        openModal('loginModal');
+        return;
+    }
+    const statusEl = document.getElementById('paymentConfirmStatus');
+    if (statusEl) statusEl.textContent = 'Dang gui xac nhan...';
+    try {
+        const response = await fetch(`/api/payment/request/${paymentId}/confirm-paid`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            if (statusEl) statusEl.textContent = data.error || 'Khong xac nhan duoc.';
+            showToast('?', data.error || 'Khong xac nhan duoc thanh toan');
+            return;
+        }
+        if (statusEl) statusEl.textContent = 'Da gui cho admin. Vui long cho admin duyet mo goi.';
+        showToast('?', 'Da bao admin ban da thanh toan.');
+    } catch (error) {
+        console.error('Confirm payment error:', error);
+        if (statusEl) statusEl.textContent = 'Loi ket noi server.';
     }
 }

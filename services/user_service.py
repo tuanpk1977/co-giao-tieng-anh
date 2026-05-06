@@ -484,9 +484,6 @@ class UserService:
         db.session.commit()
         return commission
 
-    def get_payment_requests(self, status='pending'):
-        return PaymentRequest.query.filter_by(status=status).all()
-
     def get_usage_log(self, user_id: int, date_obj=None) -> UsageLog:
         if date_obj is None:
             date_obj = datetime.utcnow().date()
@@ -543,11 +540,28 @@ class UserService:
             'payment_info': payment_info
         }
 
+    def confirm_payment_paid(self, payment_id: int, user_id: int, note: str = ''):
+        payment = PaymentRequest.query.get(payment_id)
+        if not payment:
+            return False, {'error': 'Payment request khong ton tai'}
+        if int(payment.user_id) != int(user_id):
+            return False, {'error': 'Ban khong co quyen xac nhan yeu cau nay'}
+        if payment.status not in ['pending', 'paid_confirmed']:
+            return False, {'error': 'Payment request da duoc xu ly'}
+        payment.status = 'paid_confirmed'
+        payment.customer_confirmed_at = datetime.utcnow()
+        payment.customer_note = (note or '')[:255]
+        db.session.commit()
+        return True, {
+            'message': 'Da ghi nhan ban da thanh toan. Admin se kiem tra va mo goi.',
+            'payment_request': payment.to_dict()
+        }
+
     def approve_payment(self, payment_id: int):
         payment = PaymentRequest.query.get(payment_id)
         if not payment:
             return False, {'error': 'Payment request không tồn tại'}
-        if payment.status != 'pending':
+        if payment.status not in ['pending', 'paid_confirmed']:
             return False, {'error': 'Payment request đã xử lý'}
 
         user = self.get_user(payment.user_id)
@@ -589,14 +603,20 @@ class UserService:
         payment = PaymentRequest.query.get(payment_id)
         if not payment:
             return False, {'error': 'Payment request không tồn tại'}
-        if payment.status != 'pending':
+        if payment.status not in ['pending', 'paid_confirmed']:
             return False, {'error': 'Payment request đã xử lý'}
         payment.status = 'rejected'
         db.session.commit()
         return True, {'message': 'Payment đã bị từ chối', 'payment': payment.to_dict()}
 
-    def get_payment_requests(self, status='pending'):
-        return PaymentRequest.query.filter_by(status=status).all()
+    def get_payment_requests(self, status='actionable'):
+        query = PaymentRequest.query
+        if status and status != 'all':
+            if status == 'actionable':
+                query = query.filter(PaymentRequest.status.in_(['pending', 'paid_confirmed']))
+            else:
+                query = query.filter_by(status=status)
+        return query.order_by(PaymentRequest.customer_confirmed_at.desc().nullslast(), PaymentRequest.created_at.desc()).all()
 
     def get_payment_history(self, user_id: int):
         return PaymentHistory.query.filter_by(user_id=user_id).all()

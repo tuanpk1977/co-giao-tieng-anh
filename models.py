@@ -58,9 +58,6 @@ class User(db.Model):
     reminder_hour = db.Column(db.String(5), default='20:00')
     reminder_message = db.Column(db.String(255), default='Hôm nay em học 5 phút với Ms. Smile nhé 😊')
     is_locked = db.Column(db.Boolean, default=False)
-    max_tokens_per_day_override = db.Column(db.Integer, nullable=True)
-    max_tokens_per_month_override = db.Column(db.Integer, nullable=True)
-    max_cost_per_day_vnd_override = db.Column(db.Float, nullable=True)
 
     # Relationships
     progress = db.relationship('UserProgress', backref='user', lazy=True, uselist=False)
@@ -112,9 +109,6 @@ class User(db.Model):
             'reminder_hour': self.reminder_hour,
             'reminder_message': self.reminder_message,
             'is_locked': self.is_locked,
-            'max_tokens_per_day_override': self.max_tokens_per_day_override,
-            'max_tokens_per_month_override': self.max_tokens_per_month_override,
-            'max_cost_per_day_vnd_override': self.max_cost_per_day_vnd_override,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'last_login': self.last_login.isoformat() if self.last_login else None
@@ -170,11 +164,8 @@ class Plan(db.Model):
     chat_per_day = db.Column(db.Integer, default=10)
     chat_per_month = db.Column(db.Integer, default=300)
     max_tokens_per_chat = db.Column(db.Integer, default=2000)
-    max_tokens_per_day = db.Column(db.Integer, default=20000)
-    max_tokens_per_month = db.Column(db.Integer, default=600000)
     max_cost_per_day_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
     max_cost_per_month_vnd = db.Column(db.Float, default=0.0)  # 0 = unlimited
-    family_member_limit = db.Column(db.Integer, default=1)
     
     # NEW: Long-term subscription support
     duration_days = db.Column(db.Integer, default=30)  # 30 for monthly, 180 for 6 months, 365 for yearly
@@ -198,42 +189,12 @@ class Plan(db.Model):
             'chat_per_day': self.chat_per_day,
             'chat_per_month': self.chat_per_month,
             'max_tokens_per_chat': self.max_tokens_per_chat,
-            'max_tokens_per_day': self.max_tokens_per_day,
-            'max_tokens_per_month': self.max_tokens_per_month,
             'max_cost_per_day_vnd': self.max_cost_per_day_vnd,
             'max_cost_per_month_vnd': self.max_cost_per_month_vnd,
-            'family_member_limit': self.family_member_limit,
             'duration_days': self.duration_days,
             'plan_type': self.plan_type,
             'discount_percent': self.discount_percent,
             'original_price': self.original_price
-        }
-
-
-class FamilyMember(db.Model):
-    """Users attached to a Family plan owner."""
-    __tablename__ = 'family_members'
-
-    id = db.Column(db.Integer, primary_key=True)
-    owner_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    member_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
-    status = db.Column(db.String(20), default='active')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    owner = db.relationship('User', foreign_keys=[owner_user_id], lazy=True)
-    member = db.relationship('User', foreign_keys=[member_user_id], lazy=True)
-
-    def to_dict(self):
-        member = self.member
-        return {
-            'id': self.id,
-            'owner_user_id': self.owner_user_id,
-            'member_user_id': self.member_user_id,
-            'member_name': member.name if member else None,
-            'member_email': member.email if member else None,
-            'member_phone': member.phone if member else None,
-            'status': self.status,
-            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 
@@ -329,79 +290,6 @@ class CostAnalytics(db.Model):
             'profit_loss_vnd': round(self.profit_loss_vnd, 0),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class UserUsageCost(db.Model):
-    """Daily/monthly user-level profit and AI cost tracking."""
-    __tablename__ = 'user_usage_costs'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    date = db.Column(db.Date, default=datetime.utcnow().date, nullable=False)
-    month = db.Column(db.String(7), nullable=False)
-    chat_count = db.Column(db.Integer, default=0)
-    lesson_count = db.Column(db.Integer, default=0)
-    speaking_count = db.Column(db.Integer, default=0)
-    input_tokens = db.Column(db.Integer, default=0)
-    output_tokens = db.Column(db.Integer, default=0)
-    total_tokens = db.Column(db.Integer, default=0)
-    estimated_ai_cost_usd = db.Column(db.Float, default=0.0)
-    estimated_ai_cost_vnd = db.Column(db.Float, default=0.0)
-    revenue_vnd = db.Column(db.Float, default=0.0)
-    gross_profit_vnd = db.Column(db.Float, default=0.0)
-    profit_margin_percent = db.Column(db.Float, default=0.0)
-    risk_level = db.Column(db.String(20), default='safe')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    user = db.relationship('User', lazy=True)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'date': self.date.isoformat() if self.date else None,
-            'month': self.month,
-            'chat_count': self.chat_count,
-            'lesson_count': self.lesson_count,
-            'speaking_count': self.speaking_count,
-            'input_tokens': self.input_tokens,
-            'output_tokens': self.output_tokens,
-            'total_tokens': self.total_tokens,
-            'estimated_ai_cost_usd': round(self.estimated_ai_cost_usd or 0, 6),
-            'estimated_ai_cost_vnd': round(self.estimated_ai_cost_vnd or 0, 0),
-            'revenue_vnd': round(self.revenue_vnd or 0, 0),
-            'gross_profit_vnd': round(self.gross_profit_vnd or 0, 0),
-            'profit_margin_percent': round(self.profit_margin_percent or 0, 2),
-            'risk_level': self.risk_level,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
-
-
-class AdminAlert(db.Model):
-    """Admin alerts for cost risk transitions."""
-    __tablename__ = 'admin_alerts'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    type = db.Column(db.String(50), nullable=False)
-    message = db.Column(db.String(255), nullable=False)
-    is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', lazy=True)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'type': self.type,
-            'message': self.message,
-            'is_read': self.is_read,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'user': self.user.to_dict() if self.user else None
         }
 
 
@@ -607,6 +495,10 @@ class UserProgress(db.Model):
     # Practice stats
     total_sentences_practiced = db.Column(db.Integer, default=0)
     total_situations_practiced = db.Column(db.Integer, default=0)
+    completed_lessons = db.Column(db.Integer, default=0)
+    speaking_practices = db.Column(db.Integer, default=0)
+    total_xp = db.Column(db.Integer, default=0)
+    daily_goal_xp = db.Column(db.Integer, default=50)
     
     # Average scores (0-100)
     avg_grammar_score = db.Column(db.Float, default=0.0)
@@ -621,6 +513,11 @@ class UserProgress(db.Model):
     
     # Corrected sentences (JSON array)
     corrected_sentences_json = db.Column(db.Text, default='[]')
+
+    # Badges (JSON array)
+    badges_json = db.Column(db.Text, default='[]')
+    daily_missions_json = db.Column(db.Text, default='{}')
+    weekly_challenge_json = db.Column(db.Text, default='{}')
     
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -650,6 +547,33 @@ class UserProgress(db.Model):
     
     def set_corrected_sentences(self, sentences):
         self.corrected_sentences_json = json.dumps(sentences[-50:])  # Keep last 50
+
+    def get_badges(self):
+        try:
+            return json.loads(self.badges_json or '[]')
+        except:
+            return []
+
+    def set_badges(self, badges):
+        self.badges_json = json.dumps(badges)
+
+    def get_daily_missions_state(self):
+        try:
+            return json.loads(self.daily_missions_json or '{}')
+        except:
+            return {}
+
+    def set_daily_missions_state(self, state):
+        self.daily_missions_json = json.dumps(state)
+
+    def get_weekly_challenge_state(self):
+        try:
+            return json.loads(self.weekly_challenge_json or '{}')
+        except:
+            return {}
+
+    def set_weekly_challenge_state(self, state):
+        self.weekly_challenge_json = json.dumps(state)
     
     def to_dict(self):
         return {
@@ -659,6 +583,13 @@ class UserProgress(db.Model):
             'last_study_date': self.last_study_date.isoformat() if self.last_study_date else None,
             'total_sentences_practiced': self.total_sentences_practiced,
             'total_situations_practiced': self.total_situations_practiced,
+            'completed_lessons': self.completed_lessons,
+            'speaking_practices': self.speaking_practices,
+            'total_xp': self.total_xp,
+            'daily_goal_xp': self.daily_goal_xp,
+            'badges': self.get_badges(),
+            'daily_missions_state': self.get_daily_missions_state(),
+            'weekly_challenge_state': self.get_weekly_challenge_state(),
             'avg_grammar_score': round(self.avg_grammar_score, 1),
             'avg_natural_score': round(self.avg_natural_score, 1),
             'common_errors': self.get_common_errors()[:5],  # Top 5
@@ -676,8 +607,10 @@ class UserRoadmapProgress(db.Model):
     level_id = db.Column(db.String(80), nullable=False)
     unit_id = db.Column(db.String(80), nullable=True)
     lesson_id = db.Column(db.String(120), nullable=True)
-    status = db.Column(db.String(20), default='in_progress')
+    status = db.Column(db.String(20), default='unlocked')
     score = db.Column(db.Float, default=0.0)
+    xp_awarded = db.Column(db.Integer, default=0)
+    attempts = db.Column(db.Integer, default=0)
     completed_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -694,6 +627,8 @@ class UserRoadmapProgress(db.Model):
             'lesson_id': self.lesson_id,
             'status': self.status,
             'score': self.score,
+            'xp_awarded': self.xp_awarded,
+            'attempts': self.attempts,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -720,6 +655,50 @@ class AIUsageLog(db.Model):
             'estimatedCost': self.estimated_cost,
             'planType': self.plan_type,
             'createdAt': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class RoadmapContentDraft(db.Model):
+    """Admin-editable roadmap content scaffold for future CMS workflows."""
+    __tablename__ = 'roadmap_content_drafts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    level_id = db.Column(db.String(80), nullable=False)
+    unit_id = db.Column(db.String(80), nullable=False)
+    lesson_id = db.Column(db.String(120), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    content_json = db.Column(db.Text, default='{}')
+    audio_manifest_json = db.Column(db.Text, default='{}')
+    status = db.Column(db.String(20), default='draft')
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def get_content(self):
+        try:
+            return json.loads(self.content_json or '{}')
+        except:
+            return {}
+
+    def get_audio_manifest(self):
+        try:
+            return json.loads(self.audio_manifest_json or '{}')
+        except:
+            return {}
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'level_id': self.level_id,
+            'unit_id': self.unit_id,
+            'lesson_id': self.lesson_id,
+            'title': self.title,
+            'content': self.get_content(),
+            'audio_manifest': self.get_audio_manifest(),
+            'status': self.status,
+            'updated_by': self.updated_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
 
@@ -806,12 +785,6 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN reminder_message VARCHAR(255) DEFAULT 'Hôm nay em học 5 phút với Ms. Smile nhé 😊'")
     if 'is_locked' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT 0")
-    if 'max_tokens_per_day_override' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN max_tokens_per_day_override INTEGER")
-    if 'max_tokens_per_month_override' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN max_tokens_per_month_override INTEGER")
-    if 'max_cost_per_day_vnd_override' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN max_cost_per_day_vnd_override FLOAT")
     if 'learning_path' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN learning_path VARCHAR(50) DEFAULT 'communication'")
     if 'grade_level' not in existing_columns:
@@ -865,16 +838,10 @@ def _ensure_sqlite_columns(engine):
             plan_alters.append("ALTER TABLE plans ADD COLUMN chat_per_month INTEGER DEFAULT 300")
         if 'max_tokens_per_chat' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_chat INTEGER DEFAULT 2000")
-        if 'max_tokens_per_day' not in plan_columns:
-            plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_day INTEGER DEFAULT 20000")
-        if 'max_tokens_per_month' not in plan_columns:
-            plan_alters.append("ALTER TABLE plans ADD COLUMN max_tokens_per_month INTEGER DEFAULT 600000")
         if 'max_cost_per_day_vnd' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_day_vnd FLOAT DEFAULT 0.0")
         if 'max_cost_per_month_vnd' not in plan_columns:
             plan_alters.append("ALTER TABLE plans ADD COLUMN max_cost_per_month_vnd FLOAT DEFAULT 0.0")
-        if 'family_member_limit' not in plan_columns:
-            plan_alters.append("ALTER TABLE plans ADD COLUMN family_member_limit INTEGER DEFAULT 1")
         
         # NEW: Long-term subscription columns
         if 'duration_days' not in plan_columns:
@@ -933,6 +900,48 @@ def _ensure_sqlite_columns(engine):
                         conn.execute(text(statement))
                     except Exception as e:
                         print(f"[DB] Failed to alter usage_logs table: {e}")
+                conn.commit()
+
+    if inspector.has_table('user_progress'):
+        progress_columns = {col['name'] for col in inspector.get_columns('user_progress')}
+        progress_alters = []
+        if 'completed_lessons' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN completed_lessons INTEGER DEFAULT 0")
+        if 'speaking_practices' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN speaking_practices INTEGER DEFAULT 0")
+        if 'total_xp' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN total_xp INTEGER DEFAULT 0")
+        if 'daily_goal_xp' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN daily_goal_xp INTEGER DEFAULT 50")
+        if 'badges_json' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN badges_json TEXT DEFAULT '[]'")
+        if 'daily_missions_json' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN daily_missions_json TEXT DEFAULT '{}'")
+        if 'weekly_challenge_json' not in progress_columns:
+            progress_alters.append("ALTER TABLE user_progress ADD COLUMN weekly_challenge_json TEXT DEFAULT '{}'")
+        if progress_alters:
+            with engine.connect() as conn:
+                for statement in progress_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter user_progress table: {e}")
+                conn.commit()
+
+    if inspector.has_table('user_roadmap_progress'):
+        roadmap_columns = {col['name'] for col in inspector.get_columns('user_roadmap_progress')}
+        roadmap_alters = []
+        if 'xp_awarded' not in roadmap_columns:
+            roadmap_alters.append("ALTER TABLE user_roadmap_progress ADD COLUMN xp_awarded INTEGER DEFAULT 0")
+        if 'attempts' not in roadmap_columns:
+            roadmap_alters.append("ALTER TABLE user_roadmap_progress ADD COLUMN attempts INTEGER DEFAULT 0")
+        if roadmap_alters:
+            with engine.connect() as conn:
+                for statement in roadmap_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter user_roadmap_progress table: {e}")
                 conn.commit()
 
     if inspector.has_table('payment_requests'):
@@ -996,11 +1005,8 @@ def seed_default_plans():
                     chat_per_day=plan.get('chat_per_day', plan['chat_limit']),
                     chat_per_month=plan.get('chat_per_month', plan['chat_limit'] * 30),
                     max_tokens_per_chat=plan.get('max_tokens_per_chat', 2000),
-                    max_tokens_per_day=plan.get('max_tokens_per_day', 20000),
-                    max_tokens_per_month=plan.get('max_tokens_per_month', 600000),
                     max_cost_per_day_vnd=plan.get('max_cost_per_day_vnd', 0.0),
                     max_cost_per_month_vnd=plan.get('max_cost_per_month_vnd', 0.0),
-                    family_member_limit=plan.get('family_member_limit', 1),
                     # NEW: Long-term subscription fields
                     duration_days=plan.get('duration_days', 30),
                     plan_type=plan.get('plan_type', 'monthly'),
@@ -1021,11 +1027,8 @@ def seed_default_plans():
                 existing.chat_per_day = plan.get('chat_per_day', existing.chat_per_day)
                 existing.chat_per_month = plan.get('chat_per_month', existing.chat_per_month)
                 existing.max_tokens_per_chat = plan.get('max_tokens_per_chat', existing.max_tokens_per_chat)
-                existing.max_tokens_per_day = plan.get('max_tokens_per_day', existing.max_tokens_per_day)
-                existing.max_tokens_per_month = plan.get('max_tokens_per_month', existing.max_tokens_per_month)
                 existing.max_cost_per_day_vnd = plan.get('max_cost_per_day_vnd', existing.max_cost_per_day_vnd)
                 existing.max_cost_per_month_vnd = plan.get('max_cost_per_month_vnd', existing.max_cost_per_month_vnd)
-                existing.family_member_limit = plan.get('family_member_limit', existing.family_member_limit)
                 # NEW: Update long-term subscription fields
                 existing.duration_days = plan.get('duration_days', existing.duration_days)
                 existing.plan_type = plan.get('plan_type', existing.plan_type)
