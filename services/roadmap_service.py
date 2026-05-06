@@ -8,7 +8,7 @@ from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 from data.roadmap_seed import ROADMAP_LEVELS, ROADMAP_UNITS, PLACEMENT_QUESTIONS
-from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, LearningSession, FamilyMember
+from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, LearningSession, FamilyMember, Plan
 
 
 AI_DAILY_LIMITS = {
@@ -32,6 +32,7 @@ AI_DAILY_LIMITS = {
 
 class RoadmapService:
     def __init__(self):
+        self.last_error = None
         self.levels = sorted(ROADMAP_LEVELS, key=lambda item: item["order"])
         self.units = ROADMAP_UNITS
         self.units_by_level = defaultdict(list)
@@ -133,11 +134,36 @@ class RoadmapService:
     def is_allowed_by_plan(self, lesson, user):
         if not user:
             return self.is_first_unit_in_level(lesson)
-        if self.is_full_roadmap_plan(user):
-            return True
         if self.is_free_plan(user):
-            return self.is_first_unit_in_level(lesson)
-        return lesson.get("levelId") in {"starter", "flyer"}
+            return lesson.get("levelId") in {"starter", "flyer"}
+        return True
+
+    def get_daily_lesson_limit(self, user):
+        if not user:
+            return 0
+        plan_name = (user.plan_name or "free_trial").lower()
+        plan = Plan.query.filter_by(name=plan_name).first()
+        if plan and plan.lesson_limit is not None:
+            return plan.lesson_limit
+        if "family" in plan_name:
+            return 999
+        if "pro" in plan_name:
+            return 5
+        if "basic" in plan_name:
+            return 2
+        return 1
+
+    def can_complete_lesson_today(self, user):
+        limit = self.get_daily_lesson_limit(user)
+        if limit >= 999:
+            return True, limit, 0
+        start = self.today_start()
+        completed_today = UserRoadmapProgress.query.filter(
+            UserRoadmapProgress.user_id == user.id,
+            UserRoadmapProgress.status == "completed",
+            UserRoadmapProgress.completed_at >= start,
+        ).count()
+        return completed_today < limit, limit, completed_today
 
     def get_lesson_status(self, lesson, user, progress):
         lesson_id = lesson["id"]
@@ -308,13 +334,19 @@ class RoadmapService:
         return daily_defs, weekly_defs
 
     def save_progress(self, user_id, lesson_id, status="completed", score=0):
+        self.last_error = None
         lesson = self.get_lesson(lesson_id)
         if not lesson:
+            self.last_error = "Lesson not found"
             return None
         user = User.query.get(user_id)
+        if not user:
+            self.last_error = "User not found"
+            return None
         progress_map = self.get_progress_map(user_id)
         lesson_status = self.get_lesson_status(lesson, user, progress_map)
         if status == "completed" and lesson_status == "locked":
+            self.last_error = "Lesson is locked for this plan or progress"
             return None
         row = UserRoadmapProgress.query.filter_by(user_id=user_id, lesson_id=lesson_id).first()
         if not row:
@@ -330,6 +362,12 @@ class RoadmapService:
         row.score = score or row.score or 0
         row.attempts = (row.attempts or 0) + 1
         if status == "completed":
+            if not already_completed:
+                allowed_today, limit, completed_today = self.can_complete_lesson_today(user)
+                if not allowed_today:
+                    db.session.rollback()
+                    self.last_error = f"Daily lesson limit reached ({completed_today}/{limit}). Please continue tomorrow or upgrade your plan."
+                    return None
             row.completed_at = row.completed_at or datetime.utcnow()
             if not already_completed:
                 xp = 50

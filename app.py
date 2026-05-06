@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-021"
+APP_VERSION = "hybrid-roadmap-022"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -858,15 +858,16 @@ def roadmap_save_progress():
     lesson_id = data.get('lesson_id')
     if not user_id or not lesson_id:
         return jsonify({"success": False, "error": "user_id and lesson_id are required"}), 400
-    row = get_roadmap_service().save_progress(
+    roadmap_service = get_roadmap_service()
+    row = roadmap_service.save_progress(
         user_id=user_id,
         lesson_id=lesson_id,
         status=data.get('status', 'completed'),
         score=data.get('score', 0),
     )
     if not row:
-        return jsonify({"success": False, "error": "Lesson not found or locked"}), 403
-    dashboard = get_roadmap_service().get_dashboard(user_id)
+        return jsonify({"success": False, "error": roadmap_service.last_error or "Lesson not found or locked"}), 403
+    dashboard = roadmap_service.get_dashboard(user_id)
     return jsonify({"success": True, "progress": row.to_dict(), "dashboard": dashboard})
 
 
