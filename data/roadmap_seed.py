@@ -317,6 +317,8 @@ def _build_units(level_id, level_title, specs):
     for unit_idx in range(6):
         unit_id = f"{level_id}_u{unit_idx + 1}"
         group = specs[unit_idx * 5:(unit_idx + 1) * 5]
+        if not group:
+            continue
         units.append({
             "id": unit_id,
             "levelId": level_id,
@@ -350,25 +352,56 @@ ROADMAP_UNITS = (
 )
 
 
+ADVANCED_LEVEL_TOPICS = {
+    "ket": ["Daily Plans", "Travel Ticket", "Short Message", "Shopping Help", "Appointment", "Lost Phone", "Weekend Story", "Simple Email", "Public Transport", "Health Advice"],
+    "pet": ["Giving Opinions", "Problem Solving", "Past Experience", "Future Plans", "Story Details", "Making Suggestions", "Agreeing Politely", "Describing Photos", "Community Event", "Study Advice"],
+    "ielts_foundation": ["Daily Routine", "Work and Study", "Home Town", "Food Topic", "Travel Topic", "Education Topic", "Technology Topic", "Environment Topic", "Opinion Paragraph", "Speaking Part 1"],
+    "ielts_50": ["Clear Opinion", "Main Idea", "Supporting Example", "Compare Advantages", "Describe a Chart", "Speaking Cue Card", "Linking Ideas", "Cause and Effect", "Problem Solution", "Conclusion Practice"],
+    "ielts_65": ["Advanced Opinion", "Balanced Argument", "Complex Sentences", "Academic Vocabulary", "Data Summary", "Coherence Practice", "Abstract Topic", "Fluency Builder", "Paraphrasing", "Band 6.5 Review"],
+    "business": ["Meeting Update", "Reschedule a Call", "Client Email", "Project Deadline", "Presentation Opening", "Negotiation Basics", "Follow-up Message", "Work Problem", "Team Feedback", "Business Review"],
+    "sales": ["Greeting a Customer", "Finding Needs", "Product Benefits", "Price Discussion", "Handling Objections", "Closing a Sale", "Follow-up Call", "Customer Complaint", "Promotion Offer", "Sales Review"],
+    "cafe": ["Taking an Order", "Recommending Drinks", "No Sugar Request", "Takeaway Order", "Apologizing to Customer", "Payment at Counter", "Busy Cafe", "Wrong Order", "Friendly Service", "Cafe Review"],
+    "factory": ["Safety Instruction", "Shift Handover", "Machine Problem", "Ask a Supervisor", "Report an Issue", "Protective Equipment", "Quality Check", "Work Schedule", "Emergency Phrase", "Factory Review"],
+}
+
+
+def _advanced_topic_spec(level_title, topic):
+    key = topic.lower()
+    base_word = key.split()[0]
+    words = [
+        (base_word, topic.lower(), f"I can talk about {topic.lower()}."),
+        ("request", "yeu cau", "I have a simple request."),
+        ("detail", "chi tiet", "Please check the details."),
+        ("confirm", "xac nhan", "Can you confirm this?"),
+        ("solution", "giai phap", "Let's find a solution."),
+    ]
+    patterns = [
+        f"I can talk about {topic.lower()}.",
+        "Could you help me with this, please?",
+        "I think this is a good solution.",
+    ]
+    grammar = [
+        "Use polite questions for real-life communication.",
+        "Use clear subject + verb + object sentences before making longer answers.",
+    ]
+    dialogue = [
+        ("A", f"Can you help me with {topic.lower()}?"),
+        ("B", "Sure. What do you need?"),
+        ("A", "I need to confirm the details."),
+    ]
+    speaking = [
+        f"I can talk about {topic.lower()}.",
+        "Could you help me with this, please?",
+        "I need to confirm the details.",
+    ]
+    quiz = _quiz("Choose the polite request.", "Could you help me, please?")
+    return (topic, topic, words, patterns, grammar, dialogue, speaking, quiz[0]["question"])
+
+
 for level in ROADMAP_LEVELS:
     if level["id"] not in {"starter", "flyer"}:
-        for idx in range(1, 3):
-            unit_id = f"{level['id']}_u{idx}"
-            ROADMAP_UNITS.append({
-                "id": unit_id,
-                "levelId": level["id"],
-                "title": f"Unit {idx}: Core Skills",
-                "description": f"Fixed unit scaffold for {level['title']}.",
-                "order": idx,
-                "lessons": [
-                    _lesson(level["id"], unit_id, "vocabulary", "Core Vocabulary", 1, {"words": []}),
-                    _lesson(level["id"], unit_id, "grammar", "Core Grammar", 2, {"rules": [], "examples": []}, ai=True, ai_type="explain"),
-                    _lesson(level["id"], unit_id, "listening", "Model Dialogue", 3, {"dialogue": []}),
-                    _lesson(level["id"], unit_id, "speaking", "Speaking Practice", 4, {"practice": []}, ai=True, ai_type="speaking_correction"),
-                    _lesson(level["id"], unit_id, "quiz", "Mini Quiz", 5, {"questions": []}),
-                    _lesson(level["id"], unit_id, "review", "Review", 6, {"prompts": []}, ai=True, ai_type="coach"),
-                ],
-            })
+        specs = [_advanced_topic_spec(level["title"], topic) for topic in ADVANCED_LEVEL_TOPICS.get(level["id"], [])]
+        ROADMAP_UNITS += _build_units(level["id"], level["title"], specs)
 
 
 PLACEMENT_QUESTIONS = [
