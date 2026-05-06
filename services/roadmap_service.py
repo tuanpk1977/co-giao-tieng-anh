@@ -409,6 +409,7 @@ class RoadmapService:
                 "weeklyChallenge": [],
             }
         progress = UserProgress.query.filter_by(user_id=user_id).first()
+        user = User.query.get(user_id)
         today = self.get_today_metrics(user_id)
         week = self.get_week_metrics(user_id)
         continue_lesson = self.get_continue_lesson(user_id)

@@ -794,6 +794,10 @@ def _ensure_sqlite_columns(engine):
     inspector = inspect(engine)
     if not inspector.has_table('users'):
         return
+    is_postgres = engine.dialect.name in {'postgresql', 'postgres'}
+    datetime_type = 'TIMESTAMP' if is_postgres else 'DATETIME'
+    bool_true = 'TRUE' if is_postgres else '1'
+    bool_false = 'FALSE' if is_postgres else '0'
 
     # Check users table
     existing_columns = {col['name'] for col in inspector.get_columns('users')}
@@ -806,19 +810,19 @@ def _ensure_sqlite_columns(engine):
     if 'plan_name' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN plan_name VARCHAR(50) DEFAULT 'free_trial'")
     if 'plan_start' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN plan_start DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN plan_start {datetime_type}")
     if 'plan_end' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN plan_end DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN plan_end {datetime_type}")
     if 'trial_end' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN trial_end DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN trial_end {datetime_type}")
     if 'reminder_enabled' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN reminder_enabled BOOLEAN DEFAULT 1")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN reminder_enabled BOOLEAN DEFAULT {bool_true}")
     if 'reminder_hour' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN reminder_hour VARCHAR(5) DEFAULT '20:00'")
     if 'reminder_message' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN reminder_message VARCHAR(255) DEFAULT 'Hôm nay em học 5 phút với Ms. Smile nhé 😊'")
     if 'is_locked' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT 0")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN is_locked BOOLEAN DEFAULT {bool_false}")
     if 'learning_path' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN learning_path VARCHAR(50) DEFAULT 'communication'")
     if 'grade_level' not in existing_columns:
@@ -838,13 +842,13 @@ def _ensure_sqlite_columns(engine):
     if 'agent_status' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN agent_status VARCHAR(20)")
     if 'trial_start' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN trial_start DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN trial_start {datetime_type}")
     if 'subscription_start' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN subscription_start DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN subscription_start {datetime_type}")
     if 'subscription_end' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN subscription_end DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN subscription_end {datetime_type}")
     if 'updated_at' not in existing_columns:
-        alter_statements.append("ALTER TABLE users ADD COLUMN updated_at DATETIME")
+        alter_statements.append(f"ALTER TABLE users ADD COLUMN updated_at {datetime_type}")
     
     if alter_statements:
         with engine.connect() as conn:
@@ -930,7 +934,7 @@ def _ensure_sqlite_columns(engine):
         if 'date' not in usage_columns:
             usage_alters.append("ALTER TABLE usage_logs ADD COLUMN date DATE")
         if 'created_at' not in usage_columns:
-            usage_alters.append("ALTER TABLE usage_logs ADD COLUMN created_at DATETIME")
+            usage_alters.append(f"ALTER TABLE usage_logs ADD COLUMN created_at {datetime_type}")
         if usage_alters:
             with engine.connect() as conn:
                 for statement in usage_alters:
@@ -992,7 +996,7 @@ def _ensure_sqlite_columns(engine):
         if 'screenshot' not in payment_columns:
             payment_alters.append("ALTER TABLE payment_requests ADD COLUMN screenshot VARCHAR(255)")
         if 'customer_confirmed_at' not in payment_columns:
-            payment_alters.append("ALTER TABLE payment_requests ADD COLUMN customer_confirmed_at DATETIME")
+            payment_alters.append(f"ALTER TABLE payment_requests ADD COLUMN customer_confirmed_at {datetime_type}")
         if 'customer_note' not in payment_columns:
             payment_alters.append("ALTER TABLE payment_requests ADD COLUMN customer_note VARCHAR(255)")
         if payment_alters:
@@ -1020,9 +1024,9 @@ def _ensure_sqlite_columns(engine):
         if 'status' not in family_columns:
             family_alters.append("ALTER TABLE family_members ADD COLUMN status VARCHAR(20) DEFAULT 'invited'")
         if 'created_at' not in family_columns:
-            family_alters.append("ALTER TABLE family_members ADD COLUMN created_at DATETIME")
+            family_alters.append(f"ALTER TABLE family_members ADD COLUMN created_at {datetime_type}")
         if 'updated_at' not in family_columns:
-            family_alters.append("ALTER TABLE family_members ADD COLUMN updated_at DATETIME")
+            family_alters.append(f"ALTER TABLE family_members ADD COLUMN updated_at {datetime_type}")
         if family_alters:
             with engine.connect() as conn:
                 for statement in family_alters:
@@ -1111,8 +1115,7 @@ def init_db(app):
     with app.app_context():
         db.create_all()
         engine = db.engine
-        if engine.dialect.name == 'sqlite':
-            _ensure_sqlite_columns(engine)
+        _ensure_sqlite_columns(engine)
         seed_default_plans()
         seed_default_admin()
 
