@@ -8,7 +8,7 @@ from datetime import datetime, date, timedelta
 from collections import defaultdict
 
 from data.roadmap_seed import ROADMAP_LEVELS, ROADMAP_UNITS, PLACEMENT_QUESTIONS
-from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, LearningSession
+from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, LearningSession, FamilyMember
 
 
 AI_DAILY_LIMITS = {
@@ -48,6 +48,13 @@ class RoadmapService:
                 for lesson in sorted(unit.get("lessons", []), key=lambda item: item["order"]):
                     self.lesson_sequence.append(lesson["id"])
         self.lesson_index = {lesson_id: idx for idx, lesson_id in enumerate(self.lesson_sequence)}
+        self.lesson_sequence_by_level = {}
+        for level in self.levels:
+            seq = []
+            for unit in self.units_by_level[level["id"]]:
+                for lesson in sorted(unit.get("lessons", []), key=lambda item: item["order"]):
+                    seq.append(lesson["id"])
+            self.lesson_sequence_by_level[level["id"]] = seq
 
     def get_levels(self, user_id=None):
         progress = self.get_progress_map(user_id) if user_id else {}
@@ -65,6 +72,7 @@ class RoadmapService:
             item["progressPercent"] = round((completed / total) * 100) if total else 0
             item["status"] = "completed" if total and completed == total else ("locked" if locked else "unlocked")
             item["icon"] = self.get_level_icon(level["id"])
+            item["isSelected"] = bool(user and user.selected_roadmap_level == level["id"])
             result.append(item)
         return result
 
@@ -102,7 +110,14 @@ class RoadmapService:
 
     def is_full_roadmap_plan(self, user):
         plan = (user.plan_name if user else "free").lower()
-        return any(key in plan for key in ["pro", "premium", "family", "yearly", "six_months"])
+        if any(key in plan for key in ["pro", "premium", "family", "yearly", "six_months"]):
+            return True
+        if user and FamilyMember.query.filter(
+            FamilyMember.member_user_id == user.id,
+            FamilyMember.status == 'active'
+        ).first():
+            return True
+        return False
 
     def is_free_plan(self, user):
         plan = (user.plan_name if user else "free").lower()
@@ -123,10 +138,11 @@ class RoadmapService:
             return "completed"
         if not self.is_allowed_by_plan(lesson, user):
             return "locked"
-        idx = self.lesson_index.get(lesson_id, 0)
+        level_sequence = self.lesson_sequence_by_level.get(lesson.get("levelId"), [])
+        idx = level_sequence.index(lesson_id) if lesson_id in level_sequence else 0
         if idx == 0:
             return "unlocked"
-        previous_id = self.lesson_sequence[idx - 1]
+        previous_id = level_sequence[idx - 1]
         return "unlocked" if progress.get(previous_id) == "completed" else "locked"
 
     def get_level_icon(self, level_id):
@@ -157,6 +173,7 @@ class RoadmapService:
 
     def get_or_create_user_progress(self, user_id):
         progress = UserProgress.query.filter_by(user_id=user_id).first()
+        user = User.query.get(user_id)
         if not progress:
             progress = UserProgress(user_id=user_id)
             db.session.add(progress)
@@ -350,11 +367,26 @@ class RoadmapService:
     def get_continue_lesson(self, user_id):
         user = User.query.get(user_id) if user_id else None
         progress = self.get_progress_map(user_id) if user_id else {}
-        for lesson_id in self.lesson_sequence:
+        selected_level = user.selected_roadmap_level if user and user.selected_roadmap_level else None
+        sequence = self.lesson_sequence_by_level.get(selected_level, self.lesson_sequence) if selected_level else self.lesson_sequence
+        for lesson_id in sequence:
             lesson = self.lessons[lesson_id]
             if self.get_lesson_status(lesson, user, progress) == "unlocked":
                 return lesson
-        return self.lessons.get(self.lesson_sequence[-1]) if self.lesson_sequence else None
+        return self.lessons.get(sequence[-1]) if sequence else None
+
+    def set_selected_level(self, user_id, level_id):
+        user = User.query.get(user_id)
+        if not user:
+            return False, {"error": "User not found"}
+        if level_id not in self.units_by_level:
+            return False, {"error": "Level not found"}
+        first_lesson = next((unit.get("lessons", [None])[0] for unit in self.units_by_level[level_id] if unit.get("lessons")), None)
+        if first_lesson and not self.is_allowed_by_plan(first_lesson, user):
+            return False, {"error": "Roadmap is not available for this plan"}
+        user.selected_roadmap_level = level_id
+        db.session.commit()
+        return True, {"selected_roadmap_level": level_id}
 
     def get_dashboard(self, user_id):
         if not user_id:
@@ -396,7 +428,8 @@ class RoadmapService:
             "completedLessons": progress.completed_lessons if progress else 0,
             "speakingPractices": progress.speaking_practices if progress else 0,
             "pronunciationScoreAvg": round(progress.avg_natural_score or 0, 1) if progress else 0,
-            "currentLevel": continue_lesson.get("levelId") if continue_lesson else "starter",
+            "currentLevel": (user.selected_roadmap_level if user else None) or (continue_lesson.get("levelId") if continue_lesson else "starter"),
+            "selectedRoadmapLevel": user.selected_roadmap_level if user else None,
             "continueLesson": continue_lesson,
             "recentlyStudied": [
                 {"lessonId": row.lesson_id, "title": self.lessons.get(row.lesson_id, {}).get("title", row.lesson_id), "completedAt": row.completed_at.isoformat() if row.completed_at else None}

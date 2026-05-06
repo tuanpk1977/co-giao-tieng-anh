@@ -30,6 +30,7 @@ class User(db.Model):
     
     # Profile info
     age = db.Column(db.Integer)
+    age_text = db.Column(db.String(50))
     job = db.Column(db.String(50))  # sales, engineer, cafe, office, student, other
     meet_foreigners = db.Column(db.Boolean, default=False)
     english_usage = db.Column(db.String(200))  # what they use English for
@@ -37,6 +38,7 @@ class User(db.Model):
     english_level = db.Column(db.String(20), default='beginner')
     learning_path = db.Column(db.String(50), default='communication')
     grade_level = db.Column(db.String(50))
+    selected_roadmap_level = db.Column(db.String(50))
     
     # Subscription and payment info
     role = db.Column(db.String(20), default='user')  # user, agent, admin
@@ -86,7 +88,7 @@ class User(db.Model):
             'email': self.email,
             'phone': self.phone,
             'name': self.name,
-            'age': self.age,
+            'age': self.age_text or self.age,
             'job': self.job,
             'meet_foreigners': self.meet_foreigners,
             'english_usage': self.english_usage,
@@ -94,6 +96,7 @@ class User(db.Model):
             'english_level': self.english_level,
             'learning_path': self.learning_path,
             'grade_level': self.grade_level,
+            'selected_roadmap_level': self.selected_roadmap_level,
             'role': self.role,
             'status': self.status,
             'agent_status': self.agent_status,
@@ -122,7 +125,7 @@ class User(db.Model):
             'goal': self.goal or 'communication',
             'meet_foreigners': self.meet_foreigners,
             'english_usage': self.english_usage or '',
-            'age': self.age,
+            'age': self.age_text or self.age,
             'learning_path': self.learning_path or 'communication',
             'grade_level': self.grade_level or ''
         }
@@ -756,6 +759,37 @@ class UserActivity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class FamilyMember(db.Model):
+    """Family plan members invited by the owner account."""
+    __tablename__ = 'family_members'
+
+    id = db.Column(db.Integer, primary_key=True)
+    owner_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    member_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    name = db.Column(db.String(100))
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    status = db.Column(db.String(20), default='invited')  # invited, active, removed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    owner = db.relationship('User', foreign_keys=[owner_user_id], backref='family_members_owned')
+    member = db.relationship('User', foreign_keys=[member_user_id], backref='family_memberships')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'owner_user_id': self.owner_user_id,
+            'member_user_id': self.member_user_id,
+            'name': self.name or (self.member.name if self.member else ''),
+            'email': self.email or (self.member.email if self.member else ''),
+            'phone': self.phone or (self.member.phone if self.member else ''),
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 def _ensure_sqlite_columns(engine):
     inspector = inspect(engine)
     if not inspector.has_table('users'):
@@ -789,6 +823,10 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN learning_path VARCHAR(50) DEFAULT 'communication'")
     if 'grade_level' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN grade_level VARCHAR(50)")
+    if 'age_text' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN age_text VARCHAR(50)")
+    if 'selected_roadmap_level' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN selected_roadmap_level VARCHAR(50)")
     
     # New columns for fixed account model (BenNha style)
     if 'user_code' not in existing_columns:
@@ -964,6 +1002,34 @@ def _ensure_sqlite_columns(engine):
                         conn.execute(text(statement))
                     except Exception as e:
                         print(f"[DB] Failed to alter payment_requests table: {e}")
+                conn.commit()
+
+    if inspector.has_table('family_members'):
+        family_columns = {col['name'] for col in inspector.get_columns('family_members')}
+        family_alters = []
+        if 'owner_user_id' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN owner_user_id INTEGER")
+        if 'member_user_id' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN member_user_id INTEGER")
+        if 'name' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN name VARCHAR(100)")
+        if 'email' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN email VARCHAR(120)")
+        if 'phone' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN phone VARCHAR(20)")
+        if 'status' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN status VARCHAR(20) DEFAULT 'invited'")
+        if 'created_at' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN created_at DATETIME")
+        if 'updated_at' not in family_columns:
+            family_alters.append("ALTER TABLE family_members ADD COLUMN updated_at DATETIME")
+        if family_alters:
+            with engine.connect() as conn:
+                for statement in family_alters:
+                    try:
+                        conn.execute(text(statement))
+                    except Exception as e:
+                        print(f"[DB] Failed to alter family_members table: {e}")
                 conn.commit()
 
     if inspector.has_table('affiliate_profiles'):

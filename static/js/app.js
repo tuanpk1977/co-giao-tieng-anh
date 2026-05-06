@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-013";
+const APP_VERSION = "hybrid-roadmap-014";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -44,6 +44,7 @@ const state = {
     currentSituationAdvice: null,
     roadmapCache: null,
     roadmapCacheAt: 0,
+    selectedRoadmapLevelId: null,
     currentRoadmapLesson: null,
     currentSpeakingExpected: '',
     currentSpeakingTranscript: '',
@@ -413,6 +414,79 @@ async function updateProfile(formData) {
     }
 }
 
+async function loadFamilyMembers() {
+    const section = document.getElementById('familySection');
+    const list = document.getElementById('familyMembersList');
+    if (!section || !list || !state.currentUser?.id) return;
+    const isFamily = (state.currentUser.plan_name || '').toLowerCase().includes('family') && state.currentUser.status === 'active';
+    section.classList.toggle('hidden', !isFamily);
+    if (!isFamily) return;
+    list.innerHTML = '<div class="loading-state small">Dang tai thanh vien...</div>';
+    try {
+        const response = await fetch(`/api/family/members?user_id=${state.currentUser.id}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Family error');
+        list.innerHTML = `
+            <div class="family-capacity">${data.used_slots || 0}/${data.member_slots || 4} thanh vien da dung</div>
+            ${(data.members || []).map(member => `
+                <div class="family-member-row">
+                    <div>
+                        <strong>${escapeHtml(member.name || 'Thanh vien')}</strong>
+                        <span>${escapeHtml(member.email || member.phone || '')}</span>
+                        <small>${escapeHtml(member.status || '')}</small>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="removeFamilyMember(${member.id})">Xoa</button>
+                </div>
+            `).join('') || '<p class="empty-text">Chua co thanh vien nao.</p>'}
+        `;
+    } catch (error) {
+        console.error('Family load error:', error);
+        list.innerHTML = '<p class="empty-text">Khong tai duoc danh sach Family.</p>';
+    }
+}
+
+async function inviteFamilyMember() {
+    if (!state.currentUser?.id) return;
+    const payload = {
+        user_id: state.currentUser.id,
+        name: document.getElementById('familyMemberName')?.value || '',
+        email: document.getElementById('familyMemberEmail')?.value || '',
+        phone: document.getElementById('familyMemberPhone')?.value || ''
+    };
+    if (!payload.email && !payload.phone) {
+        showToast('⚠️', 'Nhap email hoac so dien thoai thanh vien');
+        return;
+    }
+    const response = await fetch('/api/family/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.success) {
+        ['familyMemberName', 'familyMemberEmail', 'familyMemberPhone'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        showToast('✅', data.message || 'Da them thanh vien');
+        loadFamilyMembers();
+    } else {
+        showToast('❌', data.error || 'Khong them duoc thanh vien');
+    }
+}
+
+async function removeFamilyMember(memberId) {
+    if (!state.currentUser?.id) return;
+    const response = await fetch(`/api/family/members/${memberId}?user_id=${state.currentUser.id}`, { method: 'DELETE' });
+    const data = await response.json();
+    if (data.success) {
+        showToast('✅', data.message || 'Da xoa thanh vien');
+        loadFamilyMembers();
+    } else {
+        showToast('❌', data.error || 'Khong xoa duoc thanh vien');
+    }
+}
+
 async function resetProfile() {
     try {
         const response = await fetch('/api/profile/reset', { method: 'POST' });
@@ -484,6 +558,7 @@ function populateProfileForm() {
     document.getElementById('profileUsage').value = u.english_usage || '';
     document.getElementById('profileGoal').value = u.goal || '';
     document.getElementById('profileLevel').value = u.english_level || 'beginner';
+    state.selectedRoadmapLevelId = u.selected_roadmap_level || state.selectedRoadmapLevelId;
     
     // Set radio button for meet_foreigners
     const meetForeignersRadios = document.querySelectorAll('input[name="profileMeetForeigners"]');
@@ -493,6 +568,7 @@ function populateProfileForm() {
     
     // Load current plan info
     loadCurrentPlanInfo();
+    loadFamilyMembers();
 }
 
 function setupEventListeners() {
@@ -509,14 +585,17 @@ function setupEventListeners() {
     if (elements.roadmapBtn) {
         elements.roadmapBtn.addEventListener('click', () => {
             openModal('roadmapModal');
-            loadRoadmapLevels();
+            openSavedRoadmap();
         });
     }
     elements.statsBtn.addEventListener('click', () => {
         loadStats();
         openModal('statsModal');
     });
-    elements.startLessonBtn.addEventListener('click', () => openModal('lessonModal'));
+    elements.startLessonBtn.addEventListener('click', () => {
+        openModal('roadmapModal');
+        openSavedRoadmap();
+    });
     if (elements.plansBtn) {
         elements.plansBtn.addEventListener('click', () => {
             loadPlanOptions();
@@ -596,16 +675,18 @@ function setupEventListeners() {
     if (elements.profileForm) {
         elements.profileForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            const form = e.currentTarget;
             const formData = {
                 user_id: state.currentUser.id,
                 profile: {
-                    name: document.getElementById('profileName').value,
-                    age: document.getElementById('profileAge').value,
-                    job: document.getElementById('profileJob').value,
-                    meet_foreigners: document.querySelector('input[name="profileMeetForeigners"]:checked')?.value === 'true',
-                    english_usage: document.getElementById('profileUsage').value,
-                    goal: document.getElementById('profileGoal').value,
-                    level: document.getElementById('profileLevel').value
+                    name: form.querySelector('#profileName').value,
+                    age: form.querySelector('#profileAge').value,
+                    job: form.querySelector('#profileJob').value,
+                    meet_foreigners: form.querySelector('input[name="profileMeetForeigners"]:checked')?.value === 'true',
+                    english_usage: form.querySelector('#profileUsage').value,
+                    goal: form.querySelector('#profileGoal').value,
+                    level: form.querySelector('#profileLevel').value,
+                    selected_roadmap_level: state.selectedRoadmapLevelId || state.currentUser?.selected_roadmap_level || ''
                 }
             };
             updateProfile(formData);
@@ -1474,10 +1555,10 @@ function renderRoadmapLevels(levels) {
     container.innerHTML = levels.map(level => {
         const locked = level.status === 'locked';
         return `
-            <div class="roadmap-level-card ${escapeHtml(level.status)}">
+            <div class="roadmap-level-card ${escapeHtml(level.status)} ${level.isSelected ? 'selected' : ''}">
                 <div class="roadmap-level-top">
                     <div class="roadmap-level-icon"><i class="fas fa-${escapeAttr(level.icon || 'route')}"></i></div>
-                    <span class="roadmap-status-pill ${escapeHtml(level.status)}">${locked ? 'Locked' : level.status === 'completed' ? 'Completed' : 'Open'}</span>
+                    <span class="roadmap-status-pill ${escapeHtml(level.status)}">${level.isSelected ? 'Selected' : locked ? 'Locked' : level.status === 'completed' ? 'Completed' : 'Open'}</span>
                 </div>
                 <div class="roadmap-level-main">
                     <h3>${escapeHtml(level.title)}</h3>
@@ -1520,8 +1601,37 @@ async function loadRoadmapLevels() {
     }
 }
 
-async function loadRoadmapLevel(levelId) {
+async function openSavedRoadmap() {
+    const savedLevel = state.currentUser?.selected_roadmap_level || state.selectedRoadmapLevelId || localStorage.getItem('selectedRoadmapLevelId');
+    if (savedLevel) {
+        await loadRoadmapLevel(savedLevel, { persist: false });
+        return;
+    }
+    await loadRoadmapLevels();
+}
+
+async function saveRoadmapSelection(levelId) {
     state.selectedRoadmapLevelId = levelId;
+    localStorage.setItem('selectedRoadmapLevelId', levelId);
+    if (!state.currentUser?.id) return;
+    try {
+        const response = await fetch('/api/roadmap/selection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.currentUser.id, level_id: levelId })
+        });
+        const data = await response.json();
+        if (data.success && data.user) {
+            state.currentUser = data.user;
+        }
+    } catch (error) {
+        console.error('Save roadmap selection error:', error);
+    }
+}
+
+async function loadRoadmapLevel(levelId, options = {}) {
+    state.selectedRoadmapLevelId = levelId;
+    if (options.persist !== false) saveRoadmapSelection(levelId);
     const detail = document.getElementById('roadmapDetail');
     const container = document.getElementById('roadmapLevels');
     if (!detail) return;
@@ -1539,7 +1649,7 @@ async function loadRoadmapLevel(levelId) {
     renderRoadmapDashboard(level.dashboard);
     detail.innerHTML = `
         <div class="roadmap-detail-header">
-            <button class="btn btn-secondary" onclick="loadRoadmapLevels()"><i class="fas fa-arrow-left"></i> Tat ca level</button>
+            <button class="btn btn-secondary" onclick="loadRoadmapLevels()"><i class="fas fa-arrow-left"></i> Chon lo trinh khac</button>
             <h3><i class="fas fa-${escapeAttr(level.icon || 'route')}"></i> ${escapeHtml(level.title)}</h3>
             <p>${escapeHtml(level.description)}</p>
         </div>
@@ -3114,15 +3224,16 @@ async function handleProfileSetup(e) {
         return;
     }
     
+    const form = e.currentTarget;
     const profile = {
-        age: document.getElementById('profileAge').value,
-        job: document.getElementById('profileJob').value,
-        meet_foreigners: document.querySelector('input[name="meetForeigners"]:checked').value === 'true',
-        english_usage: document.getElementById('profileUsage').value,
-        goal: document.getElementById('profileGoal').value,
-        level: document.getElementById('profileLevel').value,
-        learning_path: document.getElementById('profileLearningPath')?.value || 'communication',
-        grade_level: document.getElementById('profileGradeLevel')?.value || ''
+        age: form.querySelector('#profileAge').value,
+        job: form.querySelector('#profileJob').value,
+        meet_foreigners: form.querySelector('input[name="meetForeigners"]:checked').value === 'true',
+        english_usage: form.querySelector('#profileUsage').value,
+        goal: form.querySelector('#profileGoal').value,
+        level: form.querySelector('#profileLevel').value,
+        learning_path: form.querySelector('#profileLearningPath')?.value || 'communication',
+        grade_level: form.querySelector('#profileGradeLevel')?.value || ''
     };
     
     try {

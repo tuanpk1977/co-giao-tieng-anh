@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=hybrid-roadmap-013">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=hybrid-roadmap-014">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -587,13 +587,7 @@
                     </div>
                     <div class="form-group">
                         <label>Tuổi</label>
-                        <select id="profileAge">
-                            <option value="">Chọn tuổi</option>
-                            <option value="18-25">18-25</option>
-                            <option value="26-35">26-35</option>
-                            <option value="36-45">36-45</option>
-                            <option value="46+">46+</option>
-                        </select>
+                        <input type="text" id="profileAge" placeholder="Vi du: 10 tuoi, lop 5, 32 tuoi">
                     </div>
                     <div class="form-group">
                         <label>Nghề nghiệp</label>
@@ -648,6 +642,19 @@
                     <button id="upgradePlanBtn" class="btn btn-success btn-full">⬆️ Nâng cấp gói</button>
                 </div>
                 
+                <div id="familySection" class="hidden">
+                    <hr style="margin: 20px 0;">
+                    <h3 style="color: #2c3e50; margin-bottom: 15px;">Goi Family - thanh vien</h3>
+                    <p class="profile-help-text">Goi Family cho phep 5 account su dung: chu goi va 4 thanh vien.</p>
+                    <div class="family-invite-row">
+                        <input type="text" id="familyMemberName" placeholder="Ten thanh vien">
+                        <input type="email" id="familyMemberEmail" placeholder="Email">
+                        <input type="tel" id="familyMemberPhone" placeholder="So dien thoai">
+                        <button type="button" class="btn btn-primary" onclick="inviteFamilyMember()">Moi / them</button>
+                    </div>
+                    <div id="familyMembersList" class="family-members-list"></div>
+                </div>
+
                 <hr style="margin: 20px 0;">
                 <button id="resetProfileBtn" class="btn btn-secondary btn-full">🔄 Học lại từ đầu (reset)</button>
             </div>
@@ -844,12 +851,7 @@
                 <form id="profileSetupForm" class="auth-form">
                     <div class="form-group">
                         <label>Tuổi</label>
-                        <select id="profileAge">
-                            <option value="18-25">18-25</option>
-                            <option value="26-35">26-35</option>
-                            <option value="36-45">36-45</option>
-                            <option value="46+">46+</option>
-                        </select>
+                        <input type="text" id="profileAge" placeholder="Vi du: 10 tuoi, lop 5, 32 tuoi">
                     </div>
                     <div class="form-group">
                         <label>Nghề nghiệp *</label>
@@ -1021,8 +1023,8 @@
     </div>
 
     <!-- Version indicator -->
-    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: hybrid-roadmap-013</div>
+    <div id="app-version" style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: #999; z-index: 9999;">v: hybrid-roadmap-014</div>
     
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=hybrid-roadmap-013"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=hybrid-roadmap-014"></script>
 </body>
 </html>

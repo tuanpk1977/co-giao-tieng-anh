@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-013"
+APP_VERSION = "hybrid-roadmap-014"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -872,6 +872,49 @@ def roadmap_continue():
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
     lesson = get_roadmap_service().get_continue_lesson(user_id)
     return jsonify({"success": True, "lesson": lesson})
+
+
+@app.route('/api/roadmap/selection', methods=['POST'])
+def roadmap_selection():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    level_id = data.get('level_id')
+    if not user_id or not level_id:
+        return jsonify({"success": False, "error": "user_id and level_id are required"}), 400
+    success, result = get_roadmap_service().set_selected_level(user_id, level_id)
+    if success:
+        user = get_user_service().get_user(user_id)
+        return jsonify({"success": True, **result, "user": user.to_dict() if user else None})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/family/members', methods=['GET'])
+def family_members():
+    user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    success, result = get_user_service().get_family_members(user_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/family/members', methods=['POST'])
+def family_invite_member():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    success, result = get_user_service().invite_family_member(user_id, data)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
+
+
+@app.route('/api/family/members/<int:member_id>', methods=['DELETE'])
+def family_remove_member(member_id):
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id') or request.args.get('user_id', type=int) or session.get('user_id')
+    success, result = get_user_service().remove_family_member(user_id, member_id)
+    if success:
+        return jsonify({"success": True, **result})
+    return jsonify({"success": False, **result}), 400
 
 
 @app.route('/api/placement-test', methods=['GET'])

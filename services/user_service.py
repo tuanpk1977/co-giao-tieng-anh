@@ -7,10 +7,11 @@ import uuid
 from datetime import datetime, date, timedelta
 from typing import Dict, Optional, Tuple, List
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from models import (
     db, User, UserProgress, LearningSession, CommonError, UserActivity,
     Plan, UsageLog, PaymentRequest, PaymentHistory, Feedback,
-    AffiliateProfile, Referral, AffiliateCommission
+    AffiliateProfile, Referral, AffiliateCommission, FamilyMember
 )
 import config
 
@@ -190,7 +191,11 @@ class UserService:
         if not user:
             return False, {'error': 'User không tồn tại'}
         
-        user.age = profile_data.get('age')
+        if profile_data.get('name'):
+            user.name = profile_data.get('name')
+        age_value = str(profile_data.get('age') or '').strip()
+        user.age_text = age_value or None
+        user.age = int(age_value) if age_value.isdigit() else None
         user.job = profile_data.get('job')
         user.meet_foreigners = profile_data.get('meet_foreigners', False)
         user.english_usage = profile_data.get('english_usage')
@@ -198,6 +203,8 @@ class UserService:
         user.english_level = profile_data.get('level', 'beginner')
         user.learning_path = profile_data.get('learning_path', 'communication')
         user.grade_level = profile_data.get('grade_level')
+        if profile_data.get('selected_roadmap_level'):
+            user.selected_roadmap_level = profile_data.get('selected_roadmap_level')
         
         db.session.commit()
         
@@ -206,6 +213,99 @@ class UserService:
     def get_user_progress(self, user_id: int) -> Optional[UserProgress]:
         """Get user progress"""
         return UserProgress.query.filter_by(user_id=user_id).first()
+
+    def is_family_owner(self, user: User) -> bool:
+        return bool(user and user.plan_name and 'family' in user.plan_name.lower() and user.status == 'active')
+
+    def get_family_members(self, owner_user_id: int):
+        owner = self.get_user(owner_user_id)
+        if not self.is_family_owner(owner):
+            return False, {'error': 'Chi chu goi Family dang active moi quan ly thanh vien'}
+        rows = FamilyMember.query.filter(
+            FamilyMember.owner_user_id == owner_user_id,
+            FamilyMember.status != 'removed'
+        ).order_by(FamilyMember.created_at.desc()).all()
+        return True, {
+            'owner': owner.to_dict(),
+            'capacity': 5,
+            'member_slots': 4,
+            'used_slots': len(rows),
+            'members': [row.to_dict() for row in rows],
+        }
+
+    def invite_family_member(self, owner_user_id: int, data: Dict):
+        owner = self.get_user(owner_user_id)
+        if not self.is_family_owner(owner):
+            return False, {'error': 'Tai khoan nay chua phai chu goi Family active'}
+        active_count = FamilyMember.query.filter(
+            FamilyMember.owner_user_id == owner_user_id,
+            FamilyMember.status != 'removed'
+        ).count()
+        if active_count >= 4:
+            return False, {'error': 'Goi Family chi cho toi da 4 thanh vien ngoai chu goi'}
+
+        email = (data.get('email') or '').strip().lower() or None
+        phone = (data.get('phone') or '').strip() or None
+        name = (data.get('name') or '').strip() or None
+        if not email and not phone:
+            return False, {'error': 'Can email hoac so dien thoai de moi thanh vien'}
+
+        invite_filters = []
+        user_filters = []
+        if email:
+            invite_filters.append(FamilyMember.email == email)
+            user_filters.append(User.email == email)
+        if phone:
+            invite_filters.append(FamilyMember.phone == phone)
+            user_filters.append(User.phone == phone)
+        existing_invite = FamilyMember.query.filter(
+            FamilyMember.owner_user_id == owner_user_id,
+            FamilyMember.status != 'removed',
+            or_(*invite_filters)
+        ).first()
+        if existing_invite:
+            return False, {'error': 'Thanh vien nay da nam trong goi Family'}
+
+        member_user = User.query.filter(or_(*user_filters)).first()
+        row = FamilyMember(
+            owner_user_id=owner_user_id,
+            member_user_id=member_user.id if member_user else None,
+            name=name or (member_user.name if member_user else ''),
+            email=email or (member_user.email if member_user else None),
+            phone=phone or (member_user.phone if member_user else None),
+            status='active' if member_user else 'invited'
+        )
+        if member_user:
+            member_user.plan_name = owner.plan_name
+            member_user.status = 'active'
+            member_user.plan_start = owner.plan_start
+            member_user.plan_end = owner.plan_end
+            member_user.subscription_start = owner.subscription_start
+            member_user.subscription_end = owner.subscription_end
+            member_user.trial_end = None
+        db.session.add(row)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            if member_user:
+                raise
+            row.member_user_id = 0
+            db.session.add(row)
+            db.session.commit()
+        return True, {'member': row.to_dict(), 'message': 'Da them thanh vien vao goi Family'}
+
+    def remove_family_member(self, owner_user_id: int, member_id: int):
+        owner = self.get_user(owner_user_id)
+        if not self.is_family_owner(owner):
+            return False, {'error': 'Tai khoan nay chua phai chu goi Family active'}
+        row = FamilyMember.query.filter_by(id=member_id, owner_user_id=owner_user_id).first()
+        if not row or row.status == 'removed':
+            return False, {'error': 'Khong tim thay thanh vien'}
+        row.status = 'removed'
+        row.updated_at = datetime.utcnow()
+        db.session.commit()
+        return True, {'message': 'Da xoa thanh vien khoi goi Family'}
 
     def get_all_plans(self):
         return Plan.query.filter_by(enabled=True).all()
