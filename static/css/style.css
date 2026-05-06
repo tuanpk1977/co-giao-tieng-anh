@@ -627,6 +627,12 @@ body {
     cursor: pointer;
     line-height: 1;
     transition: var(--transition);
+    min-width: 44px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    flex: 0 0 auto;
 }
 
 .modal-close:hover {
@@ -2338,6 +2344,14 @@ body {
     font-weight: 700;
 }
 
+.bilingual-vn {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
 .pattern-line,
 .dialogue-app-line {
     padding: 10px;
@@ -3327,9 +3341,27 @@ body {
     
     /* Modal improvements */
     .modal-content {
-        margin: 10px;
-        width: calc(100% - 20px);
-        max-height: 95vh;
+        margin: 8px;
+        width: calc(100% - 16px);
+        max-height: calc(100dvh - 16px);
+        border-radius: 18px;
+    }
+
+    .modal-header {
+        padding: 14px 16px;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .modal-header h2 {
+        font-size: 1.25rem;
+        line-height: 1.25;
+    }
+
+    .modal-body {
+        padding: 16px;
+        max-height: calc(100dvh - 88px);
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
     }
     
     /* Form improvements */
@@ -3370,22 +3402,27 @@ body {
         background: #ffffff;
         border-top: 1px solid #e5e7eb;
         box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.08);
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0;
-        padding: 6px;
+        display: flex;
+        gap: 8px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
         overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
     }
 
     .header-actions .btn,
     .header-actions .user-badge,
     .header-actions .guest-badge {
-        min-height: 48px;
-        padding: 6px;
+        flex: 0 0 82px;
+        min-height: 54px;
+        padding: 7px 8px;
         justify-content: center;
         border-radius: 8px;
         font-size: 0.72rem;
-        white-space: nowrap;
+        white-space: normal;
+        line-height: 1.15;
+        scroll-snap-align: start;
     }
 
     .more-menu-panel {
@@ -3398,7 +3435,11 @@ body {
     }
 
     .main-container {
-        padding-bottom: 82px;
+        padding-bottom: calc(112px + env(safe-area-inset-bottom));
+    }
+
+    #app-version {
+        bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     }
 
     .roadmap-dashboard-panel {
@@ -3423,6 +3464,21 @@ body {
 
     .roadmap-levels,
     .roadmap-lessons {
+        grid-template-columns: 1fr;
+    }
+
+    .roadmap-content {
+        width: calc(100% - 16px);
+    }
+
+    .roadmap-level-card,
+    .roadmap-unit,
+    .roadmap-lesson-view,
+    .lesson-app-card {
+        padding: 12px;
+    }
+
+    .roadmap-vocab {
         grid-template-columns: 1fr;
     }
 

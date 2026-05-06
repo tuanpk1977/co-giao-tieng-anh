@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-017";
+const APP_VERSION = "hybrid-roadmap-018";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -616,6 +616,15 @@ function setupEventListeners() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal(modal.id);
         });
+    });
+    document.addEventListener('click', (e) => {
+        const closeButton = e.target.closest('.modal-close, .modal-close-btn');
+        if (!closeButton) return;
+        const modal = closeButton.closest('.modal');
+        if (modal) {
+            e.preventDefault();
+            closeModal(modal.id);
+        }
     });
     
     // Speaking practice
@@ -1724,6 +1733,176 @@ async function openRoadmapLesson(lessonId) {
     `;
 }
 
+const ROADMAP_VI_GLOSSARY = {
+    "xin chao": "xin chào",
+    "tam biet": "tạm biệt",
+    "buoi sang": "buổi sáng",
+    "ten": "tên",
+    "khoe": "khỏe",
+    "hoc sinh": "học sinh",
+    "giao vien": "giáo viên",
+    "ban": "bạn",
+    "lop hoc": "lớp học",
+    "gap": "gặp",
+    "me": "mẹ",
+    "bo": "bố",
+    "chi em gai": "chị/em gái",
+    "anh em trai": "anh/em trai",
+    "gia dinh": "gia đình",
+    "mau do": "màu đỏ",
+    "mau xanh duong": "màu xanh dương",
+    "mau xanh la": "màu xanh lá",
+    "mau vang": "màu vàng",
+    "mau trang": "màu trắng",
+    "mot": "một",
+    "hai": "hai",
+    "muoi": "mười",
+    "hai muoi": "hai mươi",
+    "dem": "đếm",
+    "sach": "sách",
+    "quyen sach": "quyển sách",
+    "but": "bút",
+    "ban hoc": "bàn học",
+    "ghe": "ghế",
+    "bang": "bảng",
+    "com": "cơm",
+    "banh mi": "bánh mì",
+    "trung": "trứng",
+    "sua": "sữa",
+    "nuoc": "nước",
+    "ca phe": "cà phê",
+    "tra": "trà",
+    "nuoc ep": "nước ép",
+    "coc": "cốc",
+    "chai": "chai",
+    "thuc day": "thức dậy",
+    "rua": "rửa",
+    "chai": "chải",
+    "an": "ăn",
+    "di": "đi",
+    "gio dung": "giờ đúng",
+    "sang": "sáng",
+    "chieu": "chiều",
+    "dem": "đêm",
+    "tre": "trễ",
+    "cua hang": "cửa hàng",
+    "mua": "mua",
+    "gia": "giá",
+    "re": "rẻ",
+    "tui": "túi",
+    "trai": "trái",
+    "phai": "phải",
+    "thang": "thẳng",
+    "gan": "gần",
+    "xa": "xa",
+    "thuc don": "thực đơn",
+    "goi mon": "gọi món",
+    "ga": "gà",
+    "sup": "súp",
+    "hoa don": "hóa đơn",
+    "vui": "vui",
+    "buon": "buồn",
+    "met": "mệt",
+    "doi": "đói",
+    "khat": "khát",
+    "mon hoc": "môn học",
+    "thoi khoa bieu": "thời khóa biểu",
+    "thu vien": "thư viện",
+    "du an": "dự án",
+    "cau lac bo": "câu lạc bộ",
+    "chuyen di": "chuyến đi",
+    "ve": "vé",
+    "nha ga": "nhà ga",
+    "vali": "vali",
+    "ban do": "bản đồ",
+    "du bao": "dự báo",
+    "bao": "bão",
+    "nhieu may": "nhiều mây",
+    "nhiet do": "nhiệt độ",
+    "o": "ô",
+    "suu tam": "sưu tầm",
+    "luyen tap": "luyện tập",
+    "cuoc thi": "cuộc thi",
+    "sang tao": "sáng tạo",
+    "thoi gian ranh": "thời gian rảnh",
+    "tin nhan": "tin nhắn",
+    "co mat": "có mặt",
+    "noi chuyen": "nói chuyện",
+    "cho may": "chờ máy",
+    "goi lai": "gọi lại",
+    "goi y": "gợi ý",
+    "vua": "vừa",
+    "khong co": "không có",
+    "mang di": "mang đi",
+    "van de": "vấn đề",
+    "giai phap": "giải pháp",
+    "hong": "hỏng",
+    "sua": "sửa",
+    "co ich": "có ích",
+    "quan trong": "quan trọng",
+    "can than": "cẩn thận",
+    "cau hoi": "câu hỏi",
+    "ke hoach": "kế hoạch"
+};
+
+const ROADMAP_VI_SENTENCES = {
+    "Math is my favorite subject.": "Toán là môn học yêu thích của tôi.",
+    "Check the timetable.": "Hãy kiểm tra thời khóa biểu.",
+    "I borrow books from the library.": "Tôi mượn sách ở thư viện.",
+    "We have a science project.": "Chúng tôi có một dự án khoa học.",
+    "I join the English club.": "Tôi tham gia câu lạc bộ tiếng Anh.",
+    "My favorite subject is science.": "Môn học yêu thích của tôi là khoa học.",
+    "I have English on Monday.": "Tôi có môn tiếng Anh vào thứ Hai.",
+    "We are doing a project.": "Chúng tôi đang làm một dự án.",
+    "What is your favorite subject?": "Môn học yêu thích của bạn là gì?",
+    "Science. We are doing a project.": "Khoa học. Chúng tôi đang làm một dự án.",
+    "That sounds interesting.": "Nghe có vẻ thú vị.",
+    "Hello, I am ...": "Xin chào, tôi là ...",
+    "My name is ...": "Tên tôi là ...",
+    "How are you?": "Bạn khỏe không?",
+    "I am a student.": "Tôi là học sinh.",
+    "This is my friend.": "Đây là bạn của tôi.",
+    "Nice to meet you.": "Rất vui được gặp bạn.",
+    "This is my mother.": "Đây là mẹ của tôi.",
+    "He is my brother.": "Anh ấy là anh/em trai của tôi.",
+    "She is my sister.": "Cô ấy là chị/em gái của tôi.",
+    "I would like a medium coffee.": "Tôi muốn một ly cà phê cỡ vừa.",
+    "Could you help me, please?": "Bạn có thể giúp tôi được không?",
+    "I think this is a good idea.": "Tôi nghĩ đây là một ý kiến hay.",
+    "This is important.": "Điều này quan trọng.",
+    "Please listen carefully.": "Vui lòng nghe cẩn thận.",
+    "I have a question.": "Tôi có một câu hỏi."
+};
+
+function viGlossary(text, word = '') {
+    const key = String(text || '').trim().toLowerCase();
+    const wordKey = String(word || '').trim().toLowerCase();
+    if (key === 'chai') return wordKey === 'brush' ? 'chải' : 'chai';
+    if (key === 'sua') return wordKey === 'milk' ? 'sữa' : 'sửa';
+    if (key === 'dem') return wordKey === 'count' ? 'đếm' : 'đêm';
+    if (key === 'ban') return wordKey === 'busy' ? 'bận' : 'bạn';
+    if (key === 've') return wordKey === 'draw' ? 'vẽ' : 'vé';
+    return ROADMAP_VI_GLOSSARY[key] || text || '';
+}
+
+function viForSentence(text) {
+    const sentence = String(text || '').trim();
+    if (!sentence) return '';
+    if (ROADMAP_VI_SENTENCES[sentence]) return ROADMAP_VI_SENTENCES[sentence];
+    const topicTalk = sentence.match(/^I can talk about (.+)\.$/i);
+    if (topicTalk) return `Tôi có thể nói về ${topicTalk[1]}.`;
+    const plan = sentence.match(/^We need a plan for (.+)\.$/i);
+    if (plan) return `Chúng ta cần một kế hoạch cho ${plan[1]}.`;
+    const help = sentence.match(/^Can you help me with (.+)\?$/i);
+    if (help) return `Bạn có thể giúp tôi về ${help[1]} không?`;
+    return '';
+}
+
+function bilingualLine(text, className = 'bilingual-vn') {
+    const vi = viForSentence(text);
+    return vi ? `<span class="${className}">${escapeHtml(vi)}</span>` : '';
+}
+
 function renderRoadmapContent(lesson) {
     const content = lesson.content || {};
     if (lesson.type === 'integrated') {
@@ -1740,8 +1919,9 @@ function renderRoadmapContent(lesson) {
                 <div class="roadmap-vocab">${vocab.map(w => `
                     <div class="vocab-tile">
                         <strong>${escapeHtml(w.word)}</strong>
-                        <span>${escapeHtml(w.meaning)}</span>
+                        <span>${escapeHtml(viGlossary(w.meaning, w.word))}</span>
                         <small>${escapeHtml(w.example)}</small>
+                        ${bilingualLine(w.example)}
                         <div>
                             <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.word)}', '${escapeAttr(w.audioUrl || '')}')"><i class="fas fa-volume-up"></i></button>
                             <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.example)}')"><i class="fas fa-comment-dots"></i></button>
@@ -1751,7 +1931,7 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-layer-group"></i><h4>Sentence Patterns</h4></div>
-                ${patterns.map(p => `<p class="pattern-line">${escapeHtml(p)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(p)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+                ${patterns.map(p => `<p class="pattern-line"><span>${escapeHtml(p)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(p)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(p)}</p>`).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-diagram-project"></i><h4>Grammar Mini</h4></div>
@@ -1764,7 +1944,7 @@ function renderRoadmapContent(lesson) {
                     <button class="btn btn-secondary" onclick="playDialogueSmart(true)"><i class="fas fa-gauge-low"></i> Slow 0.8x</button>
                     <button class="btn btn-secondary" onclick="repeatDialogueSmart()"><i class="fas fa-repeat"></i> Repeat</button>
                 </div>
-                ${dialogue.map(line => `<p class="dialogue-app-line"><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+                ${dialogue.map(line => `<p class="dialogue-app-line"><span><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(line.text)}</p>`).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-microphone-lines"></i><h4>Speaking Practice</h4></div>
@@ -1774,6 +1954,7 @@ function renderRoadmapContent(lesson) {
                         return `
                             <div class="speaking-line">
                                 <strong>${escapeHtml(sentence)}</strong>
+                                ${bilingualLine(sentence)}
                                 <div class="speaking-line-actions">
                                     <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
                                     <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-microphone"></i> Record</button>
@@ -1797,14 +1978,15 @@ function renderRoadmapContent(lesson) {
     }
     if (lesson.type === 'vocabulary') {
         return `<div class="roadmap-vocab">${(content.words || []).map(w => `
-            <div><strong>${escapeHtml(w.word)}</strong>: ${escapeHtml(w.meaning)}
+            <div><strong>${escapeHtml(w.word)}</strong>: ${escapeHtml(viGlossary(w.meaning, w.word))}
             <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(w.word)}')"><i class="fas fa-volume-up"></i></button>
             <br><small>${escapeHtml(w.example)}</small>
+            ${bilingualLine(w.example)}
             <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(w.example)}')"><i class="fas fa-play"></i></button></div>
         `).join('')}</div>`;
     }
     if (lesson.type === 'grammar') {
-        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}</div>`;
+        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p class="pattern-line"><span>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(ex)}</p>`).join('')}</div>`;
     }
     if (lesson.type === 'quiz') {
         return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Dap an: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
@@ -1815,7 +1997,7 @@ function renderRoadmapContent(lesson) {
                 <button class="btn btn-audio" onclick="playFullRoadmapLesson(false)"><i class="fas fa-headphones"></i> Play full</button>
                 <button class="btn btn-secondary" onclick="playFullRoadmapLesson(true)"><i class="fas fa-repeat"></i> Repeat slow</button>
             </div>
-            ${(content.dialogue || []).map(line => `<p><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></p>`).join('')}
+            ${(content.dialogue || []).map(line => `<p class="dialogue-app-line"><span><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(line.text)}</p>`).join('')}
         `;
     }
     if (lesson.type === 'speaking') {
@@ -1825,6 +2007,7 @@ function renderRoadmapContent(lesson) {
                 ${practice.map(sentence => `
                     <div class="speaking-line">
                         <strong>${escapeHtml(sentence)}</strong>
+                        ${bilingualLine(sentence)}
                         <div class="speaking-line-actions">
                             <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
                             <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-microphone"></i> Record</button>
