@@ -4,11 +4,11 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-018"
+APP_VERSION = "hybrid-roadmap-019"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 
@@ -43,6 +43,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 app.config['SESSION_COOKIE_DOMAIN'] = app_config.COOKIE_DOMAIN if app_config.COOKIE_DOMAIN else None
 app.config['SESSION_COOKIE_SECURE'] = app_config.SESSION_COOKIE_SECURE
 app.config['SESSION_COOKIE_SAMESITE'] = app_config.SESSION_COOKIE_SAMESITE
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=180)
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///ms_smile.db')
@@ -2444,6 +2445,13 @@ def get_situation_history():
 # User Authentication & Progress APIs
 # ==========================================
 
+def persist_user_session(user):
+    session.permanent = True
+    session['user_id'] = user['id']
+    session['user_email'] = user.get('email')
+    session['user_role'] = user.get('role', 'user')
+
+
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     """Register new user"""
@@ -2464,9 +2472,7 @@ def register():
         )
         
         if success:
-            session['user_id'] = result['user']['id']
-            session['user_email'] = result['user'].get('email')
-            session['user_role'] = result['user']['role']
+            persist_user_session(result['user'])
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400
@@ -2492,10 +2498,7 @@ def login():
         )
         
         if success:
-            # Set session data for persistent login
-            session['user_id'] = result['user']['id']
-            session['user_email'] = result['user']['email']
-            session['user_role'] = result['user']['role']
+            persist_user_session(result['user'])
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400
@@ -2551,9 +2554,7 @@ def setup_profile():
         success, result = user_service.setup_profile(user_id, profile)
         
         if success:
-            session['user_id'] = result['user']['id']
-            session['user_email'] = result['user'].get('email')
-            session['user_role'] = result['user']['role']
+            persist_user_session(result['user'])
             return jsonify({"success": True, **result})
         else:
             return jsonify({"success": False, **result}), 400

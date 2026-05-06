@@ -143,10 +143,12 @@ class RoadmapService:
         lesson_id = lesson["id"]
         if progress.get(lesson_id) == "completed":
             return "completed"
-        if not self.is_allowed_by_plan(lesson, user):
-            return "locked"
         level_sequence = self.lesson_sequence_by_level.get(lesson.get("levelId"), [])
         idx = level_sequence.index(lesson_id) if lesson_id in level_sequence else 0
+        if not user:
+            return "unlocked" if lesson.get("levelId") == "starter" and idx < 2 else "locked"
+        if not self.is_allowed_by_plan(lesson, user):
+            return "locked"
         if idx == 0:
             return "unlocked"
         previous_id = level_sequence[idx - 1]

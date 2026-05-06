@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-018";
+const APP_VERSION = "hybrid-roadmap-019";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -25,6 +25,7 @@ const state = {
         chat: 0,
         situation: 0,
         roleplay: 0,
+        roadmapLessons: 0,
         lastReset: null
     },
     currentLesson: null,
@@ -210,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
 
-function initializeApp() {
+async function initializeApp() {
     captureReferralCode();
     setupEventListeners();
     setupHeaderMoreMenu();
@@ -219,9 +220,9 @@ function initializeApp() {
     
     // Load freemium limits and update badge
     loadGuestLimits();
+    await restoreAuthSession();
     updateUserBadge();
     loadInitialData();
-    checkOnboarding();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
 }
@@ -320,6 +321,22 @@ function copyAffiliateLink() {
 // ==========================================
 // Onboarding & Profile Functions
 // ==========================================
+async function restoreAuthSession() {
+    try {
+        const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        const data = await response.json();
+        if (!data.success || !data.user) return false;
+        state.currentUser = data.user;
+        state.isGuest = false;
+        state.selectedRoadmapLevelId = data.user.selected_roadmap_level || state.selectedRoadmapLevelId;
+        updateAuthUI();
+        return true;
+    } catch (error) {
+        console.warn('Restore auth session skipped:', error);
+        return false;
+    }
+}
+
 async function checkOnboarding() {
     try {
         const response = await fetch('/api/profile/onboarded');
@@ -2035,6 +2052,14 @@ async function completeRoadmapLesson(lessonId, levelId) {
             return;
         }
         if (data.dashboard) renderRoadmapDashboard(data.dashboard);
+    } else {
+        state.guestLimits.roadmapLessons = Math.min(
+            FREEMIUM_LIMITS.roadmapLessons,
+            (state.guestLimits.roadmapLessons || 0) + 1
+        );
+        saveGuestLimits();
+        showConversionModal('progress');
+        return;
     }
     state.roadmapCache = null;
     showToast('✅', 'Da luu tien do bai hoc');
@@ -3694,7 +3719,8 @@ let englishVoices = [];
 const FREEMIUM_LIMITS = {
     chat: 5,
     situation: 1,
-    roleplay: 1
+    roleplay: 1,
+    roadmapLessons: 2
 };
 
 function loadGuestLimits() {
@@ -3714,6 +3740,7 @@ function loadGuestLimits() {
         chat: 0,
         situation: 0,
         roleplay: 0,
+        roadmapLessons: 0,
         lastReset: today
     };
     saveGuestLimits();
@@ -3736,6 +3763,7 @@ function checkGuestLimit(type) {
             chat: 0,
             situation: 0,
             roleplay: 0,
+            roadmapLessons: 0,
             lastReset: today
         };
         saveGuestLimits();
@@ -3767,6 +3795,30 @@ function incrementGuestLimit(type) {
     return true;
 }
 
+function showConversionModal(reason = 'limit') {
+    if (!elements.limitModal) return;
+    const title = elements.limitModal.querySelector('.modal-header h2');
+    const headline = elements.limitModal.querySelector('.limit-info h3');
+    const message = elements.limitModal.querySelector('.limit-message');
+    const closeBtn = elements.limitModal.querySelector('.modal-close-btn');
+    if (reason === 'progress') {
+        if (title) title.textContent = 'Luu tien do hoc';
+        if (headline) headline.textContent = 'Dang ky mien phi de luu tien do va mo bai tiep theo';
+        if (message) {
+            message.textContent = 'Ban da hoc thu bai dau tien. Tao tai khoan mien phi de giu lai tien do, XP, streak va tiep tuc lo trinh.';
+        }
+        if (closeBtn) closeBtn.textContent = 'De sau';
+    } else {
+        if (title) title.textContent = 'Da het luot dung thu';
+        if (headline) headline.textContent = 'Ban da dung het luot mien phi hom nay!';
+        if (message) {
+            message.textContent = 'Dang ky mien phi de luu tien do, ca nhan hoa bai hoc va hoc tiep moi ngay!';
+        }
+        if (closeBtn) closeBtn.textContent = 'Tiep tuc dung thu mai';
+    }
+    elements.limitModal.classList.remove('hidden');
+}
+
 function showLimitModal() {
     const check = {
         chat: checkGuestLimit('chat'),
@@ -3785,10 +3837,7 @@ function showLimitModal() {
         elements.roleplayLimitDisplay.textContent = `${check.roleplay.used}/${check.roleplay.limit}`;
     }
     
-    // Show modal
-    if (elements.limitModal) {
-        elements.limitModal.classList.remove('hidden');
-    }
+    showConversionModal('limit');
 }
 
 function updateUserBadge() {
