@@ -312,6 +312,13 @@ def _quiz(prompt, answer):
     ]
 
 
+def _quiz_from_prompt(prompt):
+    if "||" in prompt:
+        question, answer = prompt.split("||", 1)
+        return _quiz(question.strip(), answer.strip())
+    return _quiz(prompt, prompt.split(":")[-1].strip() if ":" in prompt else "Could you help me, please?")
+
+
 def _build_units(level_id, level_title, specs):
     units = []
     for unit_idx in range(6):
@@ -337,7 +344,7 @@ def _build_units(level_id, level_title, specs):
                     grammar,
                     [{"speaker": speaker, "text": text} for speaker, text in dialogue],
                     speaking,
-                    _quiz(quiz_prompt, quiz_prompt.split(":")[-1].strip() if ":" in quiz_prompt else "Could you help me, please?"),
+                    _quiz_from_prompt(quiz_prompt),
                 )
                 for lesson_idx, (topic, title, words, patterns, grammar, dialogue, speaking, quiz_prompt)
                 in enumerate(group)
@@ -353,54 +360,173 @@ ROADMAP_UNITS = (
 
 
 ADVANCED_LEVEL_TOPICS = {
-    "ket": ["Daily Plans", "Travel Ticket", "Short Message", "Shopping Help", "Appointment", "Lost Phone", "Weekend Story", "Simple Email", "Public Transport", "Health Advice"],
-    "pet": ["Giving Opinions", "Problem Solving", "Past Experience", "Future Plans", "Story Details", "Making Suggestions", "Agreeing Politely", "Describing Photos", "Community Event", "Study Advice"],
-    "ielts_foundation": ["Daily Routine", "Work and Study", "Home Town", "Food Topic", "Travel Topic", "Education Topic", "Technology Topic", "Environment Topic", "Opinion Paragraph", "Speaking Part 1"],
-    "ielts_50": ["Clear Opinion", "Main Idea", "Supporting Example", "Compare Advantages", "Describe a Chart", "Speaking Cue Card", "Linking Ideas", "Cause and Effect", "Problem Solution", "Conclusion Practice"],
-    "ielts_65": ["Advanced Opinion", "Balanced Argument", "Complex Sentences", "Academic Vocabulary", "Data Summary", "Coherence Practice", "Abstract Topic", "Fluency Builder", "Paraphrasing", "Band 6.5 Review"],
-    "business": ["Meeting Update", "Reschedule a Call", "Client Email", "Project Deadline", "Presentation Opening", "Negotiation Basics", "Follow-up Message", "Work Problem", "Team Feedback", "Business Review"],
-    "sales": ["Greeting a Customer", "Finding Needs", "Product Benefits", "Price Discussion", "Handling Objections", "Closing a Sale", "Follow-up Call", "Customer Complaint", "Promotion Offer", "Sales Review"],
-    "cafe": ["Taking an Order", "Recommending Drinks", "No Sugar Request", "Takeaway Order", "Apologizing to Customer", "Payment at Counter", "Busy Cafe", "Wrong Order", "Friendly Service", "Cafe Review"],
-    "factory": ["Safety Instruction", "Shift Handover", "Machine Problem", "Ask a Supervisor", "Report an Issue", "Protective Equipment", "Quality Check", "Work Schedule", "Emergency Phrase", "Factory Review"],
+    "ket": [
+        "Daily Schedule", "Buying a Ticket", "Writing a Note", "Asking for Directions", "Making an Appointment",
+        "Lost Property", "Weekend Activities", "Simple Email", "Public Transport", "At the Doctor",
+        "School Notice", "Inviting a Friend", "Changing Plans", "Shopping Online", "At the Train Station",
+        "Weather Plans", "Sports Club", "Library Card", "Hotel Question", "Phone Message",
+        "Food Order", "Class Timetable", "Town Map", "Holiday Photo", "KET Review",
+    ],
+    "pet": [
+        "Giving Opinions", "Solving a Problem", "Past Experience", "Future Arrangement", "Story Details",
+        "Making Suggestions", "Agreeing Politely", "Describing Photos", "Community Event", "Study Advice",
+        "Comparing Options", "Explaining Reasons", "Making Complaints", "Travel Story", "Healthy Habits",
+        "Online Learning", "Volunteer Work", "Film Review", "City Changes", "Interview Practice",
+        "Advice Letter", "Group Project", "Environmental Choice", "Personal Achievement", "PET Review",
+    ],
+    "ielts_foundation": [
+        "Daily Routine", "Work and Study", "Home Town", "Food Topic", "Travel Topic",
+        "Education Topic", "Technology Topic", "Environment Topic", "Opinion Paragraph", "Speaking Part 1",
+        "Family Topic", "Hobbies Topic", "Health Topic", "Shopping Topic", "Transport Topic",
+        "Culture Topic", "City Life", "Rural Life", "Simple Essay", "Task Response",
+        "Vocabulary Range", "Grammar Accuracy", "Pronunciation Basics", "Fluency Basics", "IELTS Foundation Review",
+    ],
+    "ielts_50": [
+        "Clear Opinion", "Main Idea", "Supporting Example", "Compare Advantages", "Describe a Chart",
+        "Speaking Cue Card", "Linking Ideas", "Cause and Effect", "Problem Solution", "Conclusion Practice",
+        "Task 1 Overview", "Task 2 Introduction", "Paraphrasing Question", "Explaining Trends", "Giving Examples",
+        "Two-sided Essay", "Agree Disagree Essay", "Part 3 Answer", "Long Turn Notes", "Common Mistakes",
+        "Coherence Practice", "Lexical Resource", "Grammar Range", "Pronunciation Control", "IELTS 5 Review",
+    ],
+    "ielts_65": [
+        "Advanced Opinion", "Balanced Argument", "Complex Sentences", "Academic Vocabulary", "Data Summary",
+        "Coherence Practice", "Abstract Topic", "Fluency Builder", "Paraphrasing", "Band 6.5 Review",
+        "Counter Argument", "Concession Language", "Trend Comparison", "Process Description", "Map Description",
+        "Nuanced Opinion", "Evidence and Logic", "Collocation Upgrade", "Error Reduction", "Natural Speaking",
+        "Extended Answer", "Debate Practice", "Formal Tone", "Essay Cohesion", "IELTS 6.5 Final Review",
+    ],
+    "business": [
+        "Meeting Update", "Reschedule a Call", "Client Email", "Project Deadline", "Presentation Opening",
+        "Negotiation Basics", "Follow-up Message", "Work Problem", "Team Feedback", "Business Review",
+        "Status Report", "Budget Question", "Customer Update", "Action Items", "Polite Reminder",
+        "Small Talk at Work", "Deadline Risk", "Product Demo", "Manager Check-in", "Remote Meeting",
+        "Clarifying Tasks", "Business Apology", "Proposal Summary", "Decision Making", "Business Final Review",
+    ],
+    "sales": [
+        "Greeting a Customer", "Finding Needs", "Product Benefits", "Price Discussion", "Handling Objections",
+        "Closing a Sale", "Follow-up Call", "Customer Complaint", "Promotion Offer", "Sales Review",
+        "Qualifying Lead", "Explaining Features", "Comparing Packages", "Discount Request", "Building Trust",
+        "After-sales Support", "Upsell Offer", "Renewal Reminder", "Delivery Question", "Service Recovery",
+        "Cold Call Opening", "Demo Booking", "Pain Point", "Value Proposition", "Sales Final Review",
+    ],
+    "cafe": [
+        "Taking an Order", "Recommending Drinks", "No Sugar Request", "Takeaway Order", "Apologizing to Customer",
+        "Payment at Counter", "Busy Cafe", "Wrong Order", "Friendly Service", "Cafe Review",
+        "Breakfast Combo", "Allergy Question", "Table Service", "Queue Management", "Loyalty Card",
+        "Out of Stock", "Cleaning Table", "Special Request", "Receipt Request", "Customer Feedback",
+        "Opening Shift", "Closing Shift", "New Menu Item", "Upselling Cake", "Cafe Final Review",
+    ],
+    "factory": [
+        "Safety Instruction", "Shift Handover", "Machine Problem", "Ask a Supervisor", "Report an Issue",
+        "Protective Equipment", "Quality Check", "Work Schedule", "Emergency Phrase", "Factory Review",
+        "Tool Request", "Production Target", "Material Shortage", "Maintenance Call", "Break Time",
+        "Incident Report", "Training Step", "Assembly Line", "Warehouse Location", "Delivery Delay",
+        "Checklist Review", "Noise Warning", "Temperature Check", "Team Briefing", "Factory Final Review",
+    ],
+}
+
+LEVEL_CONTENT_PROFILES = {
+    "ket": {
+        "words": [("schedule", "lich trinh"), ("ticket", "ve"), ("notice", "thong bao"), ("form", "mau don"), ("station", "nha ga"), ("appointment", "cuoc hen"), ("message", "tin nhan"), ("direction", "chi duong")],
+        "patterns": ["I need information about {topic}.", "Could you tell me the time?", "I would like to change my plan."],
+        "grammar": ["Use polite requests with could/would.", "Use present simple for timetables and routines."],
+        "dialogue": [("A", "Excuse me, I need information about {topic}."), ("B", "Sure. What would you like to know?"), ("A", "Could you tell me the time and place?")],
+        "speaking": ["I need information about {topic}.", "Could you tell me the time?", "I would like to change my plan."],
+        "quiz": ("Choose the polite request.", "Could you tell me the time?"),
+    },
+    "pet": {
+        "words": [("opinion", "y kien"), ("reason", "ly do"), ("experience", "kinh nghiem"), ("suggestion", "goi y"), ("choice", "lua chon"), ("improve", "cai thien"), ("compare", "so sanh"), ("explain", "giai thich")],
+        "patterns": ["In my opinion, {topic} is important.", "The main reason is clear.", "I suggest we try another option."],
+        "grammar": ["Use past simple for finished experiences.", "Use because/so to connect reasons and results."],
+        "dialogue": [("A", "What do you think about {topic}?"), ("B", "In my opinion, it is a useful idea."), ("A", "Can you explain your reason?")],
+        "speaking": ["In my opinion, {topic} is important.", "The main reason is clear.", "I suggest we try another option."],
+        "quiz": ("Choose an opinion phrase.", "In my opinion"),
+    },
+    "ielts_foundation": {
+        "words": [("topic", "chu de"), ("example", "vi du"), ("reason", "ly do"), ("opinion", "y kien"), ("habit", "thoi quen"), ("benefit", "loi ich"), ("problem", "van de"), ("answer", "cau tra loi")],
+        "patterns": ["I usually talk about {topic} in simple words.", "One reason is that it is useful.", "For example, people can learn faster."],
+        "grammar": ["Use simple present for habits and general facts.", "Use one clear example after each reason."],
+        "dialogue": [("A", "Let's practise an IELTS topic: {topic}."), ("B", "I can give one simple reason."), ("A", "Good. Add one example.")],
+        "speaking": ["I usually talk about {topic} in simple words.", "One reason is that it is useful.", "For example, people can learn faster."],
+        "quiz": ("Choose a phrase for examples.", "For example"),
+    },
+    "ielts_50": {
+        "words": [("overview", "tong quan"), ("trend", "xu huong"), ("support", "ung ho"), ("contrast", "tuong phan"), ("cause", "nguyen nhan"), ("effect", "ket qua"), ("solution", "giai phap"), ("conclusion", "ket luan")],
+        "patterns": ["The main point about {topic} is clear.", "This example supports my opinion.", "However, there is another side."],
+        "grammar": ["Use linking words to connect ideas.", "Use topic sentence plus support for each paragraph."],
+        "dialogue": [("A", "What is your main point about {topic}?"), ("B", "The main point is clear."), ("A", "Now add a supporting example.")],
+        "speaking": ["The main point about {topic} is clear.", "This example supports my opinion.", "However, there is another side."],
+        "quiz": ("Choose a contrast linker.", "However"),
+    },
+    "ielts_65": {
+        "words": [("nuance", "sac thai"), ("evidence", "bang chung"), ("coherence", "mach lac"), ("concession", "nhuong bo"), ("argument", "lap luan"), ("emphasis", "nhan manh"), ("precise", "chinh xac"), ("perspective", "goc nhin")],
+        "patterns": ["Although {topic} has benefits, there are limits.", "From a broader perspective, this issue is complex.", "The evidence suggests a balanced answer."],
+        "grammar": ["Use although/while to show contrast.", "Use precise academic vocabulary instead of general words."],
+        "dialogue": [("A", "How can we make this answer more advanced?"), ("B", "We can add contrast and evidence."), ("A", "Good. Keep the argument balanced.")],
+        "speaking": ["Although {topic} has benefits, there are limits.", "From a broader perspective, this issue is complex.", "The evidence suggests a balanced answer."],
+        "quiz": ("Choose a concession linker.", "Although"),
+    },
+    "business": {
+        "words": [("agenda", "chuong trinh hop"), ("deadline", "han chot"), ("client", "khach hang"), ("proposal", "de xuat"), ("budget", "ngan sach"), ("update", "cap nhat"), ("action item", "viec can lam"), ("decision", "quyet dinh")],
+        "patterns": ["Could we discuss {topic} today?", "I will send a follow-up email.", "The deadline is tight but possible."],
+        "grammar": ["Use could/would for polite workplace requests.", "Use future forms for plans and commitments."],
+        "dialogue": [("A", "Could we discuss {topic} today?"), ("B", "Yes. Please give me a quick update."), ("A", "I will send the action items after the meeting.")],
+        "speaking": ["Could we discuss {topic} today?", "I will send a follow-up email.", "The deadline is tight but possible."],
+        "quiz": ("Choose a workplace request.", "Could we discuss this today?"),
+    },
+    "sales": {
+        "words": [("customer", "khach hang"), ("need", "nhu cau"), ("benefit", "loi ich"), ("price", "gia"), ("discount", "giam gia"), ("objection", "phan doi"), ("value", "gia tri"), ("follow-up", "theo doi")],
+        "patterns": ["What are you looking for today?", "This option gives you better value.", "Would you like me to prepare a quote?"],
+        "grammar": ["Use open questions to find customer needs.", "Use comparatives to explain product value."],
+        "dialogue": [("A", "What are you looking for today?"), ("B", "I need something reliable and affordable."), ("A", "This option gives you better value.")],
+        "speaking": ["What are you looking for today?", "This option gives you better value.", "Would you like me to prepare a quote?"],
+        "quiz": ("Choose an open sales question.", "What are you looking for today?"),
+    },
+    "cafe": {
+        "words": [("order", "goi mon"), ("recommend", "goi y"), ("takeaway", "mang di"), ("receipt", "hoa don"), ("sugar", "duong"), ("allergy", "di ung"), ("combo", "combo"), ("counter", "quay")],
+        "patterns": ["What would you like to order?", "Would you like it hot or iced?", "I'm sorry about the wait."],
+        "grammar": ["Use would like for polite orders.", "Use apologies plus a solution for service problems."],
+        "dialogue": [("A", "What would you like to order?"), ("B", "A latte with less sugar, please."), ("A", "Sure. Would you like it hot or iced?")],
+        "speaking": ["What would you like to order?", "Would you like it hot or iced?", "I'm sorry about the wait."],
+        "quiz": ("Choose a polite cafe question.", "What would you like to order?"),
+    },
+    "factory": {
+        "words": [("safety", "an toan"), ("shift", "ca lam"), ("machine", "may moc"), ("supervisor", "giam sat"), ("helmet", "mu bao ho"), ("checklist", "danh sach kiem tra"), ("defect", "loi san pham"), ("warehouse", "kho")],
+        "patterns": ["Please wear your safety equipment.", "The machine stopped during my shift.", "I need to report a problem."],
+        "grammar": ["Use clear instructions for safety.", "Use past simple to report what happened."],
+        "dialogue": [("A", "I need to report a problem."), ("B", "What happened during your shift?"), ("A", "The machine stopped after the quality check.")],
+        "speaking": ["Please wear your safety equipment.", "The machine stopped during my shift.", "I need to report a problem."],
+        "quiz": ("Choose a safety instruction.", "Please wear your safety equipment."),
+    },
 }
 
 
-def _advanced_topic_spec(level_title, topic):
-    key = topic.lower()
-    base_word = key.split()[0]
+def _advanced_topic_spec(level_id, topic, idx):
+    profile = LEVEL_CONTENT_PROFILES[level_id]
+    topic_key = topic.lower()
+    pool = profile["words"]
+    selected_words = [(topic_key, topic_key)] + [pool[(idx + offset) % len(pool)] for offset in range(4)]
     words = [
-        (base_word, topic.lower(), f"I can talk about {topic.lower()}."),
-        ("request", "yeu cau", "I have a simple request."),
-        ("detail", "chi tiet", "Please check the details."),
-        ("confirm", "xac nhan", "Can you confirm this?"),
-        ("solution", "giai phap", "Let's find a solution."),
+        (word, meaning, sentence.format(topic=topic_key) if "{topic}" in sentence else sentence)
+        for word, meaning, sentence in [
+            (selected_words[0][0], selected_words[0][1], f"This lesson is about {topic_key}."),
+            (selected_words[1][0], selected_words[1][1], profile["patterns"][0]),
+            (selected_words[2][0], selected_words[2][1], profile["patterns"][1]),
+            (selected_words[3][0], selected_words[3][1], profile["patterns"][2]),
+            (selected_words[4][0], selected_words[4][1], "Please check this word in context."),
+        ]
     ]
-    patterns = [
-        f"I can talk about {topic.lower()}.",
-        "Could you help me with this, please?",
-        "I think this is a good solution.",
-    ]
-    grammar = [
-        "Use polite questions for real-life communication.",
-        "Use clear subject + verb + object sentences before making longer answers.",
-    ]
-    dialogue = [
-        ("A", f"Can you help me with {topic.lower()}?"),
-        ("B", "Sure. What do you need?"),
-        ("A", "I need to confirm the details."),
-    ]
-    speaking = [
-        f"I can talk about {topic.lower()}.",
-        "Could you help me with this, please?",
-        "I need to confirm the details.",
-    ]
-    quiz = _quiz("Choose the polite request.", "Could you help me, please?")
-    return (topic, topic, words, patterns, grammar, dialogue, speaking, quiz[0]["question"])
+    patterns = [pattern.format(topic=topic_key) for pattern in profile["patterns"]]
+    grammar = list(profile["grammar"])
+    dialogue = [(speaker, text.format(topic=topic_key)) for speaker, text in profile["dialogue"]]
+    speaking = [text.format(topic=topic_key) for text in profile["speaking"]]
+    quiz_prompt, quiz_answer = profile["quiz"]
+    return (topic, topic, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
 
 
 for level in ROADMAP_LEVELS:
     if level["id"] not in {"starter", "flyer"}:
-        specs = [_advanced_topic_spec(level["title"], topic) for topic in ADVANCED_LEVEL_TOPICS.get(level["id"], [])]
+        specs = [_advanced_topic_spec(level["id"], topic, idx) for idx, topic in enumerate(ADVANCED_LEVEL_TOPICS.get(level["id"], []))]
         ROADMAP_UNITS += _build_units(level["id"], level["title"], specs)
 
 
