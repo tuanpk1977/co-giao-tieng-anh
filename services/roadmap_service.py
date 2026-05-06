@@ -123,13 +123,20 @@ class RoadmapService:
         plan = (user.plan_name if user else "free").lower()
         return plan in {"free", "free_trial", "trial"} or "free" in plan
 
+    def is_first_unit_in_level(self, lesson):
+        units = self.units_by_level.get(lesson.get("levelId"), [])
+        if not units:
+            return False
+        first_unit = sorted(units, key=lambda item: item.get("order", 0))[0]
+        return lesson.get("unitId") == first_unit.get("id")
+
     def is_allowed_by_plan(self, lesson, user):
         if not user:
-            return lesson.get("unitId") == "starter_u1"
+            return self.is_first_unit_in_level(lesson)
         if self.is_full_roadmap_plan(user):
             return True
         if self.is_free_plan(user):
-            return lesson.get("unitId") == "starter_u1"
+            return self.is_first_unit_in_level(lesson)
         return lesson.get("levelId") in {"starter", "flyer"}
 
     def get_lesson_status(self, lesson, user, progress):
