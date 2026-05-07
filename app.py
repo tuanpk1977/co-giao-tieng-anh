@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-026"
+APP_VERSION = "hybrid-roadmap-027"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS

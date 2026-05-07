@@ -422,6 +422,22 @@ STARTER_TOPICS += [
 ]
 
 
+STARTER_TOPICS += [
+    _starter_extra_topic_spec(topic, idx + len(STARTER_EXTRA_TOPICS) + 70)
+    for idx, topic in enumerate(_starter_topic_series(
+        ["Learning", "Asking About", "Practicing", "Speaking About", "Reviewing"],
+        [
+            "My Clothes", "My Pets", "My Birthday", "My Favorite Food", "My Favorite Drink",
+            "My House", "My Bedroom", "My School Day", "My Teacher", "My Friend",
+            "At the Park", "At the Shop", "At the Restaurant", "At the Clinic", "At the Bank",
+            "Going by Bus", "Going by Taxi", "Going by Bike", "Simple Weather", "Simple Jobs",
+            "Simple Phone Calls", "Simple Questions", "Simple Answers", "Everyday English", "Starter Final Skills",
+        ],
+        125,
+    ))
+]
+
+
 FLYER_TOPICS += [
     ("Science Fair", "At the Science Fair"), ("Camping Trip", "Going Camping"), ("Saving Money", "Saving Pocket Money"),
     ("Team Project", "Working in a Team"), ("Class Debate", "Giving a Simple Opinion"),
@@ -460,6 +476,19 @@ FLYER_TOPICS += _flyer_topic_series(
     ["Practicing", "Discussing", "Writing About", "Listening For", "Reviewing"],
     ["Travel Stories", "School Projects", "Shopping Problems", "Health Choices", "Town Activities"],
     25,
+)
+
+
+FLYER_TOPICS += _flyer_topic_series(
+    ["Practicing", "Explaining", "Comparing", "Solving", "Reviewing"],
+    [
+        "Airport Problems", "Hotel Services", "Lost Items", "Sports Events", "Music Classes",
+        "Movie Plans", "Environment Projects", "Online Lessons", "Party Invitations", "Apology Messages",
+        "Past Weekend Stories", "Future Plans", "Comparisons", "Short Stories", "Simple Emails",
+        "Safety Rules", "Museum Visits", "Library Tasks", "Volunteer Work", "Travel Questions",
+        "Class Presentations", "Friendly Debates", "Daily News", "Speaking Tests", "Flyer Final Skills",
+    ],
+    125,
 )
 
 
@@ -704,6 +733,82 @@ ADVANCED_EXTRA_CONTEXTS = {
 
 
 for _level_id, _contexts in ADVANCED_EXTRA_CONTEXTS.items():
+    _skills = ADVANCED_EXPANSION_BLUEPRINTS[_level_id]["skills"]
+    ADVANCED_LEVEL_TOPICS[_level_id] += [
+        f"{skill} {context}"
+        for context in _contexts
+        for skill in _skills
+    ]
+
+
+ADVANCED_DEEP_CONTEXTS = {
+    "ket": [
+        "Daily Routines", "Travel Information", "Shopping Help", "School Messages", "Health Questions",
+        "Public Notices", "Weekend Plans", "Transport Problems", "Booking Details", "Local Services",
+        "Simple Emails", "Phone Messages", "Town Facilities", "Invitations", "Lost Property",
+        "Ticket Changes", "Food Orders", "Weather Plans", "Short Forms", "KET Listening Skills",
+        "KET Reading Skills", "KET Writing Skills", "KET Speaking Skills", "KET Review Tasks", "KET Final Practice",
+    ],
+    "pet": [
+        "Personal Opinions", "School Life", "Travel Experiences", "Healthy Choices", "Online Communication",
+        "Community Problems", "Photo Descriptions", "Story Development", "Advice Messages", "Reviews",
+        "Future Plans", "Past Events", "Comparing Options", "Making Suggestions", "Polite Disagreement",
+        "Environmental Issues", "Volunteer Projects", "Teenage Problems", "Study Skills", "PET Listening Skills",
+        "PET Reading Skills", "PET Writing Skills", "PET Speaking Skills", "PET Review Tasks", "PET Final Practice",
+    ],
+    "ielts_foundation": [
+        "People Topics", "Place Topics", "Object Topics", "Habit Topics", "Study Topics",
+        "Work Topics", "Technology Topics", "Health Topics", "Sport Topics", "Culture Topics",
+        "Travel Topics", "Environment Topics", "Money Topics", "Media Topics", "Family Topics",
+        "Simple Opinion Essays", "Simple Task 1 Reports", "Speaking Part 1", "Speaking Part 2", "Speaking Part 3",
+        "Vocabulary Review", "Grammar Review", "Pronunciation Review", "Writing Review", "Foundation Final Practice",
+    ],
+    "ielts_50": [
+        "Opinion Paragraphs", "Discussion Essays", "Problem Solution Essays", "Advantages Essays", "Cause Effect Essays",
+        "Line Graphs", "Bar Charts", "Pie Charts", "Tables", "Maps",
+        "Processes", "Overview Sentences", "Trend Language", "Comparison Language", "Example Support",
+        "Speaking Part 1", "Speaking Part 2", "Speaking Part 3", "Fluency Control", "Grammar Control",
+        "Vocabulary Control", "Coherence Control", "Task Response", "Timing Strategy", "IELTS 5 Final Practice",
+    ],
+    "ielts_65": [
+        "Advanced Arguments", "Balanced Views", "Concession Clauses", "Evidence Evaluation", "Policy Topics",
+        "Social Issues", "Technology Ethics", "Education Reform", "Environmental Policy", "Work Trends",
+        "Complex Charts", "Mixed Data", "Process Reports", "Map Reports", "Precise Overviews",
+        "Advanced Paraphrasing", "Cohesion Devices", "Lexical Precision", "Complex Grammar", "Natural Fluency",
+        "Pronunciation Control", "Speaking Nuance", "Writing Review", "Speaking Review", "IELTS 6.5 Final Practice",
+    ],
+    "business": [
+        "Meeting Preparation", "Meeting Follow-up", "Client Updates", "Project Deadlines", "Budget Discussions",
+        "Proposal Writing", "Contract Questions", "Supplier Messages", "Team Feedback", "Performance Reviews",
+        "Remote Meetings", "Presentation Openings", "Presentation Q and A", "Negotiation Points", "Decision Emails",
+        "Status Reports", "Risk Reports", "Apology Emails", "Polite Reminders", "Action Items",
+        "Manager Check-ins", "Customer Updates", "Training Sessions", "Business Review", "Business Final Practice",
+    ],
+    "sales": [
+        "Customer Greetings", "Need Discovery", "Budget Questions", "Product Benefits", "Package Comparison",
+        "Price Objections", "Discount Negotiation", "Trust Building", "Demo Booking", "Follow-up Calls",
+        "Closing Questions", "Payment Terms", "Delivery Details", "Warranty Questions", "Complaint Recovery",
+        "Renewal Offers", "Upsell Offers", "Referral Requests", "Sales Emails", "Phone Sales",
+        "Objection Review", "Value Review", "Customer Service", "Sales Review", "Sales Final Practice",
+    ],
+    "cafe": [
+        "Guest Greetings", "Menu Explanations", "Drink Recommendations", "Milk Options", "Sugar Options",
+        "Allergy Questions", "Takeaway Orders", "Table Service", "Queue Handling", "Payment Problems",
+        "Refund Requests", "Wrong Orders", "Late Orders", "Customer Apologies", "Dessert Offers",
+        "Daily Specials", "Stock Problems", "Large Orders", "Phone Orders", "Delivery Orders",
+        "Shift Handover", "Staff Training", "Customer Feedback", "Cafe Review", "Cafe Final Practice",
+    ],
+    "factory": [
+        "Safety Briefings", "PPE Checks", "Machine Start-up", "Machine Problems", "Quality Defects",
+        "Material Shortage", "Tool Requests", "Warehouse Tasks", "Shift Handover", "Overtime Requests",
+        "Supervisor Updates", "Production Targets", "Maintenance Calls", "Incident Reports", "First Aid Requests",
+        "Fire Drill Steps", "Packing Instructions", "Loading Area Tasks", "Delivery Delays", "Training Checklists",
+        "Noise Warnings", "Temperature Checks", "Team Briefings", "Factory Review", "Factory Final Practice",
+    ],
+}
+
+
+for _level_id, _contexts in ADVANCED_DEEP_CONTEXTS.items():
     _skills = ADVANCED_EXPANSION_BLUEPRINTS[_level_id]["skills"]
     ADVANCED_LEVEL_TOPICS[_level_id] += [
         f"{skill} {context}"
