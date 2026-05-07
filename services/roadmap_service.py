@@ -14,19 +14,20 @@ from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, Lear
 AI_DAILY_LIMITS = {
     "free_trial": 3,
     "free": 3,
-    "basic": 30,
-    "basic_monthly": 30,
-    "basic_six_months": 30,
-    "basic_yearly": 30,
-    "pro": 120,
-    "pro_monthly": 120,
-    "pro_six_months": 120,
-    "pro_yearly": 120,
-    "premium": 300,
-    "family": 300,
-    "family_monthly": 300,
-    "family_six_months": 300,
-    "family_yearly": 300,
+    "basic": 10,
+    "basic_monthly": 10,
+    "basic_six_months": 10,
+    "basic_yearly": 10,
+    "pro": 30,
+    "pro_monthly": 30,
+    "pro_six_months": 30,
+    "pro_yearly": 30,
+    "premium": 50,
+    "family": 50,
+    "family_member": 20,
+    "family_monthly": 50,
+    "family_six_months": 50,
+    "family_yearly": 50,
 }
 
 
@@ -124,6 +125,15 @@ class RoadmapService:
         plan = (user.plan_name if user else "free").lower()
         return plan in {"free", "free_trial", "trial"} or "free" in plan
 
+    def get_effective_plan_name(self, user):
+        plan_name = (user.plan_name if user else "free").lower()
+        if user and FamilyMember.query.filter(
+            FamilyMember.member_user_id == user.id,
+            FamilyMember.status == 'active'
+        ).first():
+            return "family_member"
+        return plan_name
+
     def is_first_unit_in_level(self, lesson):
         units = self.units_by_level.get(lesson.get("levelId"), [])
         if not units:
@@ -141,12 +151,14 @@ class RoadmapService:
     def get_daily_lesson_limit(self, user):
         if not user:
             return 0
-        plan_name = (user.plan_name or "free_trial").lower()
+        plan_name = self.get_effective_plan_name(user)
+        if plan_name == "family_member":
+            return 5
         plan = Plan.query.filter_by(name=plan_name).first()
         if plan and plan.lesson_limit is not None:
             return plan.lesson_limit
         if "family" in plan_name:
-            return 999
+            return 8
         if "pro" in plan_name:
             return 5
         if "basic" in plan_name:
@@ -548,7 +560,7 @@ class RoadmapService:
 
     def get_ai_limit_status(self, user_id, feature_type):
         user = User.query.get(user_id) if user_id else None
-        plan = user.plan_name if user else "free"
+        plan = self.get_effective_plan_name(user) if user else "free"
         limit = AI_DAILY_LIMITS.get(plan, 3)
         start = datetime.combine(date.today(), datetime.min.time())
         used = AIUsageLog.query.filter(

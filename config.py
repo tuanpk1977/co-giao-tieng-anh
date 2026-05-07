@@ -68,8 +68,8 @@ PLAN_DEFINITIONS = [
         "chat_per_day": 5,
         "chat_per_month": 100,
         "max_tokens_per_chat": 1000,
-        "max_cost_per_day_vnd": 0.0,  # unlimited
-        "max_cost_per_month_vnd": 0.0,
+        "max_cost_per_day_vnd": 500.0,
+        "max_cost_per_month_vnd": 3000.0,
         # NEW: Long-term subscription fields
         "duration_days": 7,
         "plan_type": "trial",
@@ -82,7 +82,7 @@ PLAN_DEFINITIONS = [
         "title": "Basic - Monthly",
         "price": 49000,
         "currency": "VND",
-        "chat_limit": 30,
+        "chat_limit": 10,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
@@ -91,9 +91,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits
         "chat_per_day": 10,
         "chat_per_month": 300,
-        "max_tokens_per_chat": 2000,
-        "max_cost_per_day_vnd": 30000.0,  # ~1 USD
-        "max_cost_per_month_vnd": 600000.0,  # ~24 USD
+        "max_tokens_per_chat": 1500,
+        "max_cost_per_day_vnd": 1000.0,
+        "max_cost_per_month_vnd": 15000.0,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -105,7 +105,7 @@ PLAN_DEFINITIONS = [
         "title": "Basic - 6 Months",
         "price": int(49000 * 6 * 0.85),  # 250,900 VND (15% discount)
         "currency": "VND",
-        "chat_limit": 30,
+        "chat_limit": 10,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
@@ -114,9 +114,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits (same as monthly)
         "chat_per_day": 10,
         "chat_per_month": 300,
-        "max_tokens_per_chat": 2000,
-        "max_cost_per_day_vnd": 30000.0,
-        "max_cost_per_month_vnd": 600000.0,
+        "max_tokens_per_chat": 1500,
+        "max_cost_per_day_vnd": 1000.0,
+        "max_cost_per_month_vnd": 15000.0,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -128,7 +128,7 @@ PLAN_DEFINITIONS = [
         "title": "Basic - Yearly",
         "price": int(49000 * 12 * 0.7),  # 411,600 VND (30% discount)
         "currency": "VND",
-        "chat_limit": 30,
+        "chat_limit": 10,
         "lesson_limit": 2,
         "can_speak": True,
         "can_save_history": True,
@@ -137,9 +137,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits (same as monthly)
         "chat_per_day": 10,
         "chat_per_month": 300,
-        "max_tokens_per_chat": 2000,
-        "max_cost_per_day_vnd": 30000.0,
-        "max_cost_per_month_vnd": 600000.0,
+        "max_tokens_per_chat": 1500,
+        "max_cost_per_day_vnd": 1000.0,
+        "max_cost_per_month_vnd": 15000.0,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
@@ -152,7 +152,7 @@ PLAN_DEFINITIONS = [
         "title": "Pro - Monthly",
         "price": 99000,
         "currency": "VND",
-        "chat_limit": 100,
+        "chat_limit": 30,
         "lesson_limit": 5,
         "can_speak": True,
         "can_save_history": True,
@@ -161,9 +161,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits
         "chat_per_day": 30,
         "chat_per_month": 900,
-        "max_tokens_per_chat": 4000,
-        "max_cost_per_day_vnd": 60000.0,  # ~2.4 USD
-        "max_cost_per_month_vnd": 1200000.0,  # ~48 USD
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 2500.0,
+        "max_cost_per_month_vnd": 50000.0,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -175,7 +175,7 @@ PLAN_DEFINITIONS = [
         "title": "Pro - 6 Months",
         "price": int(99000 * 6 * 0.85),  # 504,900 VND (15% discount)
         "currency": "VND",
-        "chat_limit": 100,
+        "chat_limit": 30,
         "lesson_limit": 5,
         "can_speak": True,
         "can_save_history": True,
@@ -184,9 +184,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits (same as monthly)
         "chat_per_day": 30,
         "chat_per_month": 900,
-        "max_tokens_per_chat": 4000,
-        "max_cost_per_day_vnd": 60000.0,
-        "max_cost_per_month_vnd": 1200000.0,
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 2500.0,
+        "max_cost_per_month_vnd": 50000.0,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -198,7 +198,7 @@ PLAN_DEFINITIONS = [
         "title": "Pro - Yearly",
         "price": int(99000 * 12 * 0.7),  # 831,600 VND (30% discount)
         "currency": "VND",
-        "chat_limit": 100,
+        "chat_limit": 30,
         "lesson_limit": 5,
         "can_speak": True,
         "can_save_history": True,
@@ -207,9 +207,9 @@ PLAN_DEFINITIONS = [
         # PART 2: Quota limits (same as monthly)
         "chat_per_day": 30,
         "chat_per_month": 900,
-        "max_tokens_per_chat": 4000,
-        "max_cost_per_day_vnd": 60000.0,
-        "max_cost_per_month_vnd": 1200000.0,
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 2500.0,
+        "max_cost_per_month_vnd": 50000.0,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
@@ -222,18 +222,18 @@ PLAN_DEFINITIONS = [
         "title": "Family - Monthly",
         "price": 199000,
         "currency": "VND",
-        "chat_limit": 999,
-        "lesson_limit": 999,
+        "chat_limit": 50,
+        "lesson_limit": 8,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
         "description": "199.000đ/tháng",
         # PART 2: Quota limits
-        "chat_per_day": 999,
-        "chat_per_month": 29970,
-        "max_tokens_per_chat": 8000,
-        "max_cost_per_day_vnd": 0.0,  # unlimited
-        "max_cost_per_month_vnd": 0.0,
+        "chat_per_day": 50,
+        "chat_per_month": 1500,
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 5000.0,
+        "max_cost_per_month_vnd": 90000.0,
         # NEW: Long-term subscription fields
         "duration_days": 30,
         "plan_type": "monthly",
@@ -245,18 +245,18 @@ PLAN_DEFINITIONS = [
         "title": "Family - 6 Months",
         "price": int(199000 * 6 * 0.85),  # 1,014,900 VND (15% discount)
         "currency": "VND",
-        "chat_limit": 999,
-        "lesson_limit": 999,
+        "chat_limit": 50,
+        "lesson_limit": 8,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
         "description": f"{int(199000 * 6 * 0.85):,}đ/6 tháng (tiết kiệm {int(199000 * 6 * 0.15):,}đ)",
         # PART 2: Quota limits (same as monthly)
-        "chat_per_day": 999,
-        "chat_per_month": 29970,
-        "max_tokens_per_chat": 8000,
-        "max_cost_per_day_vnd": 0.0,
-        "max_cost_per_month_vnd": 0.0,
+        "chat_per_day": 50,
+        "chat_per_month": 1500,
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 5000.0,
+        "max_cost_per_month_vnd": 90000.0,
         # NEW: Long-term subscription fields
         "duration_days": 180,
         "plan_type": "six_months",
@@ -268,18 +268,18 @@ PLAN_DEFINITIONS = [
         "title": "Family - Yearly",
         "price": int(199000 * 12 * 0.7),  # 1,687,200 VND (30% discount)
         "currency": "VND",
-        "chat_limit": 999,
-        "lesson_limit": 999,
+        "chat_limit": 50,
+        "lesson_limit": 8,
         "can_speak": True,
         "can_save_history": True,
         "enabled": True,
         "description": f"{int(199000 * 12 * 0.7):,}đ/năm (tiết kiệm {int(199000 * 12 * 0.3):,}đ)",
         # PART 2: Quota limits (same as monthly)
-        "chat_per_day": 999,
-        "chat_per_month": 29970,
-        "max_tokens_per_chat": 8000,
-        "max_cost_per_day_vnd": 0.0,
-        "max_cost_per_month_vnd": 0.0,
+        "chat_per_day": 50,
+        "chat_per_month": 1500,
+        "max_tokens_per_chat": 2500,
+        "max_cost_per_day_vnd": 5000.0,
+        "max_cost_per_month_vnd": 90000.0,
         # NEW: Long-term subscription fields
         "duration_days": 365,
         "plan_type": "yearly",
