@@ -222,9 +222,25 @@ async function initializeApp() {
     loadGuestLimits();
     await restoreAuthSession();
     updateUserBadge();
+    loadDailyRetentionOnOpen();
     loadInitialData();
     
     console.log('🌟 Ms. Smile English đã sẵn sàng!');
+}
+
+async function loadDailyRetentionOnOpen() {
+    if (!state.currentUser?.id) return;
+    try {
+        const response = await fetch(`/api/roadmap/dashboard?user_id=${state.currentUser.id}`);
+        const data = await response.json();
+        if (!data.success || !data.dashboard) return;
+        state.roadmapDashboard = data.dashboard;
+        const message = buildDailyRetentionMessage(data.dashboard);
+        console.log('[retention.open]', data.dashboard.dailyProgress || {});
+        showDailyRetentionToast(data.dashboard, message);
+    } catch (error) {
+        console.warn('[retention.open] skipped', error);
+    }
 }
 
 function setupHeaderMoreMenu() {
@@ -2056,6 +2072,7 @@ async function completeRoadmapLesson(lessonId, levelId) {
             return;
         }
         updateLessonProgressBar(100);
+        playRewardSound('success');
         if (data.dashboard) renderRoadmapDashboard(data.dashboard);
         showLessonCompleteCelebration(data.dashboard || {});
     } else {
