@@ -321,7 +321,8 @@ def _quiz_from_prompt(prompt):
 
 def _build_units(level_id, level_title, specs):
     units = []
-    for unit_idx in range(6):
+    unit_count = (len(specs) + 4) // 5
+    for unit_idx in range(unit_count):
         unit_id = f"{level_id}_u{unit_idx + 1}"
         group = specs[unit_idx * 5:(unit_idx + 1) * 5]
         if not group:
@@ -351,6 +352,55 @@ def _build_units(level_id, level_title, specs):
             ],
         })
     return units
+
+
+STARTER_EXTRA_TOPICS = [
+    "Personal Information", "My Address", "My Favorite Things", "My Best Friend", "My School Bag",
+    "At the Market", "Fruit and Vegetables", "Breakfast Time", "After School", "Bedtime Routine",
+    "My Neighborhood", "At the Bus Stop", "In the Playground", "At the Bookstore", "At the Pharmacy",
+    "Simple Questions", "Yes and No Answers", "Asking Permission", "Saying Thank You", "Saying Sorry",
+    "Small Talk", "Daily Chores", "Weekend Visit", "Simple Review 1", "Simple Review 2",
+]
+
+
+def _starter_extra_topic_spec(topic, idx):
+    key = topic.lower()
+    topic_word = key.split()[0]
+    word_pool = [
+        ("address", "dia chi"), ("favorite", "yeu thich"), ("market", "cho"), ("breakfast", "bua sang"),
+        ("neighborhood", "khu pho"), ("bus stop", "tram xe buyt"), ("permission", "xin phep"),
+        ("thank you", "cam on"), ("sorry", "xin loi"), ("chores", "viec nha"),
+    ]
+    selected = [(topic_word, key)] + [word_pool[(idx + offset) % len(word_pool)] for offset in range(4)]
+    words = [
+        (selected[0][0], selected[0][1], f"This lesson is about {key}."),
+        (selected[1][0], selected[1][1], f"I can say something about {key}."),
+        (selected[2][0], selected[2][1], "This word is useful every day."),
+        (selected[3][0], selected[3][1], "Please repeat this word."),
+        (selected[4][0], selected[4][1], "I can use this word in a sentence."),
+    ]
+    patterns = [f"I can talk about {key}.", "Can I ask a question?", "Thank you for helping me."]
+    grammar = ["Use short present simple sentences.", "Use can for simple ability and permission."]
+    dialogue = [("A", f"Can you talk about {key}?"), ("B", "Yes, I can say a short sentence."), ("A", "Good. Please repeat it.")]
+    speaking = [f"I can talk about {key}.", "Can I ask a question?", "Thank you for helping me."]
+    return (topic, topic, words, patterns, grammar, dialogue, speaking, "Choose a polite sentence.||Can I ask a question?")
+
+
+STARTER_TOPICS += [_starter_extra_topic_spec(topic, idx) for idx, topic in enumerate(STARTER_EXTRA_TOPICS)]
+
+
+FLYER_TOPICS += [
+    ("Science Fair", "At the Science Fair"), ("Camping Trip", "Going Camping"), ("Saving Money", "Saving Pocket Money"),
+    ("Team Project", "Working in a Team"), ("Class Debate", "Giving a Simple Opinion"),
+    ("Lost Direction", "Finding the Right Way"), ("Train Delay", "The Train Is Late"), ("Online Game", "Playing Online Safely"),
+    ("Pet Care", "Taking Care of a Pet"), ("Healthy Lunch", "Choosing a Healthy Lunch"),
+    ("School Rules", "Talking About Rules"), ("New Student", "Helping a New Student"), ("Birthday Invitation", "Planning a Party"),
+    ("Holiday Plan", "Planning a Holiday"), ("Photo Description", "Describing a Photo"),
+    ("Book Report", "Talking About a Book"), ("Simple News", "Telling Simple News"), ("Class Survey", "Asking Survey Questions"),
+    ("Lost Password", "Fixing a Password Problem"), ("Video Call", "Joining a Video Call"),
+    ("Helping at Home", "Helping at Home"), ("Town Festival", "At a Town Festival"), ("Travel Problem", "A Travel Problem"),
+    ("Flyer Skills Review", "Flyer Skills Review"), ("Flyer Speaking Review", "Flyer Speaking Review"),
+]
 
 
 ROADMAP_UNITS = (
@@ -424,6 +474,78 @@ ADVANCED_LEVEL_TOPICS = {
         "Checklist Review", "Noise Warning", "Temperature Check", "Team Briefing", "Factory Final Review",
     ],
 }
+
+ADVANCED_LEVEL_TOPICS["ket"] += [
+    "Doctor Appointment", "School Trip Form", "Changing a Ticket", "At the Post Office", "Simple Complaint",
+    "Museum Opening Hours", "Sports Practice", "Bus Information", "New Classmate", "Lost Key",
+    "Cafe Meeting", "Cinema Time", "Park Rules", "Buying Clothes", "Asking the Price",
+    "Email to Teacher", "Weekend Invitation", "City Transport", "Simple Notice Reply", "Holiday Booking",
+    "Family Visit", "After-school Club", "Short Story Message", "Daily Life Review", "KET Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["pet"] += [
+    "School Uniform Debate", "Social Media Opinion", "Part-time Job", "Sports Competition", "Unexpected Problem",
+    "Giving Advice to a Friend", "Comparing Two Photos", "Planning a Class Event", "Writing a Review", "Explaining a Mistake",
+    "Travel Delay Story", "Healthy Lifestyle Choice", "Online Safety", "Local Community Problem", "Choosing a Course",
+    "Describing a Memory", "Polite Disagreement", "Making a Recommendation", "Discussing Rules", "Future Career Plan",
+    "Helping a Visitor", "Sharing Good News", "Solving Team Conflict", "PET Writing Review", "PET Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["ielts_foundation"] += [
+    "Friends Topic", "Sports Topic", "Music Topic", "Books Topic", "Money Topic",
+    "Public Transport", "Learning Languages", "Social Media", "Daily Technology", "Simple Graph",
+    "Agree or Disagree", "Advantages Topic", "Disadvantages Topic", "Giving Reasons", "Adding Details",
+    "Part 2 Story", "Describing a Person", "Describing a Place", "Describing an Object", "Simple Comparison",
+    "Common Grammar Errors", "Topic Vocabulary Review", "Speaking Confidence", "Writing Basics Review", "IELTS Starter Review",
+]
+
+ADVANCED_LEVEL_TOPICS["ielts_50"] += [
+    "Opinion Development", "Body Paragraph One", "Body Paragraph Two", "Chart Introduction", "Line Graph Trends",
+    "Bar Chart Comparison", "Pie Chart Summary", "Map Vocabulary", "Process Vocabulary", "Cause Paragraph",
+    "Solution Paragraph", "Discussion Essay", "Direct Question Essay", "Speaking Part 1 Details", "Speaking Part 2 Structure",
+    "Speaking Part 3 Reasons", "Example Expansion", "Avoiding Repetition", "Grammar Accuracy Check", "Vocabulary Upgrade",
+    "Clear Pronunciation", "Fluency Practice", "Writing Time Management", "IELTS 5 Writing Review", "IELTS 5 Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["ielts_65"] += [
+    "Sophisticated Examples", "Evaluating Evidence", "Concession Paragraph", "Advanced Linking", "Nominalisation",
+    "Complex Comparison", "Trend Precision", "Cautious Language", "High-level Paraphrase", "Cohesive Referencing",
+    "Mixed Chart Response", "Advanced Process Report", "Map Change Description", "Abstract Discussion", "Policy Argument",
+    "Society and Culture", "Technology Ethics", "Education Reform", "Environment Policy", "Workplace Change",
+    "Speaking Nuance", "Stress and Intonation", "Error Correction Strategy", "Band 6.5 Writing Review", "Band 6.5 Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["business"] += [
+    "Meeting Agenda", "Taking Minutes", "Confirming Details", "Requesting Approval", "Reporting Progress",
+    "Project Risk", "Client Complaint", "Service Apology", "Negotiating Price", "Clarifying Scope",
+    "Team Handover", "Performance Feedback", "Training Session", "Product Launch", "Sales Forecast",
+    "Supplier Email", "Invoice Question", "Contract Summary", "Remote Work Update", "Urgent Deadline",
+    "Presentation Q and A", "Executive Summary", "Decision Follow-up", "Business Email Review", "Business Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["sales"] += [
+    "First Customer Contact", "Discovering Budget", "Matching Needs", "Explaining Packages", "Handling Price Concern",
+    "Competitor Comparison", "Creating Urgency", "Building Rapport", "Asking for Decision", "Confirming Order",
+    "Payment Terms", "Delivery Timeline", "Customer Follow-up", "Referral Request", "Loyalty Offer",
+    "Service Upgrade", "Complaint Recovery", "Warranty Explanation", "Product Demonstration", "Negotiating Discount",
+    "Closing Script", "Phone Sales Practice", "Sales Email Practice", "Sales Objection Review", "Sales Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["cafe"] += [
+    "Greeting Regular Guests", "Explaining the Menu", "Coffee Strength", "Milk Options", "Food Allergy",
+    "No Ice Request", "Changing an Order", "Table Reservation", "Large Group Order", "Handling a Queue",
+    "Card Payment Problem", "Refund Request", "Late Order Apology", "Recommending Dessert", "Cleaning Spill",
+    "Drive-through Order", "Delivery Order", "Customer Complaint", "Daily Special", "Stock Shortage",
+    "Training New Staff", "Shift Handover", "Cafe Phone Call", "Cafe Service Review", "Cafe Speaking Review",
+]
+
+ADVANCED_LEVEL_TOPICS["factory"] += [
+    "Morning Safety Briefing", "Reporting Late Arrival", "Checking Materials", "Machine Start-up", "Machine Shutdown",
+    "Quality Defect", "Asking for Tools", "Reporting Low Stock", "Forklift Safety", "Warehouse Instruction",
+    "Line Leader Update", "Production Delay", "Overtime Request", "Changing Shifts", "PPE Reminder",
+    "Fire Drill", "First Aid Request", "Maintenance Schedule", "Packing Instruction", "Loading Area",
+    "Supervisor Feedback", "Training Checklist", "Incident Follow-up", "Factory Safety Review", "Factory Speaking Review",
+]
 
 LEVEL_CONTENT_PROFILES = {
     "ket": {
