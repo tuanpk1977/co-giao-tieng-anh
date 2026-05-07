@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-028"
+APP_VERSION = "hybrid-roadmap-029"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -871,6 +871,22 @@ def roadmap_save_progress():
     return jsonify({"success": True, "progress": row.to_dict(), "dashboard": dashboard})
 
 
+@app.route('/api/roadmap/speaking-attempt', methods=['POST'])
+def roadmap_speaking_attempt():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "error": "user_id is required"}), 400
+    progress = get_roadmap_service().record_speaking_attempt(
+        user_id=user_id,
+        lesson_id=data.get('lesson_id'),
+        score=data.get('score', 0),
+    )
+    if not progress:
+        return jsonify({"success": False, "error": "Could not save speaking attempt"}), 400
+    return jsonify({"success": True, "dashboard": get_roadmap_service().get_dashboard(user_id)})
+
+
 @app.route('/api/roadmap/dashboard', methods=['GET'])
 def roadmap_dashboard():
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
@@ -1051,6 +1067,71 @@ Learner transcript: {transcript}
         "correction": correction,
         "limit": {**limit, "used": limit["used"] + 1},
         "log": log.to_dict()
+    })
+
+
+@app.route('/api/speaking-feedback', methods=['POST'])
+def speaking_feedback():
+    data = request.get_json() or {}
+    user_id = data.get('user_id') or session.get('user_id')
+    expected = (data.get('expectedText') or data.get('expected') or '').strip()
+    spoken = (data.get('spokenText') or data.get('transcript') or '').strip()
+    user_level = (data.get('userLevel') or 'beginner').strip()
+    if not expected or not spoken:
+        return jsonify({"success": False, "error": "expectedText and spokenText are required"}), 400
+    if not user_id:
+        return jsonify({"success": False, "error": "Please log in to use AI speaking feedback"}), 401
+
+    roadmap_service = get_roadmap_service()
+    limit = roadmap_service.get_ai_limit_status(user_id, 'speaking_feedback')
+    paid_plans = {
+        'basic', 'basic_monthly', 'basic_six_months', 'basic_yearly',
+        'pro', 'pro_monthly', 'pro_six_months', 'pro_yearly',
+        'premium',
+        'family', 'family_member', 'family_monthly', 'family_six_months', 'family_yearly',
+    }
+    if limit.get('planType') not in paid_plans:
+        return jsonify({"success": False, "error": "AI speaking feedback is available for Basic, Pro, and Family plans.", "limit": limit}), 403
+    if not limit["allowed"]:
+        return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
+
+    prompt = f"""You are Ms. Smile, a concise English pronunciation coach for Vietnamese learners.
+Return ONLY compact valid JSON. No markdown. Vietnamese, friendly, under 60 words total.
+Keys: summary, pronunciationTips, wordCorrections, practiceAgainText.
+Focus on pronunciation, missing words, final sounds, and naturalness.
+
+User level: {user_level}
+Expected sentence: {expected}
+Learner transcript: {spoken}
+"""
+    raw = get_ai_service().chat(prompt)
+    fallback = {
+        "summary": "Ban noi duoc y chinh. Hay luyen cham hon va ro am cuoi.",
+        "pronunciationTips": ["Noi cham hon", "Doc ro am cuoi"],
+        "wordCorrections": [],
+        "practiceAgainText": expected,
+    }
+    try:
+        start = raw.find('{')
+        end = raw.rfind('}')
+        feedback = json.loads(raw[start:end + 1]) if start >= 0 and end >= start else fallback
+    except Exception:
+        feedback = fallback
+
+    token_used = (len(prompt) + len(raw)) // 4 or 1
+    log = get_ai_usage_service().log_usage(
+        user_id=user_id,
+        feature_type='speaking_feedback',
+        token_used=token_used,
+        estimated_cost=0.0,
+        plan_type=limit.get('planType')
+    )
+    roadmap_service.record_speaking_attempt(user_id=user_id, lesson_id=data.get('lesson_id'), score=0)
+    return jsonify({
+        "success": True,
+        "feedback": feedback,
+        "limit": {**limit, "used": limit["used"] + 1},
+        "log": log.to_dict(),
     })
 
 

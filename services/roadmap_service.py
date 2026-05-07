@@ -243,7 +243,10 @@ class RoadmapService:
         badges = progress.get_badges()
         badge_ids = {badge.get("id") for badge in badges}
         candidates = [
-            ("streak_3", "3-Day Streak", (progress.current_streak or 0) >= 3),
+            ("first_lesson", "First Lesson", (progress.completed_lessons or 0) >= 1),
+            ("streak_3", "3 Days Streak", (progress.current_streak or 0) >= 3),
+            ("speaking_beginner", "Speaking Beginner", (progress.speaking_practices or 0) >= 1),
+            ("quiz_master", "Quiz Master", (progress.completed_lessons or 0) >= 5),
             ("streak_7", "7-Day Streak", (progress.current_streak or 0) >= 7),
             ("lesson_10", "10 Lesson Bonus", (progress.completed_lessons or 0) >= 10),
             ("beginner_finisher", "Beginner Finisher", (progress.completed_lessons or 0) >= 6),

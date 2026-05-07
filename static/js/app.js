@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-028";
+const APP_VERSION = "hybrid-roadmap-029";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -1985,7 +1985,7 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-circle-question"></i><h4>Quiz</h4></div>
-                ${quiz.map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Answer: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('')}
+                ${quiz.map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-rotate-right"></i><h4>Review</h4></div>
@@ -2006,7 +2006,7 @@ function renderRoadmapContent(lesson) {
         return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p class="pattern-line"><span>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(ex)}</p>`).join('')}</div>`;
     }
     if (lesson.type === 'quiz') {
-        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="this.closest('.roadmap-quiz').querySelector('em').textContent='Dap an: ${escapeHtml(q.answer)}'">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
+        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
     }
     if (lesson.type === 'listening') {
         return `
@@ -2052,6 +2052,7 @@ async function completeRoadmapLesson(lessonId, levelId) {
             return;
         }
         if (data.dashboard) renderRoadmapDashboard(data.dashboard);
+        showLessonCompleteCelebration(data.dashboard || {});
     } else {
         state.guestLimits.roadmapLessons = Math.min(
             FREEMIUM_LIMITS.roadmapLessons,
@@ -2062,8 +2063,34 @@ async function completeRoadmapLesson(lessonId, levelId) {
         return;
     }
     state.roadmapCache = null;
-    showToast('✅', 'Da luu tien do bai hoc');
+    showToast('🎉', 'Tuyệt vời! Hôm nay bạn đã tiến bộ thêm một chút rồi 💪');
     loadRoadmapLevel(levelId);
+}
+
+function showLessonCompleteCelebration(dashboard = {}) {
+    const existing = document.getElementById('lessonCelebrationOverlay');
+    if (existing) existing.remove();
+    const badges = dashboard.badges || [];
+    const latestBadge = badges.length ? badges[badges.length - 1] : null;
+    const overlay = document.createElement('div');
+    overlay.id = 'lessonCelebrationOverlay';
+    overlay.className = 'celebration-overlay';
+    overlay.innerHTML = `
+        <div class="celebration-card">
+            <button class="modal-close celebration-close" onclick="document.getElementById('lessonCelebrationOverlay')?.remove()">×</button>
+            <div class="celebration-burst">+50 XP</div>
+            <h3>Tuyệt vời!</h3>
+            <p>Hôm nay bạn đã tiến bộ thêm một chút rồi 💪</p>
+            <div class="celebration-stats">
+                <span><strong>${dashboard.totalXP || 0}</strong> XP</span>
+                <span><strong>${dashboard.streakDays || 0}</strong> streak</span>
+            </div>
+            ${latestBadge ? `<div class="badge-pop"><i class="fas fa-award"></i> Badge: ${escapeHtml(latestBadge.title)}</div>` : ''}
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('show'), 20);
+    setTimeout(() => overlay.remove(), 4200);
 }
 
 async function logRoadmapAiUse(featureType, lessonId = null) {
@@ -2213,6 +2240,7 @@ function startRoadmapSpeaking(sentence) {
     state.currentSpeakingExpected = sentence;
     state.currentSpeakingTranscript = '';
     playRoadmapAudio(sentence);
+    showMsSmileNudge('listen');
     const result = document.getElementById('roadmapSpeakingResult');
     if (result) {
         result.classList.remove('hidden');
@@ -2239,7 +2267,8 @@ async function recordRoadmapSpeaking(sentence) {
         const transcript = event.results[0][0].transcript;
         state.currentSpeakingTranscript = transcript;
         state.isRoadmapSpeakingMode = false;
-        renderRoadmapSpeakingResult(transcript, sentence);
+        const feedback = renderRoadmapSpeakingResult(transcript, sentence);
+        saveRoadmapSpeakingAttempt(feedback?.score || 0);
         setTimeout(initializeSpeechRecognition, 0);
     };
     state.recognition.onerror = () => {
@@ -2304,54 +2333,145 @@ function startShadowing(sentence) {
     setTimeout(() => recordRoadmapSpeaking(sentence), 2000);
 }
 
-function compareSpeech(expected, spoken) {
-    const clean = value => String(value || '').toLowerCase().replace(/[^\w\s']/g, '').split(/\s+/).filter(Boolean);
-    const expectedWords = clean(expected);
-    const spokenWords = clean(spoken);
-    const missing = expectedWords.filter(word => !spokenWords.includes(word));
-    const extra = spokenWords.filter(word => !expectedWords.includes(word));
-    const correct = expectedWords.filter(word => spokenWords.includes(word)).length;
-    const accuracy = expectedWords.length ? Math.round((correct / expectedWords.length) * 100) : 0;
-    const completeness = expectedWords.length ? Math.round(((expectedWords.length - missing.length) / expectedWords.length) * 100) : 0;
-    const lengthRatio = expectedWords.length ? Math.min(spokenWords.length, expectedWords.length) / expectedWords.length : 0;
-    const fluency = Math.round(Math.max(0, Math.min(100, (lengthRatio * 75) + (extra.length ? -10 : 15))));
+function showMsSmileNudge(type) {
+    const messages = {
+        listen: 'Nghe tốt lắm, mình thử nói lại nhé!',
+        speakingNear: 'Bạn đang tiến bộ rồi đó!',
+        quizCorrect: 'Chuẩn luôn!',
+        quizWrong: 'Không sao, sai là cách mình học nhanh hơn.'
+    };
+    if (messages[type]) showToast('💬', messages[type]);
+}
+
+function revealRoadmapQuizAnswer(button, answer) {
+    const quiz = button.closest('.roadmap-quiz');
+    const target = quiz?.querySelector('em');
+    if (target) target.textContent = `Answer: ${answer}`;
+    showMsSmileNudge('quizCorrect');
+}
+
+async function saveRoadmapSpeakingAttempt(score = 0) {
+    if (!state.currentUser?.id) return;
+    try {
+        const response = await fetch('/api/roadmap/speaking-attempt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: state.currentUser.id,
+                lesson_id: state.currentRoadmapLesson?.id || null,
+                score
+            })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (data.success && data.dashboard) renderRoadmapDashboard(data.dashboard);
+    } catch (error) {
+        console.warn('Speaking attempt save failed:', error);
+    }
+}
+
+function normalizeSpeechText(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/\bi'm\b/g, 'i am')
+        .replace(/\byou're\b/g, 'you are')
+        .replace(/\bdon't\b/g, 'do not')
+        .replace(/\bcan't\b/g, 'cannot')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function compareSpeech(expectedText, spokenText) {
+    const expectedWords = normalizeSpeechText(expectedText).split(' ').filter(Boolean);
+    const spokenWords = normalizeSpeechText(spokenText).split(' ').filter(Boolean);
+    const usedSpoken = new Set();
+    const matchedWords = [];
+    const missingWords = [];
+    let searchStart = 0;
+
+    expectedWords.forEach(word => {
+        let found = -1;
+        for (let i = searchStart; i < spokenWords.length; i += 1) {
+            if (!usedSpoken.has(i) && spokenWords[i] === word) {
+                found = i;
+                break;
+            }
+        }
+        if (found >= 0) {
+            usedSpoken.add(found);
+            matchedWords.push(word);
+            searchStart = found + 1;
+        } else {
+            missingWords.push(word);
+        }
+    });
+
+    const extraWords = spokenWords.filter((_, index) => !usedSpoken.has(index));
+    const denominator = Math.max(expectedWords.length, spokenWords.length, 1);
+    const score = Math.round((matchedWords.length / denominator) * 100);
+    const completeness = expectedWords.length ? Math.round((matchedWords.length / expectedWords.length) * 100) : 0;
+    const fluency = Math.max(0, Math.min(100, score - (extraWords.length * 4) + (spokenWords.length ? 8 : 0)));
+    const feedbackMessage = score >= 85
+        ? 'Rất tốt!'
+        : score >= 60
+            ? 'Ổn rồi, thử nói chậm hơn một chút.'
+            : 'Mình luyện lại từng cụm nhé.';
     const expectedMarkup = expectedWords.map(word => {
-        const cls = spokenWords.includes(word) ? 'word-ok' : 'word-missing';
+        const cls = missingWords.includes(word) ? 'word-missing' : 'word-ok';
         return `<span class="${cls}">${escapeHtml(word)}</span>`;
     }).join(' ');
-    const spokenMarkup = spokenWords.map(word => {
-        const cls = expectedWords.includes(word) ? 'word-ok' : 'word-wrong';
+    const spokenMarkup = spokenWords.map((word, index) => {
+        const cls = usedSpoken.has(index) ? 'word-ok' : 'word-wrong';
         return `<span class="${cls}">${escapeHtml(word)}</span>`;
     }).join(' ');
-    return { missing, extra, score: accuracy, accuracy, fluency, completeness, expectedMarkup, spokenMarkup };
+
+    return {
+        score,
+        expectedWords,
+        spokenWords,
+        matchedWords,
+        missingWords,
+        extraWords,
+        feedbackMessage,
+        accuracy: score,
+        fluency,
+        completeness,
+        missing: missingWords,
+        extra: extraWords,
+        expectedMarkup,
+        spokenMarkup
+    };
 }
 
 function renderRoadmapSpeakingResult(transcript, expected, fallback = '') {
     const result = document.getElementById('roadmapSpeakingResult');
-    if (!result) return;
+    if (!result) return null;
     const feedback = compareSpeech(expected, transcript);
+    if (transcript && feedback.score >= 60) showMsSmileNudge('speakingNear');
     result.classList.remove('hidden');
     result.innerHTML = `
         <div class="pronunciation-feedback">
-            <div class="feedback-title">Speaking result</div>
-            <p><strong>Expected:</strong> <span class="speech-compare">${feedback.expectedMarkup}</span></p>
-            <p><strong>You said:</strong> <span class="speech-compare">${transcript ? feedback.spokenMarkup : escapeHtml(fallback || 'No transcript')}</span></p>
+            <div class="feedback-title">Speaking feedback</div>
+            <p class="speaking-feedback-message">${escapeHtml(feedback.feedbackMessage)}</p>
+            <p><strong>Câu mẫu:</strong> <span class="speech-compare">${feedback.expectedMarkup}</span></p>
+            <p><strong>Bạn đã nói:</strong> <span class="speech-compare">${transcript ? feedback.spokenMarkup : escapeHtml(fallback || 'No transcript')}</span></p>
             <div class="speaking-score-grid">
-                <div><strong>${feedback.accuracy}%</strong><span>Accuracy</span></div>
+                <div><strong>${feedback.score}%</strong><span>Điểm tương đồng</span></div>
                 <div><strong>${feedback.fluency}%</strong><span>Fluency</span></div>
                 <div><strong>${feedback.completeness}%</strong><span>Completeness</span></div>
             </div>
-            ${feedback.missing.length ? `<div class="feedback-item missing">Missing: ${feedback.missing.map(escapeHtml).join(', ')}</div>` : ''}
-            ${feedback.extra.length ? `<div class="feedback-item">Extra/different: ${feedback.extra.map(escapeHtml).join(', ')}</div>` : ''}
+            ${feedback.missingWords.length ? `<div class="feedback-item missing">Thiếu: ${feedback.missingWords.map(escapeHtml).join(', ')}</div>` : ''}
+            ${feedback.extraWords.length ? `<div class="feedback-item">Khác/thêm: ${feedback.extraWords.map(escapeHtml).join(', ')}</div>` : ''}
             ${state.currentUserAudioUrl ? `<audio controls src="${state.currentUserAudioUrl}"></audio>` : ''}
             <div class="speaking-line-actions">
-                <button class="btn btn-audio" onclick="playRoadmapAudio('${escapeAttr(expected)}', true)"><i class="fas fa-volume-up"></i> Slow sample</button>
-                <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(expected)}')"><i class="fas fa-rotate-right"></i> Retry</button>
-                <button class="btn btn-stats" onclick="requestAiSpeakingCorrection()"><i class="fas fa-wand-magic-sparkles"></i> AI sua phat am cho toi</button>
+                <button class="btn btn-audio" onclick="playRoadmapAudio('${escapeAttr(expected)}', true)"><i class="fas fa-volume-up"></i> Nghe lại câu mẫu</button>
+                <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(expected)}')"><i class="fas fa-rotate-right"></i> Thử nói lại</button>
+                <button class="btn btn-stats" onclick="requestAiSpeakingCorrection()"><i class="fas fa-wand-magic-sparkles"></i> Nhờ AI sửa phát âm</button>
             </div>
             <div id="aiSpeakingCorrection"></div>
         </div>
     `;
+    return feedback;
 }
 
 async function requestAiSpeakingCorrection() {
@@ -2361,14 +2481,15 @@ async function requestAiSpeakingCorrection() {
     }
     const target = document.getElementById('aiSpeakingCorrection');
     if (target) target.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>AI dang sua...</p></div>';
-    const response = await fetch('/api/roadmap/ai/speaking-correction', {
+    const response = await fetch('/api/speaking-feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             user_id: state.currentUser?.id || null,
             lesson_id: state.currentRoadmapLesson?.id || null,
-            expected: state.currentSpeakingExpected,
-            transcript: state.currentSpeakingTranscript
+            expectedText: state.currentSpeakingExpected,
+            spokenText: state.currentSpeakingTranscript,
+            userLevel: state.currentUser?.english_level || state.profile?.english_level || 'beginner'
         })
     });
     const data = await response.json();
@@ -2376,14 +2497,15 @@ async function requestAiSpeakingCorrection() {
         if (target) target.innerHTML = `<p>${escapeHtml(data.error || 'AI error')}</p>`;
         return;
     }
-    const c = data.correction || {};
+    const c = data.feedback || {};
     if (target) {
         target.innerHTML = `
             <div class="roadmap-ai-explanation">
                 <h4>AI Speaking Coach</h4>
-                <p>Overall: ${c.overall_score || 0}/100 · Pronunciation: ${c.pronunciation_score || 0}/100 · Grammar: ${c.grammar_score || 0}/100</p>
-                <p>${escapeHtml(c.short_feedback || '')}</p>
-                <p><strong>Suggested:</strong> ${escapeHtml(c.suggested_sentence || '')}</p>
+                <p>${escapeHtml(c.summary || '')}</p>
+                ${(c.pronunciationTips || []).length ? `<ul>${c.pronunciationTips.map(tip => `<li>${escapeHtml(tip)}</li>`).join('')}</ul>` : ''}
+                ${(c.wordCorrections || []).length ? `<p><strong>Word corrections:</strong> ${c.wordCorrections.map(item => escapeHtml(typeof item === 'string' ? item : JSON.stringify(item))).join(', ')}</p>` : ''}
+                <p><strong>Practice again:</strong> ${escapeHtml(c.practiceAgainText || state.currentSpeakingExpected)}</p>
             </div>
         `;
     }
