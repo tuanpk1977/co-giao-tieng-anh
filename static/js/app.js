@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-029";
+const APP_VERSION = "hybrid-roadmap-030";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -1741,6 +1741,10 @@ async function openRoadmapLesson(lessonId) {
         <div class="roadmap-lesson-view">
             <button class="btn btn-secondary" onclick="loadRoadmapLevel('${lesson.levelId}')">Quay lai unit</button>
             <h3>${escapeHtml(lesson.title)}</h3>
+            <div class="lesson-progress-shell">
+                <div class="lesson-progress-label"><span>Lesson progress</span><strong>0%</strong></div>
+                <div class="lesson-progress-track"><span style="width:0%"></span></div>
+            </div>
             <div class="roadmap-content-block">${renderRoadmapContent(lesson)}</div>
             <div class="roadmap-actions">
                 ${lesson.isAiEnabled && lesson.type !== 'speaking' ? `<button class="btn btn-stats" onclick="logRoadmapAiUse('${lesson.aiFeatureType}', '${lesson.id}')"><i class="fas fa-wand-magic-sparkles"></i> AI giai thich giup toi</button>` : ''}
@@ -2051,6 +2055,7 @@ async function completeRoadmapLesson(lessonId, levelId) {
             showToast('🔒', data.error || 'Bai hoc dang khoa');
             return;
         }
+        updateLessonProgressBar(100);
         if (data.dashboard) renderRoadmapDashboard(data.dashboard);
         showLessonCompleteCelebration(data.dashboard || {});
     } else {
@@ -2093,6 +2098,35 @@ function showLessonCompleteCelebration(dashboard = {}) {
     setTimeout(() => overlay.remove(), 4200);
 }
 
+function updateLessonProgressBar(percent) {
+    const safe = Math.max(0, Math.min(100, Number(percent) || 0));
+    const bar = document.querySelector('.lesson-progress-track span');
+    const label = document.querySelector('.lesson-progress-label strong');
+    if (bar) bar.style.width = `${safe}%`;
+    if (label) label.textContent = `${safe}%`;
+}
+
+function playRewardSound(type = 'success') {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = type === 'success' ? 740 : 360;
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.16);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+    } catch (error) {
+        console.debug('[sound] reward sound skipped', error);
+    }
+}
+
 async function logRoadmapAiUse(featureType, lessonId = null) {
     const response = await fetch(lessonId ? '/api/roadmap/ai/explain' : '/api/ai/usage/log', {
         method: 'POST',
@@ -2118,6 +2152,7 @@ async function logRoadmapAiUse(featureType, lessonId = null) {
 }
 
 function renderRoadmapDashboard(dashboard = {}) {
+    state.roadmapDashboard = dashboard || {};
     const modalBody = document.querySelector('#roadmapModal .modal-body');
     if (!modalBody) return;
     let panel = document.getElementById('roadmapDashboardPanel');
@@ -2130,7 +2165,15 @@ function renderRoadmapDashboard(dashboard = {}) {
     const goal = dashboard.dailyGoalXP || 50;
     const daily = Math.min(dashboard.dailyProgressXP || 0, goal);
     const percent = Math.round((daily / goal) * 100);
+    const retention = buildDailyRetentionMessage(dashboard);
+    console.log('[roadmap.dashboard]', {
+        xp: dashboard.totalXP || 0,
+        streak: dashboard.streakDays || 0,
+        lessonsToday: dashboard.dailyProgress?.lessonsCompletedToday || 0,
+        commonErrors: dashboard.commonErrors || []
+    });
     panel.innerHTML = `
+        ${retention ? `<div class="daily-retention-card">${escapeHtml(retention)}</div>` : ''}
         <div class="roadmap-stat"><strong>${dashboard.totalXP || 0}</strong><span>XP</span></div>
         <div class="roadmap-stat"><strong>${dashboard.streakDays || 0}</strong><span>day streak</span></div>
         <div class="roadmap-stat daily-goal">
@@ -2168,10 +2211,31 @@ function renderRoadmapDashboard(dashboard = {}) {
             <button class="btn btn-primary" onclick="continueRoadmapLesson()"><i class="fas fa-play"></i> Continue</button>
         </div>
     `;
+    showDailyRetentionToast(dashboard, retention);
     if ((dashboard.streakDays || 0) >= 3 && !sessionStorage.getItem('streak_popup_seen')) {
         sessionStorage.setItem('streak_popup_seen', '1');
         showToast('🔥', `You are on a ${dashboard.streakDays}-day streak!`);
     }
+}
+
+function buildDailyRetentionMessage(dashboard = {}) {
+    const progress = dashboard.dailyProgress || {};
+    const lessonsToday = progress.lessonsCompletedToday || 0;
+    const target = progress.targetLessonsToday || 3;
+    const remaining = Math.max(0, target - lessonsToday);
+    if (progress.missedYesterday) {
+        return '😢 Hôm qua bạn bỏ lỡ 1 ngày. Học lại để bắt đầu streak mới nhé!';
+    }
+    if (remaining > 0) {
+        return `🔥 Bạn đã học ${lessonsToday} bài hôm nay — còn ${remaining} bài nữa để giữ streak!`;
+    }
+    return `🏆 Hôm nay bạn đã đủ mục tiêu. Streak ${progress.streak || dashboard.streakDays || 0} ngày đang rất đẹp!`;
+}
+
+function showDailyRetentionToast(dashboard = {}, message = '') {
+    if (!message || sessionStorage.getItem('daily_retention_seen')) return;
+    sessionStorage.setItem('daily_retention_seen', '1');
+    setTimeout(() => showToast('🔥', message), 500);
 }
 
 async function continueRoadmapLesson() {
@@ -2268,7 +2332,7 @@ async function recordRoadmapSpeaking(sentence) {
         state.currentSpeakingTranscript = transcript;
         state.isRoadmapSpeakingMode = false;
         const feedback = renderRoadmapSpeakingResult(transcript, sentence);
-        saveRoadmapSpeakingAttempt(feedback?.score || 0);
+        saveRoadmapSpeakingAttempt(feedback?.score || 0, feedback?.grammarIssues || []);
         setTimeout(initializeSpeechRecognition, 0);
     };
     state.recognition.onerror = () => {
@@ -2347,10 +2411,11 @@ function revealRoadmapQuizAnswer(button, answer) {
     const quiz = button.closest('.roadmap-quiz');
     const target = quiz?.querySelector('em');
     if (target) target.textContent = `Answer: ${answer}`;
+    playRewardSound('success');
     showMsSmileNudge('quizCorrect');
 }
 
-async function saveRoadmapSpeakingAttempt(score = 0) {
+async function saveRoadmapSpeakingAttempt(score = 0, grammarIssues = []) {
     if (!state.currentUser?.id) return;
     try {
         const response = await fetch('/api/roadmap/speaking-attempt', {
@@ -2359,7 +2424,8 @@ async function saveRoadmapSpeakingAttempt(score = 0) {
             body: JSON.stringify({
                 user_id: state.currentUser.id,
                 lesson_id: state.currentRoadmapLesson?.id || null,
-                score
+                score,
+                grammarIssues
             })
         });
         const data = await response.json().catch(() => ({}));
@@ -2379,6 +2445,67 @@ function normalizeSpeechText(text) {
         .replace(/[^\w\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function detectGrammarIssues(expectedWords, spokenWords) {
+    const issues = [];
+    const suggestions = [];
+    const spoken = spokenWords.join(' ');
+    const pastPairs = {
+        go: 'went', come: 'came', see: 'saw', eat: 'ate', drink: 'drank',
+        have: 'had', do: 'did', make: 'made', take: 'took', get: 'got',
+        buy: 'bought', say: 'said'
+    };
+    Object.entries(pastPairs).forEach(([base, past]) => {
+        if (spokenWords.includes(base) && expectedWords.includes(past)) {
+            issues.push('past tense');
+            suggestions.push(`You should say '${past}' instead of '${base}'.`);
+        }
+    });
+    expectedWords.forEach(word => {
+        if (word.length > 2 && word.endsWith('s')) {
+            const singular = word.slice(0, -1);
+            if (spokenWords.includes(singular) && !spokenWords.includes(word)) {
+                issues.push('plural');
+                suggestions.push(`Remember plural: say '${word}' instead of '${singular}'.`);
+            }
+        }
+    });
+    const beWords = ['am', 'is', 'are', 'was', 'were'];
+    if (expectedWords.some(word => beWords.includes(word)) && !spokenWords.some(word => beWords.includes(word))) {
+        if (/\b(i|you|he|she|it|we|they)\b/.test(spoken)) {
+            const be = expectedWords.find(word => beWords.includes(word)) || 'am/is/are';
+            issues.push('missing be');
+            suggestions.push(`Add the verb 'to be': try '${be}' in this sentence.`);
+        }
+    }
+    if (spokenWords.includes('yesterday') && !issues.includes('past tense')) {
+        const pair = Object.entries(pastPairs).find(([base, past]) => spokenWords.includes(base) && !spokenWords.includes(past));
+        if (pair) {
+            issues.push('past tense');
+            suggestions.push(`Because you said 'yesterday', use '${pair[1]}' instead of '${pair[0]}'.`);
+        }
+    }
+    const priority = getPersonalizedErrorPriority();
+    const grammarIssues = [...new Set(issues)];
+    grammarIssues.sort((a, b) => priority.indexOf(b) - priority.indexOf(a));
+    return { grammarIssues, suggestions: [...new Set(suggestions)] };
+}
+
+function getPersonalizedErrorPriority() {
+    return (state.roadmapDashboard?.commonErrors || [])
+        .map(item => typeof item === 'string' ? item : item.error)
+        .filter(Boolean);
+}
+
+function generateFeedbackMessage(result) {
+    if ((result.grammarIssues || []).length && result.score >= 70) {
+        return 'Bạn nói rất rõ, chỉ cần sửa 1 chút grammar 👍 Nice work!';
+    }
+    if (result.score > 90) return '🔥 Tuyệt vời! Bạn phát âm rất rõ và gần như perfect!';
+    if (result.score >= 70) return '👍 Rất tốt! Chỉ cần chỉnh 1-2 từ là hoàn hảo.';
+    if (result.score >= 50) return '💪 Bạn đang tiến bộ. Try speaking a little slower nhé.';
+    return 'Đừng lo! Bạn đang học rất đúng cách. Try again nhé 👏';
 }
 
 function compareSpeech(expectedText, spokenText) {
@@ -2411,6 +2538,8 @@ function compareSpeech(expectedText, spokenText) {
     const score = Math.round((matchedWords.length / denominator) * 100);
     const completeness = expectedWords.length ? Math.round((matchedWords.length / expectedWords.length) * 100) : 0;
     const fluency = Math.max(0, Math.min(100, score - (extraWords.length * 4) + (spokenWords.length ? 8 : 0)));
+    const grammar = detectGrammarIssues(expectedWords, spokenWords);
+    const encouragementMessage = generateFeedbackMessage({ score, grammarIssues: grammar.grammarIssues });
     const feedbackMessage = score >= 85
         ? 'Rất tốt!'
         : score >= 60
@@ -2425,14 +2554,17 @@ function compareSpeech(expectedText, spokenText) {
         return `<span class="${cls}">${escapeHtml(word)}</span>`;
     }).join(' ');
 
-    return {
+    const comparisonResult = {
         score,
         expectedWords,
         spokenWords,
         matchedWords,
         missingWords,
         extraWords,
-        feedbackMessage,
+        feedbackMessage: encouragementMessage,
+        encouragementMessage,
+        grammarIssues: grammar.grammarIssues,
+        suggestions: grammar.suggestions,
         accuracy: score,
         fluency,
         completeness,
@@ -2441,6 +2573,8 @@ function compareSpeech(expectedText, spokenText) {
         expectedMarkup,
         spokenMarkup
     };
+    console.log('[speaking.compare]', { score, grammarIssues: grammar.grammarIssues, missingWords, extraWords });
+    return comparisonResult;
 }
 
 function renderRoadmapSpeakingResult(transcript, expected, fallback = '') {
@@ -2455,6 +2589,7 @@ function renderRoadmapSpeakingResult(transcript, expected, fallback = '') {
             <p class="speaking-feedback-message">${escapeHtml(feedback.feedbackMessage)}</p>
             <p><strong>Câu mẫu:</strong> <span class="speech-compare">${feedback.expectedMarkup}</span></p>
             <p><strong>Bạn đã nói:</strong> <span class="speech-compare">${transcript ? feedback.spokenMarkup : escapeHtml(fallback || 'No transcript')}</span></p>
+            <p><strong>Highlight differences:</strong> <span class="speech-compare">${feedback.expectedMarkup}</span> ${feedback.extraWords.length ? `<span class="speech-compare">${feedback.extraWords.map(word => `<span class="word-wrong">${escapeHtml(word)}</span>`).join(' ')}</span>` : ''}</p>
             <div class="speaking-score-grid">
                 <div><strong>${feedback.score}%</strong><span>Điểm tương đồng</span></div>
                 <div><strong>${feedback.fluency}%</strong><span>Fluency</span></div>
@@ -2462,11 +2597,12 @@ function renderRoadmapSpeakingResult(transcript, expected, fallback = '') {
             </div>
             ${feedback.missingWords.length ? `<div class="feedback-item missing">Thiếu: ${feedback.missingWords.map(escapeHtml).join(', ')}</div>` : ''}
             ${feedback.extraWords.length ? `<div class="feedback-item">Khác/thêm: ${feedback.extraWords.map(escapeHtml).join(', ')}</div>` : ''}
+            ${(feedback.grammarIssues || []).length ? `<div class="grammar-hints"><strong>Smart grammar hint</strong><span>${feedback.grammarIssues.map(escapeHtml).join(', ')}</span>${(feedback.suggestions || []).map(item => `<p>${escapeHtml(item)}</p>`).join('')}</div>` : ''}
             ${state.currentUserAudioUrl ? `<audio controls src="${state.currentUserAudioUrl}"></audio>` : ''}
             <div class="speaking-line-actions">
                 <button class="btn btn-audio" onclick="playRoadmapAudio('${escapeAttr(expected)}', true)"><i class="fas fa-volume-up"></i> Nghe lại câu mẫu</button>
                 <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(expected)}')"><i class="fas fa-rotate-right"></i> Thử nói lại</button>
-                <button class="btn btn-stats" onclick="requestAiSpeakingCorrection()"><i class="fas fa-wand-magic-sparkles"></i> Nhờ AI sửa phát âm</button>
+                <button class="btn btn-stats" onclick="requestAiSpeakingCorrection()"><i class="fas fa-wand-magic-sparkles"></i> Nhờ AI sửa chi tiết</button>
             </div>
             <div id="aiSpeakingCorrection"></div>
         </div>

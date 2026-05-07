@@ -2534,13 +2534,40 @@ body {
 }
 
 .word-missing {
-    background: #fee2e2;
+    background: #fff1f2;
     color: #991b1b;
+    text-decoration: underline;
+    text-decoration-color: #ef4444;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
 }
 
 .word-wrong {
     background: #ffedd5;
     color: #9a3412;
+}
+
+.grammar-hints {
+    display: grid;
+    gap: 6px;
+    margin: 10px 0;
+    padding: 12px;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fff7ed;
+    color: #7c2d12;
+}
+
+.grammar-hints strong {
+    color: #9a3412;
+}
+
+.grammar-hints span {
+    font-weight: 800;
+}
+
+.grammar-hints p {
+    margin: 0;
 }
 
 .speaking-score-grid {

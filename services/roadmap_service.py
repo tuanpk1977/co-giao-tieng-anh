@@ -426,6 +426,28 @@ class RoadmapService:
         db.session.commit()
         return progress
 
+    def record_common_errors(self, user_id, errors):
+        if not user_id or not errors:
+            return []
+        progress = self.get_or_create_user_progress(user_id)
+        current = progress.get_common_errors()
+        if current and isinstance(current[0], dict):
+            counts = {item.get("error"): int(item.get("count") or 0) for item in current if item.get("error")}
+        else:
+            counts = {str(item): 1 for item in current if item}
+        for error in errors:
+            key = str(error or "").strip().lower()
+            if key:
+                counts[key] = counts.get(key, 0) + 1
+        ranked = [
+            {"error": error, "count": count}
+            for error, count in sorted(counts.items(), key=lambda item: item[1], reverse=True)[:8]
+        ]
+        progress.set_common_errors(ranked)
+        progress.updated_at = datetime.utcnow()
+        db.session.commit()
+        return ranked
+
     def get_continue_lesson(self, user_id):
         user = User.query.get(user_id) if user_id else None
         progress = self.get_progress_map(user_id) if user_id else {}
@@ -456,6 +478,8 @@ class RoadmapService:
                 "totalXP": 0, "streakDays": 0, "dailyGoalXP": 50, "dailyProgressXP": 0,
                 "badges": [], "completedLessons": 0, "speakingPractices": 0, "pronunciationScoreAvg": 0,
                 "currentLevel": "starter", "continueLesson": None, "recentlyStudied": [],
+                "commonErrors": [],
+                "dailyProgress": {"lessonsCompletedToday": 0, "streak": 0, "lastActiveDate": None, "missedYesterday": False},
                 "dailyMissions": [
                     {"id": "daily_lesson", "title": "Complete 1 lesson", "current": 0, "target": 1, "rewardXP": 20},
                     {"id": "daily_speaking", "title": "Practice speaking 3 times", "current": 0, "target": 3, "rewardXP": 30},
@@ -477,6 +501,9 @@ class RoadmapService:
             {"id": "daily_speaking", "title": "Practice speaking 3 times", "current": today["speakingAttempts"], "target": 3, "rewardXP": 30},
             {"id": "daily_xp", "title": "Earn 100 XP", "current": today["xp"], "target": 100, "rewardXP": 40},
         ]
+        last_active = progress.last_study_date if progress else None
+        yesterday = date.today() - timedelta(days=1)
+        missed_yesterday = bool(last_active and last_active < yesterday)
         weekly_challenge = [
             {"id": "weekly_days", "title": "Study 5 days this week", "current": week["activeDays"], "target": 5, "rewardXP": 120},
             {"id": "weekly_lessons", "title": "Complete 10 lessons", "current": week["lessons"], "target": 10, "rewardXP": 150},
@@ -498,6 +525,14 @@ class RoadmapService:
                 {"lessonId": row.lesson_id, "title": self.lessons.get(row.lesson_id, {}).get("title", row.lesson_id), "completedAt": row.completed_at.isoformat() if row.completed_at else None}
                 for row in recent_rows
             ],
+            "commonErrors": progress.get_common_errors() if progress else [],
+            "dailyProgress": {
+                "lessonsCompletedToday": today["lessons"],
+                "streak": progress.current_streak if progress else 0,
+                "lastActiveDate": last_active.isoformat() if last_active else None,
+                "missedYesterday": missed_yesterday,
+                "targetLessonsToday": 3,
+            },
             "dailyMissions": daily_missions,
             "weeklyChallenge": weekly_challenge,
         }

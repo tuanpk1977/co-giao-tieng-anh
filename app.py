@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-029"
+APP_VERSION = "hybrid-roadmap-030"
 
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
@@ -884,6 +884,9 @@ def roadmap_speaking_attempt():
     )
     if not progress:
         return jsonify({"success": False, "error": "Could not save speaking attempt"}), 400
+    errors = data.get('grammarIssues') or data.get('commonErrors') or []
+    if errors:
+        get_roadmap_service().record_common_errors(user_id, errors)
     return jsonify({"success": True, "dashboard": get_roadmap_service().get_dashboard(user_id)})
 
 
@@ -1083,17 +1086,26 @@ def speaking_feedback():
         return jsonify({"success": False, "error": "Please log in to use AI speaking feedback"}), 401
 
     roadmap_service = get_roadmap_service()
-    limit = roadmap_service.get_ai_limit_status(user_id, 'speaking_feedback')
-    paid_plans = {
-        'basic', 'basic_monthly', 'basic_six_months', 'basic_yearly',
-        'pro', 'pro_monthly', 'pro_six_months', 'pro_yearly',
-        'premium',
-        'family', 'family_member', 'family_monthly', 'family_six_months', 'family_yearly',
+    user = get_user_service().get_user(user_id)
+    plan = roadmap_service.get_effective_plan_name(user) if user else "free"
+    speaking_limits = {
+        'free': 3, 'free_trial': 3,
+        'basic': 10, 'basic_monthly': 10, 'basic_six_months': 10, 'basic_yearly': 10,
+        'pro': 30, 'pro_monthly': 30, 'pro_six_months': 30, 'pro_yearly': 30,
+        'premium': 30,
+        'family': 30, 'family_member': 10, 'family_monthly': 30, 'family_six_months': 30, 'family_yearly': 30,
     }
-    if limit.get('planType') not in paid_plans:
-        return jsonify({"success": False, "error": "AI speaking feedback is available for Basic, Pro, and Family plans.", "limit": limit}), 403
+    daily_limit = speaking_limits.get(plan, 3)
+    from models import AIUsageLog
+    start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+    used = AIUsageLog.query.filter(
+        AIUsageLog.user_id == user_id,
+        AIUsageLog.feature_type == 'speaking_feedback',
+        AIUsageLog.created_at >= start,
+    ).count()
+    limit = {"allowed": used < daily_limit, "used": used, "limit": daily_limit, "planType": plan, "featureType": "speaking_feedback"}
     if not limit["allowed"]:
-        return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
+        return jsonify({"success": False, "error": "Bạn đã hết lượt AI hôm nay", "limit": limit}), 429
 
     prompt = f"""You are Ms. Smile, a concise English pronunciation coach for Vietnamese learners.
 Return ONLY compact valid JSON. No markdown. Vietnamese, friendly, under 60 words total.
