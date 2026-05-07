@@ -412,6 +412,16 @@ STARTER_TOPICS += [
 ]
 
 
+STARTER_TOPICS += [
+    _starter_extra_topic_spec(topic, idx + len(STARTER_EXTRA_TOPICS) + 45)
+    for idx, topic in enumerate(_starter_topic_series(
+        ["Learning", "Listening To", "Speaking About", "Writing About", "Reviewing"],
+        ["My Morning", "My Lunch", "My Street", "My Weekend", "My English Class"],
+        25,
+    ))
+]
+
+
 FLYER_TOPICS += [
     ("Science Fair", "At the Science Fair"), ("Camping Trip", "Going Camping"), ("Saving Money", "Saving Pocket Money"),
     ("Team Project", "Working in a Team"), ("Class Debate", "Giving a Simple Opinion"),
@@ -443,6 +453,13 @@ FLYER_TOPICS += _flyer_topic_series(
         "Food Orders", "Town Directions", "Health Advice", "Shopping Choices",
     ],
     45,
+)
+
+
+FLYER_TOPICS += _flyer_topic_series(
+    ["Practicing", "Discussing", "Writing About", "Listening For", "Reviewing"],
+    ["Travel Stories", "School Projects", "Shopping Problems", "Health Choices", "Town Activities"],
+    25,
 )
 
 
@@ -671,6 +688,28 @@ def _advanced_topic_series(level_id, limit=50):
 
 for _level_id in ADVANCED_EXPANSION_BLUEPRINTS:
     ADVANCED_LEVEL_TOPICS[_level_id] += _advanced_topic_series(_level_id)
+
+
+ADVANCED_EXTRA_CONTEXTS = {
+    "ket": ["Community Centre", "Simple Travel Plan", "Everyday Shopping", "Short Email Practice", "KET Final Skills"],
+    "pet": ["Teenage Life", "School Events", "Local Services", "Personal Experiences", "PET Final Skills"],
+    "ielts_foundation": ["Everyday Topics", "Basic Essay Ideas", "Speaking Warmups", "Simple Task Practice", "IELTS Foundation Final"],
+    "ielts_50": ["Task 2 Planning", "Task 1 Accuracy", "Speaking Expansion", "Vocabulary Control", "IELTS 5 Final Skills"],
+    "ielts_65": ["Advanced Essay Control", "High Band Task 1", "Critical Thinking", "Natural Fluency", "IELTS 6.5 Final Skills"],
+    "business": ["Workplace Requests", "Client Communication", "Team Decisions", "Presentation Practice", "Business Final Skills"],
+    "sales": ["Lead Qualification", "Customer Trust", "Package Offers", "Service Follow-up", "Sales Final Skills"],
+    "cafe": ["Counter Service", "Menu Advice", "Guest Problems", "Shift Communication", "Cafe Final Skills"],
+    "factory": ["Daily Operations", "Safety Communication", "Production Issues", "Supervisor Updates", "Factory Final Skills"],
+}
+
+
+for _level_id, _contexts in ADVANCED_EXTRA_CONTEXTS.items():
+    _skills = ADVANCED_EXPANSION_BLUEPRINTS[_level_id]["skills"]
+    ADVANCED_LEVEL_TOPICS[_level_id] += [
+        f"{skill} {context}"
+        for context in _contexts
+        for skill in _skills
+    ]
 
 
 LEVEL_CONTENT_PROFILES = {
