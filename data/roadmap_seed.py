@@ -389,6 +389,29 @@ def _starter_extra_topic_spec(topic, idx):
 STARTER_TOPICS += [_starter_extra_topic_spec(topic, idx) for idx, topic in enumerate(STARTER_EXTRA_TOPICS)]
 
 
+def _starter_topic_series(actions, contexts, limit):
+    topics = []
+    for context in contexts:
+        for action in actions:
+            topics.append(f"{action} {context}")
+            if len(topics) >= limit:
+                return topics
+    return topics
+
+
+STARTER_TOPICS += [
+    _starter_extra_topic_spec(topic, idx + len(STARTER_EXTRA_TOPICS))
+    for idx, topic in enumerate(_starter_topic_series(
+        ["Talking About", "Asking About", "Practicing", "Reviewing", "Using"],
+        [
+            "My Day", "My Family", "My Class", "Food and Drinks", "Colors and Numbers",
+            "Home and Rooms", "School and Friends", "Shopping Words", "Travel Words",
+        ],
+        45,
+    ))
+]
+
+
 FLYER_TOPICS += [
     ("Science Fair", "At the Science Fair"), ("Camping Trip", "Going Camping"), ("Saving Money", "Saving Pocket Money"),
     ("Team Project", "Working in a Team"), ("Class Debate", "Giving a Simple Opinion"),
@@ -401,6 +424,26 @@ FLYER_TOPICS += [
     ("Helping at Home", "Helping at Home"), ("Town Festival", "At a Town Festival"), ("Travel Problem", "A Travel Problem"),
     ("Flyer Skills Review", "Flyer Skills Review"), ("Flyer Speaking Review", "Flyer Speaking Review"),
 ]
+
+
+def _flyer_topic_series(skills, contexts, limit):
+    topics = []
+    for context in contexts:
+        for skill in skills:
+            topics.append((f"{skill} {context}", f"{skill} {context}"))
+            if len(topics) >= limit:
+                return topics
+    return topics
+
+
+FLYER_TOPICS += _flyer_topic_series(
+    ["Explaining", "Comparing", "Planning", "Solving", "Reviewing"],
+    [
+        "School Life", "Travel Plans", "Weather Problems", "Hobbies and Clubs", "Phone Messages",
+        "Food Orders", "Town Directions", "Health Advice", "Shopping Choices",
+    ],
+    45,
+)
 
 
 ROADMAP_UNITS = (
@@ -546,6 +589,89 @@ ADVANCED_LEVEL_TOPICS["factory"] += [
     "Fire Drill", "First Aid Request", "Maintenance Schedule", "Packing Instruction", "Loading Area",
     "Supervisor Feedback", "Training Checklist", "Incident Follow-up", "Factory Safety Review", "Factory Speaking Review",
 ]
+
+
+ADVANCED_EXPANSION_BLUEPRINTS = {
+    "ket": {
+        "skills": ["Asking About", "Changing", "Confirming", "Explaining", "Reviewing"],
+        "contexts": [
+            "Bank Visit", "Tourist Office", "School Office", "Local Event", "Sports Centre",
+            "Train Journey", "Hotel Booking", "Online Order", "Doctor Visit", "KET Communication",
+        ],
+    },
+    "pet": {
+        "skills": ["Giving Opinions On", "Comparing", "Solving", "Describing", "Reviewing"],
+        "contexts": [
+            "School Rules", "Online Habits", "Community Events", "Travel Choices", "Healthy Living",
+            "Team Projects", "Personal Goals", "Local Problems", "Photo Stories", "PET Communication",
+        ],
+    },
+    "ielts_foundation": {
+        "skills": ["Building Ideas For", "Giving Reasons For", "Adding Examples About", "Speaking About", "Reviewing"],
+        "contexts": [
+            "Work and Study", "Hometown Topics", "Health and Sport", "Technology Use", "Family Life",
+            "Education Topics", "Travel Topics", "Environment Topics", "Culture Topics", "IELTS Foundation",
+        ],
+    },
+    "ielts_50": {
+        "skills": ["Developing", "Linking", "Explaining", "Improving", "Reviewing"],
+        "contexts": [
+            "Opinion Essays", "Chart Reports", "Problem Solutions", "Discussion Essays", "Speaking Part 2",
+            "Speaking Part 3", "Task 1 Overviews", "Examples and Support", "Grammar Range", "IELTS 5 Skills",
+        ],
+    },
+    "ielts_65": {
+        "skills": ["Refining", "Balancing", "Evaluating", "Upgrading", "Reviewing"],
+        "contexts": [
+            "Academic Arguments", "Complex Data", "Policy Topics", "Abstract Ideas", "Cohesion",
+            "Lexical Precision", "Advanced Speaking", "Error Control", "Formal Tone", "IELTS 6.5 Skills",
+        ],
+    },
+    "business": {
+        "skills": ["Discussing", "Writing About", "Following Up On", "Negotiating", "Reviewing"],
+        "contexts": [
+            "Meetings", "Client Emails", "Project Updates", "Budget Issues", "Team Feedback",
+            "Deadlines", "Presentations", "Contracts", "Remote Work", "Business Communication",
+        ],
+    },
+    "sales": {
+        "skills": ["Opening", "Explaining", "Handling", "Closing", "Reviewing"],
+        "contexts": [
+            "Customer Calls", "Product Benefits", "Price Objections", "Package Comparisons", "Follow-up Messages",
+            "Demo Bookings", "Discount Requests", "Renewals", "Complaints", "Sales Conversations",
+        ],
+    },
+    "cafe": {
+        "skills": ["Taking", "Explaining", "Handling", "Recommending", "Reviewing"],
+        "contexts": [
+            "Drink Orders", "Food Allergies", "Payment Problems", "Busy Queues", "Menu Questions",
+            "Takeaway Orders", "Table Service", "Customer Complaints", "Shift Handover", "Cafe Service",
+        ],
+    },
+    "factory": {
+        "skills": ["Reporting", "Checking", "Explaining", "Following", "Reviewing"],
+        "contexts": [
+            "Safety Rules", "Machine Issues", "Quality Problems", "Shift Changes", "Tool Requests",
+            "Warehouse Tasks", "Production Targets", "Maintenance Calls", "Emergency Steps", "Factory Communication",
+        ],
+    },
+}
+
+
+def _advanced_topic_series(level_id, limit=50):
+    blueprint = ADVANCED_EXPANSION_BLUEPRINTS[level_id]
+    topics = []
+    for context in blueprint["contexts"]:
+        for skill in blueprint["skills"]:
+            topics.append(f"{skill} {context}")
+            if len(topics) >= limit:
+                return topics
+    return topics
+
+
+for _level_id in ADVANCED_EXPANSION_BLUEPRINTS:
+    ADVANCED_LEVEL_TOPICS[_level_id] += _advanced_topic_series(_level_id)
+
 
 LEVEL_CONTENT_PROFILES = {
     "ket": {
