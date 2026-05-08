@@ -310,20 +310,31 @@ def get_model_config():
 # Cấu hình domain để chuyển từ Railway sang domain riêng
 
 # Base URL của app (dùng cho internal redirects, webhooks)
-APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
+IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
+PRIMARY_DOMAIN = os.getenv("PRIMARY_DOMAIN", "mssmileenglish.com")
+PRIMARY_APP_URL = f"https://{PRIMARY_DOMAIN}"
+DEFAULT_APP_BASE_URL = PRIMARY_APP_URL if IS_RAILWAY else "http://localhost:5000"
+APP_BASE_URL = os.getenv("APP_BASE_URL", DEFAULT_APP_BASE_URL)
 
 # Frontend URL (dùng cho CORS, redirects)
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", APP_BASE_URL)
 
 # Allowed origins cho CORS (comma-separated)
-ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS", "http://localhost:5000,http://127.0.0.1:5000")
+DEFAULT_ALLOWED_ORIGINS = ",".join([
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "https://mssmileenglish.com",
+    "https://www.mssmileenglish.com",
+    "https://web-production-af12e.up.railway.app",
+])
+ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
 ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
 
 # Cookie domain (để trống cho localhost, set .domain.com cho production)
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
 
 # Session cookie settings
-SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "true" if IS_RAILWAY else "false").lower() == "true"
 SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 
 # Payment URLs (chuẩn bị cho future payment integration)

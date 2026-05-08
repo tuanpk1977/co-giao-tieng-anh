@@ -4,9 +4,9 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-030"
+APP_VERSION = "hybrid-roadmap-031-domain"
 
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import os
@@ -44,6 +44,17 @@ app.config['SESSION_COOKIE_DOMAIN'] = app_config.COOKIE_DOMAIN if app_config.COO
 app.config['SESSION_COOKIE_SECURE'] = app_config.SESSION_COOKIE_SECURE
 app.config['SESSION_COOKIE_SAMESITE'] = app_config.SESSION_COOKIE_SAMESITE
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=180)
+
+
+@app.before_request
+def redirect_www_to_primary_domain():
+    primary_domain = getattr(app_config, "PRIMARY_DOMAIN", "mssmileenglish.com")
+    if request.host.split(":")[0].lower() != f"www.{primary_domain}":
+        return None
+    target = f"https://{primary_domain}{request.full_path}"
+    if target.endswith("?"):
+        target = target[:-1]
+    return redirect(target, code=301)
 
 # Database configuration
 database_url = os.getenv('DATABASE_URL')
