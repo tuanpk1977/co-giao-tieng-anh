@@ -48,8 +48,10 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=180)
 
 @app.before_request
 def redirect_www_to_primary_domain():
-    primary_domain = getattr(app_config, "PRIMARY_DOMAIN", "mssmileenglish.com")
-    if request.host.split(":")[0].lower() != f"www.{primary_domain}":
+    primary_domain = getattr(app_config, "PRIMARY_DOMAIN", "www.mssmileenglish.com").lower()
+    current_domain = request.host.split(":")[0].lower()
+    domain_pair = {"mssmileenglish.com", "www.mssmileenglish.com"}
+    if current_domain not in domain_pair or current_domain == primary_domain:
         return None
     target = f"https://{primary_domain}{request.full_path}"
     if target.endswith("?"):
