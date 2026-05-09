@@ -39,6 +39,7 @@ class User(db.Model):
     learning_path = db.Column(db.String(50), default='communication')
     grade_level = db.Column(db.String(50))
     selected_roadmap_level = db.Column(db.String(50))
+    preferred_language = db.Column(db.String(30), default='english')
     
     # Subscription and payment info
     role = db.Column(db.String(20), default='user')  # user, agent, admin
@@ -97,6 +98,8 @@ class User(db.Model):
             'learning_path': self.learning_path,
             'grade_level': self.grade_level,
             'selected_roadmap_level': self.selected_roadmap_level,
+            'preferred_language': self.preferred_language or 'english',
+            'language': self.preferred_language or 'english',
             'role': self.role,
             'status': self.status,
             'agent_status': self.agent_status,
@@ -127,7 +130,8 @@ class User(db.Model):
             'english_usage': self.english_usage or '',
             'age': self.age_text or self.age,
             'learning_path': self.learning_path or 'communication',
-            'grade_level': self.grade_level or ''
+            'grade_level': self.grade_level or '',
+            'preferred_language': self.preferred_language or 'english'
         }
 
     @property
@@ -831,6 +835,8 @@ def _ensure_sqlite_columns(engine):
         alter_statements.append("ALTER TABLE users ADD COLUMN age_text VARCHAR(50)")
     if 'selected_roadmap_level' not in existing_columns:
         alter_statements.append("ALTER TABLE users ADD COLUMN selected_roadmap_level VARCHAR(50)")
+    if 'preferred_language' not in existing_columns:
+        alter_statements.append("ALTER TABLE users ADD COLUMN preferred_language VARCHAR(30) DEFAULT 'english'")
     
     # New columns for fixed account model (BenNha style)
     if 'user_code' not in existing_columns:
@@ -868,6 +874,11 @@ def _ensure_sqlite_columns(engine):
                 conn.commit()
             except Exception as e:
                 print(f"[DB] Failed to backfill user_code: {e}")
+            try:
+                conn.execute(text("UPDATE users SET preferred_language = 'english' WHERE preferred_language IS NULL OR preferred_language = ''"))
+                conn.commit()
+            except Exception as e:
+                print(f"[DB] Failed to backfill preferred_language: {e}")
     
     # PART 2: Check plans table for quota columns
     if inspector.has_table('plans'):

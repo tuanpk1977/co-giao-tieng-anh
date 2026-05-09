@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ms. Smile English - Cô Giáo Tiếng Anh Dễ Thương</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=hybrid-roadmap-040-bilingual-ai-feedback">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=hybrid-roadmap-041-multilanguage-foundation">
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -13,7 +13,7 @@
     <header class="app-header">
         <div class="logo">
             <span class="logo-icon">👩‍🏫</span>
-            <h1>Ms. Smile English</h1>
+            <h1 id="appTitle">Ms. Smile English</h1>
         </div>
         <div class="header-actions">
             <button id="situationBtn" class="btn btn-situation">
@@ -91,7 +91,7 @@
                         <div class="collar"></div>
                     </div>
                 </div>
-                <div class="teacher-name">Ms. Smile</div>
+                <div class="teacher-name" id="teacherName">Ms. Smile</div>
                 <div class="teacher-status" id="teacherStatus">
                     <span class="status-dot"></span>
                     <span class="status-text">Online</span>
@@ -114,7 +114,7 @@
         <!-- Chat Section -->
         <div class="chat-section">
             <div class="chat-header">
-                <span class="chat-title">💬 Chat với Ms. Smile</span>
+                <span class="chat-title" id="chatTitle">💬 Chat với Ms. Smile</span>
                 <button id="clearChatBtn" class="btn-icon" title="Xóa cuộc trò chuyện">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -123,8 +123,8 @@
             <div id="chatMessages" class="chat-messages">
                 <!-- Welcome Message -->
                 <div class="message message-ai">
-                    <div class="message-avatar">👩‍🏫</div>
-                    <div class="message-content">
+                    <div class="message-avatar" id="welcomeAvatar">👩‍🏫</div>
+                    <div class="message-content" id="welcomeMessage">
                         <p>Xin chào em! 🌟</p>
                         <p>Cô là Ms. Smile, cô giáo tiếng Anh của em đây! 😊</p>
                         <p>Hôm nay em muốn học gì nào? Cô có thể:</p>
@@ -629,6 +629,14 @@
                             <option value="intermediate">Trung cấp</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Ngon ngu dang hoc</label>
+                        <select id="profilePreferredLanguage" class="language-select">
+                            <option value="english">English</option>
+                            <option value="japanese">Japanese (Beta)</option>
+                        </select>
+                        <small class="form-hint">Doi ngon ngu se thay doi giao vien AI va lo trinh hoc, du lieu tai khoan va goi dang ky van giu nguyen.</small>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-full">💾 Lưu thay đổi</button>
                 </form>
                 
@@ -834,6 +842,13 @@
                         <label>Mật khẩu *</label>
                         <input type="password" id="regPassword" placeholder="Ít nhất 6 ký tự" minlength="6" required>
                     </div>
+                    <div class="form-group">
+                        <label>Bạn muốn học ngôn ngữ nào?</label>
+                        <select id="regPreferredLanguage" class="language-select">
+                            <option value="english">English</option>
+                            <option value="japanese">Japanese (Beta)</option>
+                        </select>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-block">Tiếp tục →</button>
                 </form>
             </div>
@@ -891,6 +906,13 @@
                             <option value="beginner">Mới bắt đầu</option>
                             <option value="elementary">Sơ cấp</option>
                             <option value="intermediate">Trung cấp</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ngôn ngữ muốn học</label>
+                        <select id="setupPreferredLanguage" class="language-select">
+                            <option value="english">English</option>
+                            <option value="japanese">Japanese (Beta)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1023,8 +1045,8 @@
     </div>
 
     <!-- Version indicator -->
-    <div id="app-version">v: hybrid-roadmap-040-bilingual-ai-feedback</div>
+    <div id="app-version">v: hybrid-roadmap-041-multilanguage-foundation</div>
     
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=hybrid-roadmap-040-bilingual-ai-feedback"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=hybrid-roadmap-041-multilanguage-foundation"></script>
 </body>
 </html>

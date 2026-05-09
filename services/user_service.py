@@ -14,6 +14,7 @@ from models import (
     AffiliateProfile, Referral, AffiliateCommission, FamilyMember
 )
 import config
+from services.language_config import normalize_language
 
 class UserService:
     """Service for user management"""
@@ -49,9 +50,11 @@ class UserService:
     def register_user(self, email: str = None, phone: str = None, 
                       password: str = None, name: str = None,
                       referred_by: str = None, referral_code: str = None,
-                      referred_by_code: str = None) -> Tuple[bool, Dict]:
+                      referred_by_code: str = None,
+                      preferred_language: str = None) -> Tuple[bool, Dict]:
         """Register new user with fixed user_code"""
         referred_by = referred_by or referral_code or referred_by_code
+        preferred_language = normalize_language(preferred_language)
         email = email.strip().lower() if email else None
         phone = phone.strip() if phone else None
         if not email and not phone:
@@ -64,6 +67,9 @@ class UserService:
         if email:
             existing = User.query.filter_by(email=email).first()
             if existing:
+                if not getattr(existing, 'preferred_language', None):
+                    existing.preferred_language = preferred_language
+                    db.session.commit()
                 # User already registered - return existing account (not error!)
                 return True, {
                     'user': existing.to_dict(), 
@@ -74,6 +80,9 @@ class UserService:
         if phone:
             existing = User.query.filter_by(phone=phone).first()
             if existing:
+                if not getattr(existing, 'preferred_language', None):
+                    existing.preferred_language = preferred_language
+                    db.session.commit()
                 return True, {
                     'user': existing.to_dict(), 
                     'message': 'Tài khoản đã tồn tại',
@@ -96,6 +105,7 @@ class UserService:
             subscription_end=None,
             # Legacy fields
             plan_start=datetime.utcnow(),
+            preferred_language=preferred_language,
             reminder_enabled=True,
             reminder_hour='20:00',
             reminder_message='Hôm nay em học 5 phút với Ms. Smile nhé 😊',
@@ -154,6 +164,9 @@ class UserService:
             return False, {'error': 'Tài khoản đã bị khóa. Liên hệ admin để mở lại.'}
         
         self._refresh_user_status(user)
+        if not getattr(user, 'preferred_language', None):
+            user.preferred_language = 'english'
+            db.session.commit()
         
         if not user.check_password(password):
             return False, {'error': 'Mật khẩu không đúng'}
@@ -183,6 +196,9 @@ class UserService:
         user = User.query.get(user_id)
         if user:
             self._refresh_user_status(user)
+            if not getattr(user, 'preferred_language', None):
+                user.preferred_language = 'english'
+                db.session.commit()
         return user
     
     def setup_profile(self, user_id: int, profile_data: Dict) -> Tuple[bool, Dict]:
@@ -203,6 +219,10 @@ class UserService:
         user.english_level = profile_data.get('level', 'beginner')
         user.learning_path = profile_data.get('learning_path', 'communication')
         user.grade_level = profile_data.get('grade_level')
+        if profile_data.get('preferred_language') or profile_data.get('language'):
+            user.preferred_language = normalize_language(
+                profile_data.get('preferred_language') or profile_data.get('language')
+            )
         if profile_data.get('selected_roadmap_level'):
             user.selected_roadmap_level = profile_data.get('selected_roadmap_level')
         

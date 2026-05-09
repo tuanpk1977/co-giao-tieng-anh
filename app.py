@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-040-bilingual-ai-feedback"
+APP_VERSION = "hybrid-roadmap-041-multilanguage-foundation"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -22,6 +22,13 @@ from services.cost_service import get_cost_service  # PART 1 & 3: Cost tracking
 from services.quota_service import get_quota_service  # PART 2: Quota enforcement
 from services.roadmap_service import get_roadmap_service
 from services.ai_usage_service import get_ai_usage_service
+from services.language_config import (
+    get_language_config,
+    get_public_language_config,
+    get_public_language_configs,
+    get_user_language,
+    normalize_language,
+)
 from utils.history import get_history_manager
 from utils.user_profile import (
     load_profile, save_profile, update_profile, is_onboarded,
@@ -343,6 +350,7 @@ def chat():
         user_message = data.get('message', '').strip()
         user_id = data.get('user_id')
         conversation_history = data.get('history', [])
+        requested_language = data.get('preferred_language') or data.get('language')
         
         print(f"[CHAT] User message: {user_message[:50]}...")
         print(f"[CHAT] User ID: {user_id}")
@@ -360,6 +368,7 @@ def chat():
         
         user = None
         plan_name = "free_trial"
+        language_config = get_language_config(requested_language)
         limit_message = """US English:
 You have reached today's free limit. Please upgrade your plan to continue.
 
@@ -373,6 +382,7 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
             user = user_service.get_user(user_id)
             if user:
                 plan_name = user.plan_name or "free_trial"
+                language_config = get_language_config(get_user_language(user))
                 
                 # Check if user is locked or expired
                 if user.is_locked or user.status == 'banned':
@@ -431,7 +441,9 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
                         'level': profile['level'],
                         'occupation': profile['job'],
                         'goal': profile['goal'],
-                        'meet_foreigners': profile['meet_foreigners']
+                        'meet_foreigners': profile['meet_foreigners'],
+                        'preferred_language': language_config['code'],
+                        'language_label': language_config['label']
                     }
 
             if not user_profile:
@@ -444,14 +456,21 @@ Giới hạn dùng thử giúp hệ thống kiểm soát chi phí AI."""
                         'level': local_profile.get('level', 'beginner'),
                         'occupation': local_profile.get('job', ''),
                         'goal': local_profile.get('goal', ''),
-                        'meet_foreigners': local_profile.get('meet_foreigners', False)
+                        'meet_foreigners': local_profile.get('meet_foreigners', False),
+                        'preferred_language': language_config['code'],
+                        'language_label': language_config['label']
                     }
             
             # ✅ Normalize user_profile trước khi gọi AI
             user_profile = normalize_user_profile(user_profile)
             
             # Gọi AI với user profile để cá nhân hóa
-            ai_response = service.chat(user_message, conversation_history, user_profile=user_profile)
+            ai_response = service.chat(
+                user_message,
+                conversation_history,
+                user_profile=user_profile,
+                language_config=language_config
+            )
             
         except Exception as e:
             print(f"[CHAT ERROR] Exception caught: {str(e)}")
@@ -470,12 +489,13 @@ Lỗi kỹ thuật: {str(e)}"""
         # Log response chi tiết
         print(f"[CHAT DEBUG] === RESPONSE ===")
         print(f"[CHAT DEBUG] response_preview: {ai_response[:200]}")
-        has_english = '🇺🇸 English:' in ai_response
-        has_vietnamese = '🇻🇳 Tiếng Việt:' in ai_response
-        has_explanation = '📘 Giải thích:' in ai_response
-        print(f"[CHAT DEBUG] Format check - English: {has_english}, Vietnamese: {has_vietnamese}, Explanation: {has_explanation}")
+        expected_header = language_config.get('responseHeader', '🇺🇸 English')
+        has_target_language = f'{expected_header}:' in ai_response or expected_header in ai_response or 'US English:' in ai_response or '🇺🇸 English:' in ai_response
+        has_vietnamese = 'Tiếng Việt:' in ai_response or '🇻🇳' in ai_response
+        has_explanation = 'Giải thích:' in ai_response or '📘' in ai_response
+        print(f"[CHAT DEBUG] Format check - Target language: {has_target_language}, Vietnamese: {has_vietnamese}, Explanation: {has_explanation}")
         
-        if not (has_english and has_vietnamese and has_explanation):
+        if not (has_target_language and has_vietnamese and has_explanation):
             print(f"[CHAT DEBUG] ❌ WRONG FORMAT - Missing bilingual sections!")
         else:
             print(f"[CHAT DEBUG] ✅ CORRECT FORMAT - Bilingual OK")
@@ -526,7 +546,8 @@ Lỗi kỹ thuật: {str(e)}"""
             "success": True,
             "reply": ai_response,
             "response": ai_response,
-            "message": ai_response,  # ✅ Thêm message field
+            "message": ai_response,
+            "language": get_public_language_config(language_config['code']),
             "timestamp": get_timestamp(),
             "version": APP_VERSION
         }
@@ -2700,6 +2721,59 @@ def persist_user_session(user):
     session['user_id'] = user['id']
     session['user_email'] = user.get('email')
     session['user_role'] = user.get('role', 'user')
+    session['preferred_language'] = user.get('preferred_language') or 'english'
+
+
+@app.route('/api/languages', methods=['GET'])
+def get_languages():
+    return jsonify({
+        "success": True,
+        "default": "english",
+        "languages": get_public_language_configs()
+    })
+
+
+@app.route('/api/language/current', methods=['GET'])
+def get_current_language():
+    try:
+        user_id = request.args.get('user_id', type=int) or session.get('user_id')
+        language_code = request.args.get('language') or session.get('preferred_language') or 'english'
+        if user_id:
+            user = get_user_service().get_user(user_id)
+            if user:
+                language_code = get_user_language(user)
+        return jsonify({
+            "success": True,
+            "language": get_public_language_config(language_code),
+            "available": get_public_language_configs()
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e), "language": get_public_language_config("english")}), 500
+
+
+@app.route('/api/user/language', methods=['POST', 'PATCH'])
+def update_user_language():
+    try:
+        data = request.get_json() or {}
+        user_id = data.get('user_id') or session.get('user_id')
+        language_code = normalize_language(data.get('preferred_language') or data.get('language'))
+        if not user_id:
+            session['preferred_language'] = language_code
+            return jsonify({"success": True, "language": get_public_language_config(language_code)})
+        user = get_user_service().get_user(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        user.preferred_language = language_code
+        from models import db
+        db.session.commit()
+        persist_user_session(user.to_dict())
+        return jsonify({
+            "success": True,
+            "user": user.to_dict(),
+            "language": get_public_language_config(language_code)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/auth/register', methods=['POST'])
@@ -2712,13 +2786,15 @@ def register():
         password = data.get('password')
         name = data.get('name')
         referral_code = data.get('referral_code')
+        preferred_language = data.get('preferred_language') or data.get('language')
         
         from services.user_service import get_user_service
         user_service = get_user_service()
         
         success, result = user_service.register_user(
             email=email, phone=phone, password=password, name=name,
-            referral_code=referral_code
+            referral_code=referral_code,
+            preferred_language=preferred_language
         )
         
         if success:

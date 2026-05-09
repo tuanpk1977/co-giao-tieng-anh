@@ -7,6 +7,7 @@
     --primary-color: #FF6B9D;
     --primary-light: #FFB8D0;
     --primary-dark: #E91E63;
+    --teacher-theme: #f72585;
     --secondary-color: #4ECDC4;
     --accent-color: #FFE66D;
     --bg-color: #FFF5F7;
@@ -3337,8 +3338,18 @@ body {
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: var(--teacher-theme, var(--primary-color));
     box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.form-hint {
+    color: var(--text-light);
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
+.language-select {
+    background-color: var(--white);
 }
 
 .btn-full {

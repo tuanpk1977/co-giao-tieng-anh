@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-040-bilingual-ai-feedback";
+const APP_VERSION = "hybrid-roadmap-041-multilanguage-foundation";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -15,6 +15,9 @@ const state = {
     synthesis: window.speechSynthesis,
     ttsEnabled: true,
     ttsSpeed: 1.0,
+    ttsLang: 'en-US',
+    currentLanguage: null,
+    availableLanguages: [],
     currentUser: null,
     profile: null,
     userToken: null,
@@ -221,11 +224,110 @@ async function initializeApp() {
     // Load freemium limits and update badge
     loadGuestLimits();
     await restoreAuthSession();
+    await loadCurrentLanguageConfig();
     updateUserBadge();
     loadDailyRetentionOnOpen();
     loadInitialData();
     
-    console.log('🌟 Ms. Smile English đã sẵn sàng!');
+    console.log('🌟 Multi-language tutor đã sẵn sàng!', state.currentLanguage);
+}
+
+function getPreferredLanguageCode() {
+    return state.currentUser?.preferred_language || state.currentUser?.language || localStorage.getItem('ms_smile_language') || 'english';
+}
+
+async function loadCurrentLanguageConfig(languageCode = null) {
+    try {
+        const params = new URLSearchParams();
+        if (state.currentUser?.id) params.set('user_id', state.currentUser.id);
+        if (languageCode || getPreferredLanguageCode()) params.set('language', languageCode || getPreferredLanguageCode());
+        const response = await fetch(`/api/language/current?${params.toString()}`);
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'language config failed');
+        state.currentLanguage = data.language;
+        state.availableLanguages = data.available || [];
+        localStorage.setItem('ms_smile_language', state.currentLanguage.code);
+        applyLanguageConfig(state.currentLanguage);
+        populateLanguageSelects();
+        console.log('[Language] loaded', state.currentLanguage.code, state.currentLanguage);
+        return state.currentLanguage;
+    } catch (error) {
+        console.warn('[Language] fallback English', error);
+        state.currentLanguage = {
+            code: 'english',
+            label: 'English',
+            teacherName: 'Ms. Smile',
+            appName: 'Ms. Smile English',
+            icon: '👩‍🏫',
+            voice: { lang: 'en-US', rate: 1.0 },
+            welcomeMessage: 'Xin chào em! 🌟\nCô là Ms. Smile, cô giáo tiếng Anh của em đây! 😊'
+        };
+        applyLanguageConfig(state.currentLanguage);
+        return state.currentLanguage;
+    }
+}
+
+function applyLanguageConfig(config) {
+    if (!config) return;
+    state.ttsLang = config.voice?.lang || 'en-US';
+    if ('speechSynthesis' in window) {
+        loadVoices();
+    }
+    const appTitle = document.getElementById('appTitle');
+    const teacherName = document.getElementById('teacherName');
+    const chatTitle = document.getElementById('chatTitle');
+    const logoIcon = document.querySelector('.logo-icon');
+    const welcomeAvatar = document.getElementById('welcomeAvatar');
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    if (appTitle) appTitle.textContent = config.appName || 'Ms. Smile English';
+    if (teacherName) teacherName.textContent = config.teacherName || 'Ms. Smile';
+    if (chatTitle) chatTitle.textContent = `💬 Chat với ${config.teacherName || 'Ms. Smile'}`;
+    if (logoIcon) logoIcon.textContent = config.icon || '👩‍🏫';
+    if (welcomeAvatar) welcomeAvatar.textContent = config.icon || '👩‍🏫';
+    document.title = `${config.appName || 'Ms. Smile English'} - AI Tutor`;
+    if (welcomeMessage && config.welcomeMessage) {
+        welcomeMessage.innerHTML = renderWelcomeMessage(config.welcomeMessage);
+    }
+    document.documentElement.style.setProperty('--teacher-theme', config.themeColor || '#f72585');
+}
+
+function renderWelcomeMessage(message) {
+    const lines = String(message || '').split('\n').filter(Boolean);
+    let html = '';
+    let inList = false;
+    lines.forEach(line => {
+        if (line.startsWith('- ')) {
+            if (!inList) {
+                html += '<ul>';
+                inList = true;
+            }
+            html += `<li>${escapeHtml(line.slice(2))}</li>`;
+            return;
+        }
+        if (inList) {
+            html += '</ul>';
+            inList = false;
+        }
+        html += `<p>${escapeHtml(line)}</p>`;
+    });
+    if (inList) html += '</ul>';
+    return html;
+}
+
+function populateLanguageSelects() {
+    const selects = document.querySelectorAll('.language-select');
+    if (!selects.length) return;
+    const options = state.availableLanguages.length ? state.availableLanguages : [
+        { code: 'english', label: 'English', beta: false },
+        { code: 'japanese', label: 'Japanese', beta: true }
+    ];
+    selects.forEach(select => {
+        const current = select.value || getPreferredLanguageCode();
+        select.innerHTML = options.map(lang =>
+            `<option value="${escapeAttr(lang.code)}">${escapeHtml(lang.label)}${lang.beta ? ' (Beta)' : ''}</option>`
+        ).join('');
+        select.value = current && options.some(lang => lang.code === current) ? current : getPreferredLanguageCode();
+    });
 }
 
 async function loadDailyRetentionOnOpen() {
@@ -345,6 +447,7 @@ async function restoreAuthSession() {
         state.currentUser = data.user;
         state.isGuest = false;
         state.selectedRoadmapLevelId = data.user.selected_roadmap_level || state.selectedRoadmapLevelId;
+        localStorage.setItem('ms_smile_language', data.user.preferred_language || 'english');
         updateAuthUI();
         return true;
     } catch (error) {
@@ -435,6 +538,7 @@ async function updateProfile(formData) {
         
         if (data.success) {
             state.currentUser = data.user;
+            await loadCurrentLanguageConfig(data.user.preferred_language || 'english');
             updateUserBadge();
             closeModal('profileModal');
             showToast('✅', 'Đã cập nhật hồ sơ!');
@@ -591,6 +695,8 @@ function populateProfileForm() {
     document.getElementById('profileUsage').value = u.english_usage || '';
     document.getElementById('profileGoal').value = u.goal || '';
     document.getElementById('profileLevel').value = u.english_level || 'beginner';
+    const languageSelect = document.getElementById('profilePreferredLanguage');
+    if (languageSelect) languageSelect.value = u.preferred_language || 'english';
     state.selectedRoadmapLevelId = u.selected_roadmap_level || state.selectedRoadmapLevelId;
     
     // Set radio button for meet_foreigners
@@ -728,6 +834,7 @@ function setupEventListeners() {
                     english_usage: form.querySelector('#profileUsage').value,
                     goal: form.querySelector('#profileGoal').value,
                     level: form.querySelector('#profileLevel').value,
+                    preferred_language: form.querySelector('#profilePreferredLanguage')?.value || getPreferredLanguageCode(),
                     selected_roadmap_level: state.selectedRoadmapLevelId || state.currentUser?.selected_roadmap_level || ''
                 }
             };
@@ -1007,7 +1114,7 @@ function initializeSpeechRecognition() {
         state.recognition = new SpeechRecognition();
         state.recognition.continuous = false;
         state.recognition.interimResults = false;
-        state.recognition.lang = 'en-US'; // Mặc định tiếng Anh
+        state.recognition.lang = state.ttsLang || 'en-US';
         
         state.recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
@@ -1065,7 +1172,9 @@ async function sendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
-                history: state.conversationHistory
+                history: state.conversationHistory,
+                user_id: state.currentUser?.id || null,
+                language: getPreferredLanguageCode()
             })
         });
         
@@ -1077,16 +1186,30 @@ async function sendMessage() {
         if (data.success) {
             // Lấy reply từ data.reply (ưu tiên) hoặc data.response (fallback)
             let botReply = data.reply || data.response || data.message || data.text || 'Không có phản hồi';
+            if (data.language) {
+                state.currentLanguage = data.language;
+                localStorage.setItem('ms_smile_language', data.language.code || getPreferredLanguageCode());
+                applyLanguageConfig(data.language);
+                populateLanguageSelects();
+            }
             
             // Kiểm tra format song ngữ
-            const hasEnglish = botReply.includes('English:') || botReply.includes('🇺🇸');
+            const expectedHeader = state.currentLanguage?.responseHeader || `${state.currentLanguage?.languageName || 'English'}`;
+            const expectedLine = expectedHeader.endsWith(':') ? expectedHeader : `${expectedHeader}:`;
+            const hasEnglish = botReply.includes(expectedHeader) ||
+                botReply.includes(expectedLine) ||
+                botReply.includes('English:') ||
+                botReply.includes('Japanese:') ||
+                botReply.includes('US English:') ||
+                botReply.includes('🇺🇸') ||
+                botReply.includes('🇯🇵');
             const hasVietnamese = botReply.includes('Tiếng Việt:') || botReply.includes('🇻🇳');
             const hasExplanation = botReply.includes('Giải thích:') || botReply.includes('📘');
             
             // Nếu không đúng format, tự bọc lại
             if (!hasEnglish || !hasVietnamese || !hasExplanation) {
                 console.log('[CHAT] Format không đúng, tự bọc lại:', botReply);
-                botReply = `US English:\n${botReply}\n\nVN Tiếng Việt:\n[Cần dịch tiếng Việt]\n\n📘 Giải thích:\nPhản hồi chưa đúng format song ngữ. Cần kiểm tra AI response.`;
+                botReply = `${expectedLine}\n${botReply}\n\nVN Tiếng Việt:\n[Cần dịch tiếng Việt]\n\n📘 Giải thích:\nPhản hồi chưa đúng format song ngữ. Cần kiểm tra AI response.`;
             }
             
             addMessage(botReply, 'ai');
@@ -1115,7 +1238,7 @@ function addMessage(content, type) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message message-${type}`;
     
-    const avatar = type === 'ai' ? '👩‍🏫' : '🙂';
+    const avatar = type === 'ai' ? (state.currentLanguage?.icon || '👩‍🏫') : '🙂';
     const formattedContent = formatMessage(content);
     
     // For AI messages, extract English text for TTS
@@ -1151,9 +1274,10 @@ function formatMessage(content) {
 
 function showTypingIndicator() {
     const typingDiv = document.createElement('div');
+    const avatar = state.currentLanguage?.icon || '👩‍🏫';
     typingDiv.className = 'message message-ai typing-indicator';
     typingDiv.innerHTML = `
-        <div class="message-avatar">👩‍🏫</div>
+        <div class="message-avatar">${avatar}</div>
         <div class="message-content">
             <span class="typing-dots">
                 <span></span><span></span><span></span>
@@ -2481,7 +2605,7 @@ async function recordRoadmapSpeaking(sentence) {
         return;
     }
     state.isRoadmapSpeakingMode = true;
-    state.recognition.lang = 'en-US';
+    state.recognition.lang = state.ttsLang || 'en-US';
     state.recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         state.currentSpeakingTranscript = transcript;
@@ -3367,7 +3491,7 @@ function startRoleplayRecording() {
     state.isRecording = true;
     elements.roleplayMicBtn.classList.add('recording');
     
-    state.recognition.lang = 'en-US';
+    state.recognition.lang = state.ttsLang || 'en-US';
     
     state.recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -3763,7 +3887,7 @@ function startSituationPracticeRecording() {
     state.isRecording = true;
     elements.situationPracticeMicBtn.classList.add('recording');
     
-    state.recognition.lang = 'en-US';
+    state.recognition.lang = state.ttsLang || 'en-US';
     
     state.recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -3816,6 +3940,8 @@ async function handleLogin(e) {
         if (data.success) {
             state.currentUser = data.user;
             state.isGuest = false;
+            localStorage.setItem('ms_smile_language', data.user.preferred_language || 'english');
+            await loadCurrentLanguageConfig(data.user.preferred_language || 'english');
             updateAuthUI();
             updateUserBadge();
             closeModal('loginModal');
@@ -3836,20 +3962,26 @@ async function handleRegister(e) {
     const phone = document.getElementById('regPhone').value.trim();
     const name = document.getElementById('regName').value.trim();
     const password = document.getElementById('regPassword').value;
+    const preferred_language = document.getElementById('regPreferredLanguage')?.value || getPreferredLanguageCode();
     
     try {
         const referral_code = state.referralCode || null;
         const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, phone, name, password, referral_code })
+            body: JSON.stringify({ email, phone, name, password, referral_code, preferred_language })
         });
         
         const data = await response.json();
         
         if (data.success) {
             state.pendingUserId = data.user.id;
+            state.currentUser = data.user;
+            localStorage.setItem('ms_smile_language', data.user.preferred_language || preferred_language);
+            await loadCurrentLanguageConfig(data.user.preferred_language || preferred_language);
             closeModal('registerModal');
+            const setupLanguage = document.getElementById('setupPreferredLanguage');
+            if (setupLanguage) setupLanguage.value = data.user.preferred_language || preferred_language;
             openModal('profileSetupModal');
             showToast('🎉', 'Đăng ký thành công! Hoàn thiện hồ sơ nhé.');
         } else {
@@ -3877,6 +4009,7 @@ async function handleProfileSetup(e) {
         english_usage: form.querySelector('#profileUsage').value,
         goal: form.querySelector('#profileGoal').value,
         level: form.querySelector('#profileLevel').value,
+        preferred_language: form.querySelector('#setupPreferredLanguage')?.value || state.currentUser?.preferred_language || getPreferredLanguageCode(),
         learning_path: form.querySelector('#profileLearningPath')?.value || 'communication',
         grade_level: form.querySelector('#profileGradeLevel')?.value || ''
     };
@@ -3893,6 +4026,8 @@ async function handleProfileSetup(e) {
         if (data.success) {
             state.currentUser = data.user;
             state.pendingUserId = null;
+            localStorage.setItem('ms_smile_language', data.user.preferred_language || 'english');
+            await loadCurrentLanguageConfig(data.user.preferred_language || 'english');
             updateAuthUI();
             closeModal('profileSetupModal');
             showToast('🎉', `Hoàn tất! Chào mừng ${data.user.name}!`);
@@ -4296,8 +4431,10 @@ function loadVoices() {
     }
 
     const voices = speechSynthesis.getVoices();
-    englishVoices = voices.filter(v => v.lang.startsWith('en'));
-    console.log('[TTS] English voices loaded:', englishVoices.length, englishVoices.map(v => v.name));
+    const targetLang = state.ttsLang || 'en-US';
+    const langPrefix = targetLang.split('-')[0].toLowerCase();
+    englishVoices = voices.filter(v => String(v.lang || '').toLowerCase().startsWith(langPrefix));
+    console.log('[TTS] Voices loaded:', targetLang, englishVoices.length, englishVoices.map(v => `${v.name} (${v.lang})`));
 }
 
 
@@ -4349,16 +4486,16 @@ function speakText(text, rate = null, sourceButton = null) {
     
     const utterance = new SpeechSynthesisUtterance(cleanText);
     
-    // Set voice to English if available
+    // Set voice for the active learning language if available
     if (englishVoices.length > 0) {
-        // Prefer US English, then any English
-        const usVoice = englishVoices.find(v => v.lang === 'en-US');
-        utterance.voice = usVoice || englishVoices[0];
-        utterance.lang = utterance.voice.lang || 'en-US';
+        const targetLang = state.ttsLang || 'en-US';
+        const exactVoice = englishVoices.find(v => v.lang === targetLang);
+        utterance.voice = exactVoice || englishVoices[0];
+        utterance.lang = utterance.voice.lang || targetLang;
         console.log('[TTS] Using voice:', utterance.voice?.name, utterance.voice?.lang);
     } else {
-        console.warn('[TTS] No English voices available');
-        utterance.lang = 'en-US';
+        console.warn('[TTS] No matching voices available for', state.ttsLang || 'en-US');
+        utterance.lang = state.ttsLang || 'en-US';
     }
     
     // Set rate (speed)
