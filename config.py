@@ -311,7 +311,7 @@ def get_model_config():
 
 # Base URL của app (dùng cho internal redirects, webhooks)
 IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
-PRIMARY_DOMAIN = os.getenv("PRIMARY_DOMAIN", "mssmileenglish.com")
+PRIMARY_DOMAIN = os.getenv("PRIMARY_DOMAIN", "www.mssmileenglish.com")
 PRIMARY_APP_URL = f"https://{PRIMARY_DOMAIN}"
 DEFAULT_APP_BASE_URL = PRIMARY_APP_URL if IS_RAILWAY else "http://localhost:5000"
 APP_BASE_URL = os.getenv("APP_BASE_URL", DEFAULT_APP_BASE_URL)
