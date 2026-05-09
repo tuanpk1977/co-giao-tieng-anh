@@ -4,13 +4,14 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-033-persistence-qr"
+APP_VERSION = "hybrid-roadmap-034-volume-migration"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import os
 import json
+import shutil
 
 # Import services
 from services.ai_service import get_ai_service
@@ -64,7 +65,20 @@ volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_
 unsafe_sqlite_urls = {'sqlite:///ms_smile.db', 'sqlite:///instance/ms_smile.db'}
 if volume_path and (not raw_database_url or raw_database_url in unsafe_sqlite_urls):
     os.makedirs(volume_path, exist_ok=True)
-    database_url = f"sqlite:///{os.path.join(volume_path, 'ms_smile.db')}"
+    volume_db_path = os.path.join(volume_path, 'ms_smile.db')
+    if not os.path.exists(volume_db_path):
+        for old_db_path in [
+            os.path.join(app.instance_path, 'ms_smile.db'),
+            os.path.join(os.getcwd(), 'ms_smile.db')
+        ]:
+            if os.path.exists(old_db_path):
+                try:
+                    shutil.copy2(old_db_path, volume_db_path)
+                    print(f"[DB] Copied existing SQLite database to Railway volume: {volume_db_path}")
+                    break
+                except Exception as exc:
+                    print(f"[DB] Failed to copy SQLite database to volume: {exc}")
+    database_url = f"sqlite:///{volume_db_path}"
 elif raw_database_url:
     database_url = raw_database_url
 else:
