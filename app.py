@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-036-safe-volume-sqlite"
+APP_VERSION = "hybrid-roadmap-037-volume-recovery"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -83,28 +83,6 @@ def _sqlite_uri_to_path(uri):
     return uri.replace('sqlite:///', '', 1)
 
 
-def _copy_existing_sqlite_if_needed(target_path):
-    if os.path.exists(target_path):
-        return None
-    candidates = [
-        os.path.join('/app/data', 'ms_smile.db'),
-        os.path.join(app.instance_path, 'ms_smile.db'),
-        os.path.join(os.getcwd(), 'ms_smile.db'),
-        os.path.join(os.getcwd(), 'instance', 'ms_smile.db')
-    ]
-    for old_db_path in candidates:
-        if os.path.abspath(old_db_path) == os.path.abspath(target_path):
-            continue
-        if os.path.exists(old_db_path):
-            try:
-                shutil.copy2(old_db_path, target_path)
-                print(f"[DB] Copied existing SQLite database from {old_db_path} to {target_path}")
-                return old_db_path
-            except Exception as exc:
-                print(f"[DB] Failed to copy SQLite database from {old_db_path} to {target_path}: {exc}")
-    return None
-
-
 def _configure_database_url():
     volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
     if app_config.IS_RAILWAY and not volume_path:
@@ -124,24 +102,24 @@ def _configure_database_url():
     if volume_path:
         writable, error = _is_writable_dir(volume_path)
         if writable:
-            volume_db_path = os.path.join(volume_path, 'app.sqlite')
-            copied_from = _copy_existing_sqlite_if_needed(volume_db_path)
+            legacy_volume_db_path = os.path.join(volume_path, 'ms_smile.db')
+            volume_db_path = legacy_volume_db_path if os.path.exists(legacy_volume_db_path) else os.path.join(volume_path, 'app.sqlite')
             print(f"[DB] Using Railway Volume SQLite database: {volume_db_path}")
             return f"sqlite:///{volume_db_path}", {
                 "mode": "railway_volume_sqlite",
                 "persistent": True,
                 "dbPath": volume_db_path,
-                "dbCopiedFrom": copied_from,
+                "dbCopiedFrom": None,
+                "legacyDbPathUsed": legacy_volume_db_path if volume_db_path == legacy_volume_db_path else None,
                 "fallbackReason": ""
             }
         print(f"[DB WARNING] Cannot write to volume path {volume_path}: {error}. Falling back to {fallback_path}")
 
-    copied_from = _copy_existing_sqlite_if_needed(fallback_path)
     return f"sqlite:///{fallback_path}", {
         "mode": "ephemeral_sqlite" if app_config.IS_RAILWAY else "local_sqlite",
         "persistent": False,
         "dbPath": fallback_path,
-        "dbCopiedFrom": copied_from,
+        "dbCopiedFrom": None,
         "fallbackReason": f"Volume path not writable or not configured: {volume_path or 'none'}"
     }
 
@@ -188,6 +166,7 @@ def get_database_persistence_status():
         "dbWritable": db_writable,
         "dbWriteError": db_write_error,
         "dbCopiedFrom": DB_STATUS.get("dbCopiedFrom"),
+        "legacyDbPathUsed": DB_STATUS.get("legacyDbPathUsed"),
         "fallbackReason": DB_STATUS.get("fallbackReason", ""),
         "database_url_configured": bool(os.getenv('DATABASE_URL')),
         "database_url_is_unsafe_sqlite": bool(os.getenv('DATABASE_URL') in unsafe_sqlite_urls),
