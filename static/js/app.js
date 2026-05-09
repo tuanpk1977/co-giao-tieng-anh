@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-035-www-recovery";
+const APP_VERSION = "hybrid-roadmap-036-safe-volume-sqlite";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================

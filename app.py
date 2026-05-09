@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-035-www-recovery"
+APP_VERSION = "hybrid-roadmap-036-safe-volume-sqlite"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -61,39 +61,113 @@ def redirect_www_to_primary_domain():
 
 # Database configuration
 raw_database_url = os.getenv('DATABASE_URL')
-volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
 unsafe_sqlite_urls = {'sqlite:///ms_smile.db', 'sqlite:///instance/ms_smile.db'}
-if volume_path and (not raw_database_url or raw_database_url in unsafe_sqlite_urls):
-    os.makedirs(volume_path, exist_ok=True)
-    volume_db_path = os.path.join(volume_path, 'ms_smile.db')
-    if not os.path.exists(volume_db_path):
-        for old_db_path in [
-            os.path.join(app.instance_path, 'ms_smile.db'),
-            os.path.join(os.getcwd(), 'ms_smile.db')
-        ]:
-            if os.path.exists(old_db_path):
-                try:
-                    shutil.copy2(old_db_path, volume_db_path)
-                    print(f"[DB] Copied existing SQLite database to Railway volume: {volume_db_path}")
-                    break
-                except Exception as exc:
-                    print(f"[DB] Failed to copy SQLite database to volume: {exc}")
-    database_url = f"sqlite:///{volume_db_path}"
+DB_STATUS = {}
+
+
+def _is_writable_dir(path):
+    try:
+        os.makedirs(path, exist_ok=True)
+        test_path = os.path.join(path, '.write-test')
+        with open(test_path, 'w', encoding='utf-8') as test_file:
+            test_file.write('ok')
+        os.remove(test_path)
+        return True, ''
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _sqlite_uri_to_path(uri):
+    if not uri or not uri.startswith('sqlite:///'):
+        return ''
+    return uri.replace('sqlite:///', '', 1)
+
+
+def _copy_existing_sqlite_if_needed(target_path):
+    if os.path.exists(target_path):
+        return None
+    candidates = [
+        os.path.join('/app/data', 'ms_smile.db'),
+        os.path.join(app.instance_path, 'ms_smile.db'),
+        os.path.join(os.getcwd(), 'ms_smile.db'),
+        os.path.join(os.getcwd(), 'instance', 'ms_smile.db')
+    ]
+    for old_db_path in candidates:
+        if os.path.abspath(old_db_path) == os.path.abspath(target_path):
+            continue
+        if os.path.exists(old_db_path):
+            try:
+                shutil.copy2(old_db_path, target_path)
+                print(f"[DB] Copied existing SQLite database from {old_db_path} to {target_path}")
+                return old_db_path
+            except Exception as exc:
+                print(f"[DB] Failed to copy SQLite database from {old_db_path} to {target_path}: {exc}")
+    return None
+
+
+def _configure_database_url():
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
+    if app_config.IS_RAILWAY and not volume_path:
+        volume_path = '/app/data'
+
+    if raw_database_url and raw_database_url not in unsafe_sqlite_urls:
+        db_path = _sqlite_uri_to_path(raw_database_url)
+        return raw_database_url, {
+            "mode": "managed_database" if not db_path else "custom_sqlite",
+            "persistent": not bool(db_path and app_config.IS_RAILWAY),
+            "dbPath": db_path,
+            "fallbackReason": ""
+        }
+
+    fallback_dir = os.getcwd()
+    fallback_path = os.path.join(fallback_dir, 'app.sqlite')
+    if volume_path:
+        writable, error = _is_writable_dir(volume_path)
+        if writable:
+            volume_db_path = os.path.join(volume_path, 'app.sqlite')
+            copied_from = _copy_existing_sqlite_if_needed(volume_db_path)
+            print(f"[DB] Using Railway Volume SQLite database: {volume_db_path}")
+            return f"sqlite:///{volume_db_path}", {
+                "mode": "railway_volume_sqlite",
+                "persistent": True,
+                "dbPath": volume_db_path,
+                "dbCopiedFrom": copied_from,
+                "fallbackReason": ""
+            }
+        print(f"[DB WARNING] Cannot write to volume path {volume_path}: {error}. Falling back to {fallback_path}")
+
+    copied_from = _copy_existing_sqlite_if_needed(fallback_path)
+    return f"sqlite:///{fallback_path}", {
+        "mode": "ephemeral_sqlite" if app_config.IS_RAILWAY else "local_sqlite",
+        "persistent": False,
+        "dbPath": fallback_path,
+        "dbCopiedFrom": copied_from,
+        "fallbackReason": f"Volume path not writable or not configured: {volume_path or 'none'}"
+    }
+
+
+database_url, DB_STATUS = _configure_database_url()
+if raw_database_url in unsafe_sqlite_urls and DB_STATUS.get("mode") == "railway_volume_sqlite":
+    print("[DB] Ignoring unsafe DATABASE_URL because Railway Volume is available.")
 elif raw_database_url:
-    database_url = raw_database_url
-else:
-    database_url = 'sqlite:///ms_smile.db'
+    print(f"[DB] Using DATABASE_URL mode: {DB_STATUS.get('mode')}")
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 def get_database_persistence_status():
     uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
-    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH') or ('/app/data' if app_config.IS_RAILWAY else '')
     is_managed_db = uri.startswith(('postgresql://', 'postgres://', 'mysql://'))
-    is_volume_sqlite = bool(volume_path and uri.startswith('sqlite:///') and volume_path in uri)
+    db_path = _sqlite_uri_to_path(uri)
+    db_dir = os.path.dirname(db_path) if db_path else ''
+    db_writable = False
+    db_write_error = ''
+    if db_dir:
+        db_writable, db_write_error = _is_writable_dir(db_dir)
+    is_volume_sqlite = bool(volume_path and db_path and os.path.abspath(db_path).startswith(os.path.abspath(volume_path)))
     is_local_sqlite = uri.startswith('sqlite:///') and not is_volume_sqlite
-    persistent = bool(is_managed_db or is_volume_sqlite)
+    persistent = bool(DB_STATUS.get("persistent") or is_managed_db or is_volume_sqlite)
     if is_managed_db:
         mode = 'managed_database'
         message = 'Database is using managed storage. User accounts and plans should survive deploys.'
@@ -109,6 +183,12 @@ def get_database_persistence_status():
     return {
         "persistent": persistent,
         "mode": mode,
+        "dbPath": db_path,
+        "dbExists": bool(db_path and os.path.exists(db_path)),
+        "dbWritable": db_writable,
+        "dbWriteError": db_write_error,
+        "dbCopiedFrom": DB_STATUS.get("dbCopiedFrom"),
+        "fallbackReason": DB_STATUS.get("fallbackReason", ""),
         "database_url_configured": bool(os.getenv('DATABASE_URL')),
         "database_url_is_unsafe_sqlite": bool(os.getenv('DATABASE_URL') in unsafe_sqlite_urls),
         "railway_volume_configured": bool(volume_path),
