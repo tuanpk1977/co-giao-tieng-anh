@@ -7,7 +7,7 @@ through explicit AI feature calls instead of generating every lesson realtime.
 from datetime import datetime, date, timedelta
 from collections import defaultdict
 
-from data.roadmap_seed import ROADMAP_LEVELS, ROADMAP_UNITS, PLACEMENT_QUESTIONS
+from services.roadmap_seed import ROADMAP_LEVELS, ROADMAP_UNITS, PLACEMENT_QUESTIONS
 from models import db, User, UserProgress, UserRoadmapProgress, AIUsageLog, LearningSession, FamilyMember, Plan
 
 

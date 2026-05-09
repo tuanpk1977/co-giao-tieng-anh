@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-037-volume-recovery";
+const APP_VERSION = "hybrid-roadmap-038-volume-import-fix";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
