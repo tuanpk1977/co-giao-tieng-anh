@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-032-www-domain"
+APP_VERSION = "hybrid-roadmap-033-persistence-qr"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -70,6 +70,35 @@ if not database_url:
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
+def get_database_persistence_status():
+    uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
+    is_managed_db = uri.startswith(('postgresql://', 'postgres://', 'mysql://'))
+    is_volume_sqlite = bool(volume_path and uri.startswith('sqlite:///') and volume_path in uri)
+    is_local_sqlite = uri.startswith('sqlite:///') and not is_volume_sqlite
+    persistent = bool(is_managed_db or is_volume_sqlite)
+    if is_managed_db:
+        mode = 'managed_database'
+        message = 'Database is using managed storage. User accounts and plans should survive deploys.'
+    elif is_volume_sqlite:
+        mode = 'railway_volume_sqlite'
+        message = 'Database is using a Railway volume. User accounts and plans should survive deploys.'
+    elif app_config.IS_RAILWAY:
+        mode = 'ephemeral_sqlite'
+        message = 'WARNING: Railway is using app filesystem SQLite. User accounts and plans may be lost on redeploy.'
+    else:
+        mode = 'local_sqlite'
+        message = 'Local development database.'
+    return {
+        "persistent": persistent,
+        "mode": mode,
+        "database_url_configured": bool(os.getenv('DATABASE_URL')),
+        "railway_volume_configured": bool(volume_path),
+        "sqlite_local_fallback": bool(is_local_sqlite),
+        "message": message
+    }
+
 # Initialize database
 from models import init_db, db
 init_db(app)
@@ -98,7 +127,8 @@ def api_health():
         "ok": True,
         "status": "healthy",
         "version": APP_VERSION,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": get_database_persistence_status()
     })
 
 @app.route('/api/health/domain', methods=['GET'])
@@ -113,7 +143,8 @@ def health_domain():
         "cookie_domain": app_config.COOKIE_DOMAIN,
         "session_secure": app_config.SESSION_COOKIE_SECURE,
         "session_samesite": app_config.SESSION_COOKIE_SAMESITE,
-        "version": "domain-ready-v1"
+        "database": get_database_persistence_status(),
+        "version": APP_VERSION
     })
 
 @app.route('/version')
@@ -1415,6 +1446,17 @@ def admin_payments():
     user_service = get_user_service()
     payments = [p.to_dict() for p in user_service.get_payment_requests(status=status)]
     return jsonify({"success": True, "payments": payments})
+
+
+@app.route('/api/admin/storage-health', methods=['GET'])
+def admin_storage_health():
+    admin_id, resp, code = require_admin(request)
+    if resp:
+        return resp, code
+    return jsonify({
+        "success": True,
+        "database": get_database_persistence_status()
+    })
 
 
 @app.route('/api/admin/payments/<int:payment_id>/approve', methods=['PATCH'])

@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-032-www-domain";
+const APP_VERSION = "hybrid-roadmap-033-persistence-qr";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -4610,6 +4610,7 @@ async function selectPlan(planName, paymentInfo = {}) {
 
         const payment = data.payment_request;
         const info = data.payment_info || paymentInfo;
+        const qrUrl = info.qr_url || '';
         const result = document.getElementById('paymentResult');
         if (result) {
             result.classList.remove('hidden');
@@ -4622,6 +4623,13 @@ async function selectPlan(planName, paymentInfo = {}) {
                 <div><strong>Chu tai khoan:</strong> ${escapeHtml(info.account_name || 'Chua cau hinh')}</div>
                 <div><strong>So tai khoan:</strong> ${escapeHtml(info.account_number || 'Chua cau hinh')}</div>
                 <div><strong>So dien thoai admin:</strong> ${escapeHtml(info.admin_phone || 'Chua cau hinh')}</div>
+                ${qrUrl ? `
+                    <div class="payment-qr-card">
+                        <div class="payment-qr-title">Quet QR de chuyen khoan</div>
+                        <img src="${escapeHtml(qrUrl)}" alt="QR chuyen khoan ${escapeHtml(payment.transfer_note)}" loading="lazy">
+                        <div class="payment-qr-note">QR da gom so tien va noi dung chuyen khoan.</div>
+                    </div>
+                ` : ''}
                 <button class="btn btn-success btn-block payment-confirm-btn" onclick="confirmPaymentPaid(${payment.id})">
                     <i class="fas fa-check-circle"></i> Da thanh toan
                 </button>

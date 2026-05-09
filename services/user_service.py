@@ -615,6 +615,10 @@ class UserService:
         reference_code = f"MSE-{user_id}-{plan_name}-{int(datetime.utcnow().timestamp())}"
         transfer_note = f"MSE-{user_id}-{plan_name}"
         payment_info = self.get_payment_info()
+        payment_info['qr_url'] = config.get_payment_qr_url(
+            amount=plan.price,
+            add_info=transfer_note
+        )
         bank_lines = [
             f"Ngan hang: {payment_info.get('bank_name') or 'Chua cau hinh'}",
             f"Chu tai khoan: {payment_info.get('account_name') or 'Chua cau hinh'}",

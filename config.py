@@ -311,7 +311,7 @@ def get_model_config():
 
 # Base URL của app (dùng cho internal redirects, webhooks)
 IS_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
-PRIMARY_DOMAIN = os.getenv("PRIMARY_DOMAIN", "www.mssmileenglish.com")
+PRIMARY_DOMAIN = os.getenv("PRIMARY_DOMAIN", "mssmileenglish.com")
 PRIMARY_APP_URL = f"https://{PRIMARY_DOMAIN}"
 DEFAULT_APP_BASE_URL = PRIMARY_APP_URL if IS_RAILWAY else "http://localhost:5000"
 APP_BASE_URL = os.getenv("APP_BASE_URL", DEFAULT_APP_BASE_URL)
@@ -342,19 +342,42 @@ PAYMENT_RETURN_URL = os.getenv("PAYMENT_RETURN_URL", f"{APP_BASE_URL}/payment/su
 PAYMENT_CANCEL_URL = os.getenv("PAYMENT_CANCEL_URL", f"{APP_BASE_URL}/payment/cancel")
 PAYMENT_WEBHOOK_URL = os.getenv("PAYMENT_WEBHOOK_URL", f"{APP_BASE_URL}/api/payment/webhook")
 PAYMENT_BANK_NAME = os.getenv("PAYMENT_BANK_NAME", "ACB")
+PAYMENT_BANK_CODE = os.getenv("PAYMENT_BANK_CODE", PAYMENT_BANK_NAME)
 PAYMENT_BANK_ACCOUNT_NAME = os.getenv("PAYMENT_BANK_ACCOUNT_NAME", "Nguyen Quoc Tuan")
 PAYMENT_BANK_ACCOUNT_NUMBER = os.getenv("PAYMENT_BANK_ACCOUNT_NUMBER", "13184397")
 PAYMENT_ADMIN_PHONE = os.getenv("PAYMENT_ADMIN_PHONE", os.getenv("ADMIN_PHONE", "0939489139"))
 PAYMENT_SUPPORT_NOTE = os.getenv("PAYMENT_SUPPORT_NOTE", "Sau khi chuyen khoan, admin se doi chieu ma noi dung va duyet goi trong tab Thanh toan.")
 
 
+def get_payment_qr_url(amount=None, add_info=None):
+    """Build a VietQR image URL for manual bank transfers."""
+    from urllib.parse import quote_plus
+
+    bank_code = (PAYMENT_BANK_CODE or PAYMENT_BANK_NAME or "").strip().upper().replace(" ", "")
+    account_number = (PAYMENT_BANK_ACCOUNT_NUMBER or "").strip().replace(" ", "")
+    if not bank_code or not account_number:
+        return ""
+
+    query = []
+    if amount:
+        query.append(f"amount={int(amount)}")
+    if add_info:
+        query.append(f"addInfo={quote_plus(str(add_info))}")
+    if PAYMENT_BANK_ACCOUNT_NAME:
+        query.append(f"accountName={quote_plus(PAYMENT_BANK_ACCOUNT_NAME)}")
+    suffix = f"?{'&'.join(query)}" if query else ""
+    return f"https://img.vietqr.io/image/{bank_code}-{account_number}-compact2.png{suffix}"
+
+
 def get_payment_info():
     return {
         "bank_name": PAYMENT_BANK_NAME,
+        "bank_code": PAYMENT_BANK_CODE,
         "account_name": PAYMENT_BANK_ACCOUNT_NAME,
         "account_number": PAYMENT_BANK_ACCOUNT_NUMBER,
         "admin_phone": PAYMENT_ADMIN_PHONE,
-        "support_note": PAYMENT_SUPPORT_NOTE
+        "support_note": PAYMENT_SUPPORT_NOTE,
+        "qr_url": get_payment_qr_url()
     }
 
 # Affiliate marketing defaults
