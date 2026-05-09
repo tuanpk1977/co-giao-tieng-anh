@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-039-mobile-version-hide";
+const APP_VERSION = "hybrid-roadmap-040-bilingual-ai-feedback";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -1911,6 +1911,58 @@ const ROADMAP_VI_SENTENCES = {
     "I have a question.": "Tôi có một câu hỏi."
 };
 
+const ROADMAP_TOPIC_VI = {
+    "clear opinion": "ý kiến rõ ràng",
+    "opinion paragraphs": "đoạn văn nêu ý kiến",
+    "discussion essays": "bài luận thảo luận",
+    "problem solution essays": "bài luận vấn đề - giải pháp",
+    "advantages essays": "bài luận về ưu điểm",
+    "cause effect essays": "bài luận nguyên nhân - kết quả",
+    "meeting preparation": "chuẩn bị cuộc họp",
+    "customer greetings": "chào khách hàng",
+    "guest greetings": "chào khách trong quán",
+    "safety briefings": "hướng dẫn an toàn"
+};
+
+const ROADMAP_VI_RULES = {
+    "Use linking words to connect ideas.": "Dùng từ nối để liên kết ý, ví dụ: however, because, so.",
+    "Use topic sentence plus support for each paragraph.": "Mỗi đoạn nên có câu chủ đề, sau đó thêm lý do hoặc ví dụ hỗ trợ.",
+    "Use polite requests with could/would.": "Dùng could/would để hỏi lịch sự hơn.",
+    "Use present simple for timetables and routines.": "Dùng hiện tại đơn cho lịch trình và thói quen.",
+    "Use past simple for finished experiences.": "Dùng quá khứ đơn cho trải nghiệm đã kết thúc.",
+    "Use because/so to connect reasons and results.": "Dùng because/so để nối lý do và kết quả.",
+    "Use simple present for habits and general facts.": "Dùng hiện tại đơn cho thói quen và sự thật chung.",
+    "Use one clear example after each reason.": "Sau mỗi lý do nên có một ví dụ rõ ràng.",
+    "Use although/while to show contrast.": "Dùng although/while để nói hai ý trái ngược.",
+    "Use precise academic vocabulary instead of general words.": "Dùng từ học thuật chính xác thay vì từ quá chung chung.",
+    "Use could/would for polite workplace requests.": "Trong công việc, dùng could/would để đề nghị lịch sự.",
+    "Use future forms for plans and commitments.": "Dùng will/going to để nói kế hoạch hoặc cam kết.",
+    "Use open questions to find customer needs.": "Dùng câu hỏi mở để hiểu nhu cầu khách hàng.",
+    "Use comparatives to explain product value.": "Dùng so sánh hơn để giải thích giá trị sản phẩm.",
+    "Use would like for polite orders.": "Dùng would like khi gọi món lịch sự.",
+    "Use apologies plus a solution for service problems.": "Khi có lỗi dịch vụ, hãy xin lỗi và đưa giải pháp.",
+    "Use clear instructions for safety.": "Dùng câu ngắn, rõ khi hướng dẫn an toàn.",
+    "Use past simple to report what happened.": "Dùng quá khứ đơn để báo lại việc đã xảy ra."
+};
+
+const ROADMAP_VI_QUIZ = {
+    "Choose a contrast linker.": "Chọn từ nối thể hiện ý tương phản.",
+    "Choose the polite request.": "Chọn câu đề nghị lịch sự.",
+    "Choose an opinion phrase.": "Chọn cụm từ nêu ý kiến.",
+    "Choose a phrase for examples.": "Chọn cụm từ dùng để đưa ví dụ.",
+    "Choose a concession linker.": "Chọn từ nối nhượng bộ/tương phản.",
+    "Choose a workplace request.": "Chọn câu đề nghị dùng trong công việc.",
+    "Choose an open sales question.": "Chọn câu hỏi mở trong bán hàng.",
+    "Choose a polite cafe question.": "Chọn câu hỏi lịch sự trong quán cà phê.",
+    "Choose a safety instruction.": "Chọn câu hướng dẫn an toàn.",
+    "Choose the best sentence.": "Chọn câu đúng nhất."
+};
+
+function viTopic(topic) {
+    const raw = String(topic || '').trim();
+    return ROADMAP_TOPIC_VI[raw.toLowerCase()] || raw;
+}
+
 function viGlossary(text, word = '') {
     const key = String(text || '').trim().toLowerCase();
     const wordKey = String(word || '').trim().toLowerCase();
@@ -1926,20 +1978,106 @@ function viForSentence(text) {
     const sentence = String(text || '').trim();
     if (!sentence) return '';
     if (ROADMAP_VI_SENTENCES[sentence]) return ROADMAP_VI_SENTENCES[sentence];
-    const topicTalk = sentence.match(/^I can talk about (.+)\.$/i);
-    if (topicTalk) return `Tôi có thể nói về ${topicTalk[1]}.`;
-    const plan = sentence.match(/^We need a plan for (.+)\.$/i);
-    if (plan) return `Chúng ta cần một kế hoạch cho ${plan[1]}.`;
-    const help = sentence.match(/^Can you help me with (.+)\?$/i);
-    if (help) return `Bạn có thể giúp tôi về ${help[1]} không?`;
+
+    const dynamicRules = [
+        [/^The main point about (.+) is clear\.$/i, match => `Ý chính về ${viTopic(match[1])} đã rõ.`],
+        [/^I need information about (.+)\.$/i, match => `Tôi cần thông tin về ${viTopic(match[1])}.`],
+        [/^In my opinion, (.+) is important\.$/i, match => `Theo tôi, ${viTopic(match[1])} là quan trọng.`],
+        [/^I usually talk about (.+) in simple words\.$/i, match => `Tôi thường nói về ${viTopic(match[1])} bằng từ đơn giản.`],
+        [/^Could we discuss (.+) today\?$/i, match => `Hôm nay chúng ta có thể trao đổi về ${viTopic(match[1])} không?`],
+        [/^Although (.+) has benefits, there are limits\.$/i, match => `Mặc dù ${viTopic(match[1])} có lợi ích, vẫn có giới hạn.`],
+        [/^What do you think about (.+)\?$/i, match => `Bạn nghĩ gì về ${viTopic(match[1])}?`],
+        [/^Excuse me, I need information about (.+)\.$/i, match => `Xin lỗi, tôi cần thông tin về ${viTopic(match[1])}.`],
+        [/^Let's practise an IELTS topic: (.+)\.$/i, match => `Hãy luyện một chủ đề IELTS: ${viTopic(match[1])}.`],
+        [/^This lesson is about (.+)\.$/i, match => `Bài này nói về ${viTopic(match[1])}.`],
+        [/^I can talk about (.+)\.$/i, match => `Tôi có thể nói về ${viTopic(match[1])}.`],
+        [/^We need a plan for (.+)\.$/i, match => `Chúng ta cần một kế hoạch cho ${viTopic(match[1])}.`],
+        [/^Can you help me with (.+)\?$/i, match => `Bạn có thể giúp tôi về ${viTopic(match[1])} không?`]
+    ];
+    for (const [regex, build] of dynamicRules) {
+        const match = sentence.match(regex);
+        if (match) return build(match);
+    }
+
+    const staticSentences = {
+        "The main reason is clear.": "Lý do chính đã rõ.",
+        "I suggest we try another option.": "Tôi đề nghị chúng ta thử một lựa chọn khác.",
+        "One reason is that it is useful.": "Một lý do là nó hữu ích.",
+        "For example, people can learn faster.": "Ví dụ, mọi người có thể học nhanh hơn.",
+        "This example supports my opinion.": "Ví dụ này hỗ trợ ý kiến của tôi.",
+        "However, there is another side.": "Tuy nhiên, vẫn có một mặt khác.",
+        "Could you tell me the time?": "Bạn có thể cho tôi biết thời gian không?",
+        "I would like to change my plan.": "Tôi muốn thay đổi kế hoạch của mình.",
+        "Sure. What would you like to know?": "Được. Bạn muốn biết điều gì?",
+        "Could you tell me the time and place?": "Bạn có thể cho tôi biết thời gian và địa điểm không?",
+        "I can give one simple reason.": "Tôi có thể đưa ra một lý do đơn giản.",
+        "Good. Add one example.": "Tốt. Hãy thêm một ví dụ.",
+        "What is your main point about clear opinion?": "Ý chính của bạn về ý kiến rõ ràng là gì?",
+        "The main point is clear.": "Ý chính đã rõ.",
+        "Now add a supporting example.": "Bây giờ hãy thêm một ví dụ hỗ trợ.",
+        "I will send a follow-up email.": "Tôi sẽ gửi email theo dõi sau.",
+        "The deadline is tight but possible.": "Hạn chót khá gấp nhưng vẫn có thể làm được.",
+        "Yes. Please give me a quick update.": "Vâng. Vui lòng cập nhật nhanh cho tôi.",
+        "I will send the action items after the meeting.": "Tôi sẽ gửi các việc cần làm sau cuộc họp.",
+        "What are you looking for today?": "Hôm nay bạn đang tìm gì?",
+        "This option gives you better value.": "Lựa chọn này mang lại giá trị tốt hơn.",
+        "Would you like me to prepare a quote?": "Bạn có muốn tôi chuẩn bị báo giá không?",
+        "I need something reliable and affordable.": "Tôi cần thứ gì đó đáng tin cậy và giá hợp lý.",
+        "What would you like to order?": "Bạn muốn gọi món gì?",
+        "Would you like it hot or iced?": "Bạn muốn nóng hay đá?",
+        "I'm sorry about the wait.": "Xin lỗi vì đã để bạn chờ.",
+        "A latte with less sugar, please.": "Cho tôi một latte ít đường.",
+        "Please wear your safety equipment.": "Vui lòng mang thiết bị bảo hộ.",
+        "The machine stopped during my shift.": "Máy đã dừng trong ca làm của tôi.",
+        "I need to report a problem.": "Tôi cần báo cáo một vấn đề.",
+        "What happened during your shift?": "Điều gì đã xảy ra trong ca của bạn?",
+        "The machine stopped after the quality check.": "Máy đã dừng sau bước kiểm tra chất lượng.",
+        "From a broader perspective, this issue is complex.": "Nhìn rộng hơn, vấn đề này khá phức tạp.",
+        "The evidence suggests a balanced answer.": "Bằng chứng cho thấy cần một câu trả lời cân bằng.",
+        "How can we make this answer more advanced?": "Làm sao để câu trả lời này nâng cao hơn?",
+        "We can add contrast and evidence.": "Chúng ta có thể thêm ý đối lập và bằng chứng.",
+        "Good. Keep the argument balanced.": "Tốt. Hãy giữ lập luận cân bằng.",
+        "Please check this word in context.": "Hãy kiểm tra từ này trong ngữ cảnh."
+    };
+    return staticSentences[sentence] || '';
+}
+
+function viForGrammar(text) {
+    const rule = String(text || '').trim();
+    if (!rule) return '';
+    if (ROADMAP_VI_RULES[rule]) return ROADMAP_VI_RULES[rule];
+    if (/linking words/i.test(rule)) return 'Dùng từ nối để liên kết các ý trong câu hoặc đoạn văn.';
+    if (/topic sentence/i.test(rule)) return 'Câu chủ đề giúp người đọc biết đoạn này nói về ý gì.';
+    if (/past simple/i.test(rule)) return 'Dùng quá khứ đơn cho việc đã xảy ra và kết thúc.';
+    if (/present simple/i.test(rule)) return 'Dùng hiện tại đơn cho thói quen, lịch trình hoặc sự thật chung.';
+    if (/polite|could|would/i.test(rule)) return 'Dùng could/would để nói lịch sự và tự nhiên hơn.';
+    if (/example/i.test(rule)) return 'Thêm ví dụ ngắn để ý chính dễ hiểu hơn.';
     return '';
 }
 
-function bilingualLine(text, className = 'bilingual-vn') {
-    const vi = viForSentence(text);
-    return vi ? `<span class="${className}">${escapeHtml(vi)}</span>` : '';
+function viForQuiz(text) {
+    const question = String(text || '').trim();
+    if (!question) return '';
+    if (ROADMAP_VI_QUIZ[question]) return ROADMAP_VI_QUIZ[question];
+    if (/choose/i.test(question)) return 'Hãy chọn đáp án đúng nhất.';
+    if (/best sentence/i.test(question)) return 'Chọn câu tự nhiên và đúng nhất.';
+    return '';
 }
 
+function viForReview(text) {
+    const item = String(text || '').trim();
+    if (!item) return '';
+    if (/Read the vocabulary/i.test(item)) return 'Đọc lại từ vựng và nghĩa tiếng Việt.';
+    if (/Record one speaking sentence/i.test(item)) return 'Ghi âm một câu nói để luyện phát âm.';
+    if (/Score at least/i.test(item)) return 'Cố gắng đạt ít nhất 70% ở phần luyện nói.';
+    if (/Use/i.test(item) && /new words/i.test(item)) return 'Hãy dùng từ mới trong một câu của riêng bạn.';
+    return viForSentence(item);
+}
+
+function bilingualLine(text, className = 'bilingual-vn', translator = viForSentence) {
+    const vi = translator(text);
+    return vi ? `<span class="${className}">${escapeHtml(vi)}</span>` : '';
+}
 function renderRoadmapContent(lesson) {
     const content = lesson.content || {};
     if (lesson.type === 'integrated') {
@@ -1972,7 +2110,7 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-diagram-project"></i><h4>Grammar Mini</h4></div>
-                <ul>${grammar.map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul>
+                <ul>${grammar.map(rule => `<li>${escapeHtml(rule)}${bilingualLine(rule, 'bilingual-vn', viForGrammar)}</li>`).join('')}</ul>
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-headphones"></i><h4>Sample Dialogue</h4></div>
@@ -2005,11 +2143,11 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-circle-question"></i><h4>Quiz</h4></div>
-                ${quiz.map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('')}
+                ${quiz.map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong>${bilingualLine(q.question, 'bilingual-vn', viForQuiz)}<div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-rotate-right"></i><h4>Review</h4></div>
-                <ul>${review.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+                <ul>${review.map(item => `<li>${escapeHtml(item)}${bilingualLine(item, 'bilingual-vn', viForReview)}</li>`).join('')}</ul>
             </div>
         `;
     }
@@ -2023,10 +2161,10 @@ function renderRoadmapContent(lesson) {
         `).join('')}</div>`;
     }
     if (lesson.type === 'grammar') {
-        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p class="pattern-line"><span>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(ex)}</p>`).join('')}</div>`;
+        return `<ul>${(content.rules || []).map(rule => `<li>${escapeHtml(rule)}${bilingualLine(rule, 'bilingual-vn', viForGrammar)}</li>`).join('')}</ul><div>${(content.examples || []).map(ex => `<p class="pattern-line"><span>${escapeHtml(ex)} <button class="speak-btn" onclick="playRoadmapAudio('${escapeAttr(ex)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(ex)}</p>`).join('')}</div>`;
     }
     if (lesson.type === 'quiz') {
-        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong><div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
+        return (content.questions || []).map(q => `<div class="roadmap-quiz"><strong>${escapeHtml(q.question)}</strong>${bilingualLine(q.question, 'bilingual-vn', viForQuiz)}<div>${(q.options || []).map(o => `<button class="btn btn-secondary" onclick="revealRoadmapQuizAnswer(this, '${escapeAttr(q.answer)}')">${escapeHtml(o)}</button>`).join(' ')}</div><em></em></div>`).join('');
     }
     if (lesson.type === 'listening') {
         return `
@@ -2427,7 +2565,9 @@ function showMsSmileNudge(type) {
 function revealRoadmapQuizAnswer(button, answer) {
     const quiz = button.closest('.roadmap-quiz');
     const target = quiz?.querySelector('em');
-    if (target) target.textContent = `Answer: ${answer}`;
+    if (target) {
+        target.innerHTML = `Answer: ${escapeHtml(answer)}${bilingualLine(answer)}`;
+    }
     playRewardSound('success');
     showMsSmileNudge('quizCorrect');
 }

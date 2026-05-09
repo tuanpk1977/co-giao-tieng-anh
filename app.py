@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-039-mobile-version-hide"
+APP_VERSION = "hybrid-roadmap-040-bilingual-ai-feedback"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -1108,8 +1108,19 @@ def roadmap_ai_explain():
     limit = get_roadmap_service().get_ai_limit_status(user_id, feature_type)
     if user_id and not limit["allowed"]:
         return jsonify({"success": False, "error": "AI daily limit reached", "limit": limit}), 429
-    prompt = f"""Explain this fixed English lesson in Vietnamese for the learner.
-Keep it short, practical, and personalized. Do not create a new lesson.
+    prompt = f"""You are Ms. Smile, an English tutor for Vietnamese learners.
+Explain this fixed lesson in Vietnamese. Do not create a new lesson.
+Make the explanation specific to the actual lesson content, not generic.
+
+Return this exact structure:
+1. Mục tiêu bài học: explain what the learner can say after this lesson.
+2. Từ/câu cần nhớ: 3 bullet points, each with English + Vietnamese meaning + when to use.
+3. Cách dùng: explain the main grammar/pattern in simple Vietnamese with 1 English example.
+4. Lỗi người Việt hay gặp: 2 practical mistakes and how to fix them.
+5. Luyện ngay: 2 short practice sentences with Vietnamese meaning.
+
+Tone: friendly, clear, useful for Vietnamese learners.
+Keep it under 260 Vietnamese words.
 
 Lesson title: {lesson.get('title')}
 Lesson type: {lesson.get('type')}
@@ -1227,10 +1238,16 @@ def speaking_feedback():
     if not limit["allowed"]:
         return jsonify({"success": False, "error": "Bạn đã hết lượt AI hôm nay", "limit": limit}), 429
 
-    prompt = f"""You are Ms. Smile, a concise English pronunciation coach for Vietnamese learners.
-Return ONLY compact valid JSON. No markdown. Vietnamese, friendly, under 60 words total.
+    prompt = f"""You are Ms. Smile, a practical English speaking coach for Vietnamese learners.
+Return ONLY valid JSON. No markdown. Vietnamese, friendly, specific, under 160 Vietnamese words total.
 Keys: summary, pronunciationTips, wordCorrections, practiceAgainText.
-Focus on pronunciation, missing words, final sounds, and naturalness.
+
+Rules:
+- summary: 1 sentence with encouragement + main issue.
+- pronunciationTips: 2-3 concrete tips, mention final sounds, stress, missing words, or Vietnamese-speaker habits if relevant.
+- wordCorrections: list objects with "heard", "shouldSay", "why" when possible. Explain why in Vietnamese.
+- practiceAgainText: a natural sentence for the learner to repeat, close to the expected sentence.
+- Do not be vague like "speak more clearly"; explain exactly what to fix.
 
 User level: {user_level}
 Expected sentence: {expected}
