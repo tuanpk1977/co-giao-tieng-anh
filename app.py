@@ -59,14 +59,16 @@ def redirect_www_to_primary_domain():
     return redirect(target, code=301)
 
 # Database configuration
-database_url = os.getenv('DATABASE_URL')
-if not database_url:
-    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
-    if volume_path:
-        os.makedirs(volume_path, exist_ok=True)
-        database_url = f"sqlite:///{os.path.join(volume_path, 'ms_smile.db')}"
-    else:
-        database_url = 'sqlite:///ms_smile.db'
+raw_database_url = os.getenv('DATABASE_URL')
+volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH') or os.getenv('VOLUME_MOUNT_PATH')
+unsafe_sqlite_urls = {'sqlite:///ms_smile.db', 'sqlite:///instance/ms_smile.db'}
+if volume_path and (not raw_database_url or raw_database_url in unsafe_sqlite_urls):
+    os.makedirs(volume_path, exist_ok=True)
+    database_url = f"sqlite:///{os.path.join(volume_path, 'ms_smile.db')}"
+elif raw_database_url:
+    database_url = raw_database_url
+else:
+    database_url = 'sqlite:///ms_smile.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -94,6 +96,7 @@ def get_database_persistence_status():
         "persistent": persistent,
         "mode": mode,
         "database_url_configured": bool(os.getenv('DATABASE_URL')),
+        "database_url_is_unsafe_sqlite": bool(os.getenv('DATABASE_URL') in unsafe_sqlite_urls),
         "railway_volume_configured": bool(volume_path),
         "sqlite_local_fallback": bool(is_local_sqlite),
         "message": message
