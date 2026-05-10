@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-054-diverse-unit-lessons";
+const APP_VERSION = "hybrid-roadmap-055-skill-based-unit-lessons";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2271,6 +2271,71 @@ function supportExampleLines(item) {
     return item.example ? bilingualLine(item.example) : '';
 }
 
+function renderAdvancedSkillExtras(content = {}) {
+    const grammarPractice = content.grammarPractice;
+    const listeningTask = content.listeningTask;
+    const readingTask = content.readingTask;
+    const writingTask = content.writingTask;
+
+    const questionList = (questions = []) => questions.map((q, index) => `
+        <li>
+            <strong>${index + 1}. ${escapeHtml(q.question || '')}</strong>
+            ${q.translation ? `<span class="bilingual-vn">${escapeHtml(q.translation)}</span>` : ''}
+            ${q.answer ? `<em>${escapeHtml(q.answer)}</em>` : ''}
+        </li>
+    `).join('');
+
+    let html = '';
+    if (grammarPractice) {
+        html += `
+            <div class="lesson-app-card skill-focus-card">
+                <div class="lesson-section-header"><i class="fas fa-pen-to-square"></i><h4>${escapeHtml(grammarPractice.title || 'Grammar practice')}</h4></div>
+                ${grammarPractice.translation ? `<p class="bilingual-vn">${escapeHtml(grammarPractice.translation)}</p>` : ''}
+                ${(grammarPractice.examples || []).map(ex => {
+                    const text = learningText(ex);
+                    return `<p class="pattern-line"><span>${escapeHtml(text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(text)}')"><i class="fas fa-volume-up"></i></button></span>${supportTranslationLine(ex, text, 'bilingual-vn')}</p>`;
+                }).join('')}
+                <ul>${(grammarPractice.tasks || []).map(task => `<li>${escapeHtml(task)}</li>`).join('')}</ul>
+            </div>
+        `;
+    }
+    if (listeningTask) {
+        html += `
+            <div class="lesson-app-card skill-focus-card">
+                <div class="lesson-section-header"><i class="fas fa-headphones-simple"></i><h4>${escapeHtml(listeningTask.title || 'Long listening')}</h4></div>
+                ${listeningTask.translation ? `<p class="bilingual-vn">${escapeHtml(listeningTask.translation)}</p>` : ''}
+                <p class="skill-passage">${escapeHtml(listeningTask.passage || '')} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(listeningTask.passage || '')}')"><i class="fas fa-volume-up"></i></button></p>
+                ${listeningTask.passageTranslation ? `<p class="bilingual-vn">${escapeHtml(listeningTask.passageTranslation)}</p>` : ''}
+                <ul class="skill-question-list">${questionList(listeningTask.questions || [])}</ul>
+            </div>
+        `;
+    }
+    if (readingTask) {
+        html += `
+            <div class="lesson-app-card skill-focus-card">
+                <div class="lesson-section-header"><i class="fas fa-book-open-reader"></i><h4>${escapeHtml(readingTask.title || 'Reading text')}</h4></div>
+                ${readingTask.translation ? `<p class="bilingual-vn">${escapeHtml(readingTask.translation)}</p>` : ''}
+                <p class="skill-passage">${escapeHtml(readingTask.passage || '')}</p>
+                ${readingTask.passageTranslation ? `<p class="bilingual-vn">${escapeHtml(readingTask.passageTranslation)}</p>` : ''}
+                <ul class="skill-question-list">${questionList(readingTask.questions || [])}</ul>
+            </div>
+        `;
+    }
+    if (writingTask) {
+        const outlineVi = writingTask.outlineTranslation || [];
+        html += `
+            <div class="lesson-app-card skill-focus-card">
+                <div class="lesson-section-header"><i class="fas fa-pencil"></i><h4>${escapeHtml(writingTask.title || 'Writing guide')}</h4></div>
+                ${writingTask.translation ? `<p class="bilingual-vn">${escapeHtml(writingTask.translation)}</p>` : ''}
+                <p class="skill-passage">${escapeHtml(writingTask.prompt || '')}</p>
+                ${writingTask.promptTranslation ? `<p class="bilingual-vn">${escapeHtml(writingTask.promptTranslation)}</p>` : ''}
+                <ol>${(writingTask.outline || []).map((item, index) => `<li>${escapeHtml(item)}${outlineVi[index] ? `<span class="bilingual-vn">${escapeHtml(outlineVi[index])}</span>` : ''}</li>`).join('')}</ol>
+            </div>
+        `;
+    }
+    return html;
+}
+
 const KANA_STROKE_COLORS = ['#ff6b6b', '#51cf66', '#22b8cf', '#cc5de8'];
 
 const KANA_STROKE_ORDER_DATA = {
@@ -2520,8 +2585,12 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-diagram-project"></i><h4>Grammar Mini</h4></div>
-                <ul>${grammar.map(rule => `<li>${escapeHtml(rule)}${bilingualLine(rule, 'bilingual-vn', viForGrammar)}</li>`).join('')}</ul>
+                <ul>${grammar.map(rule => {
+                    const ruleText = learningText(rule);
+                    return `<li>${escapeHtml(ruleText)}${supportTranslationLine(rule, ruleText, 'bilingual-vn')}</li>`;
+                }).join('')}</ul>
             </div>
+            ${renderAdvancedSkillExtras(content)}
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-headphones"></i><h4>Sample Dialogue</h4></div>
                 <div class="audio-toolbar">

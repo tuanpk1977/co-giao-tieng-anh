@@ -386,11 +386,18 @@ def _build_units(level_id, level_title, specs):
         group = specs[unit_idx * 5:(unit_idx + 1) * 5]
         if not group:
             continue
+        same_topic_group = all(spec[0] == group[0][0] for spec in group)
+        unit_topic_title = group[0][0] if same_topic_group else f"{level_title} Practice {unit_idx + 1}"
+        unit_description = (
+            f"Five skill lessons for {unit_topic_title}: vocabulary, grammar, listening, reading and writing."
+            if same_topic_group
+            else f"Five real-life {level_title} lessons with vocabulary, dialogue, speaking and quiz."
+        )
         units.append({
             "id": unit_id,
             "levelId": level_id,
-            "title": f"Unit {unit_idx + 1}: {level_title} Practice {unit_idx + 1}",
-            "description": f"Five real-life {level_title} lessons with vocabulary, dialogue, speaking and quiz.",
+            "title": f"Unit {unit_idx + 1}: {unit_topic_title}",
+            "description": unit_description,
             "order": unit_idx + 1,
             "lessons": [
                 _integrated_lesson(
@@ -1031,140 +1038,244 @@ def _advanced_vocab_example(word, meaning, topic_key):
     if clean_word == clean_topic:
         return (
             f"This lesson is about {clean_topic}.",
-            f"Bài này nói về {clean_topic}.",
+            f"Bài này nói về {meaning}.",
         )
     if clean_word in ADVANCED_WORD_EXAMPLES:
         return ADVANCED_WORD_EXAMPLES[clean_word]
     return (
         f"We use '{clean_word}' when we talk about {clean_topic}.",
-        f"Chúng ta dùng '{clean_word}' khi nói về {clean_topic}.",
+        f"Chúng ta dùng '{clean_word}' khi nói về {meaning}.",
     )
+
+
+ADVANCED_TOPIC_VI_OVERRIDES = {
+    "daily schedule": "lịch trình hằng ngày",
+    "buying a ticket": "mua vé",
+    "writing a note": "viết ghi chú",
+    "asking for directions": "hỏi đường",
+    "making an appointment": "đặt lịch hẹn",
+    "lost property": "đồ bị thất lạc",
+    "weekend activities": "hoạt động cuối tuần",
+    "simple email": "email đơn giản",
+    "public transport": "phương tiện công cộng",
+    "at the doctor": "đi khám bác sĩ",
+}
+
+
+ADVANCED_TOPIC_WORD_VI = {
+    "abstract": "trừu tượng",
+    "account": "tài khoản",
+    "activity": "hoạt động",
+    "advice": "lời khuyên",
+    "allergy": "dị ứng",
+    "appointment": "lịch hẹn",
+    "argument": "lập luận",
+    "article": "bài viết",
+    "asking": "hỏi",
+    "bar": "biểu đồ cột",
+    "booking": "đặt chỗ",
+    "budget": "ngân sách",
+    "business": "kinh doanh",
+    "cafe": "quán cà phê",
+    "card": "thẻ",
+    "career": "nghề nghiệp",
+    "chart": "biểu đồ",
+    "class": "lớp học",
+    "client": "khách hàng",
+    "clothes": "quần áo",
+    "club": "câu lạc bộ",
+    "coffee": "cà phê",
+    "complaint": "khiếu nại",
+    "contract": "hợp đồng",
+    "course": "khóa học",
+    "customer": "khách hàng",
+    "daily": "hằng ngày",
+    "deadline": "hạn chót",
+    "decision": "quyết định",
+    "directions": "đường đi",
+    "doctor": "bác sĩ",
+    "email": "email",
+    "essay": "bài luận",
+    "factory": "nhà máy",
+    "family": "gia đình",
+    "food": "đồ ăn",
+    "friend": "bạn bè",
+    "graph": "biểu đồ",
+    "health": "sức khỏe",
+    "hotel": "khách sạn",
+    "invitation": "lời mời",
+    "invoice": "hóa đơn",
+    "job": "công việc",
+    "key": "chìa khóa",
+    "library": "thư viện",
+    "meeting": "cuộc họp",
+    "message": "tin nhắn",
+    "notice": "thông báo",
+    "office": "văn phòng",
+    "opinion": "ý kiến",
+    "order": "đơn hàng",
+    "payment": "thanh toán",
+    "phone": "điện thoại",
+    "plan": "kế hoạch",
+    "presentation": "thuyết trình",
+    "price": "giá",
+    "problem": "vấn đề",
+    "project": "dự án",
+    "question": "câu hỏi",
+    "review": "ôn tập",
+    "sales": "bán hàng",
+    "schedule": "lịch trình",
+    "school": "trường học",
+    "shopping": "mua sắm",
+    "speaking": "nói",
+    "sports": "thể thao",
+    "station": "nhà ga",
+    "story": "câu chuyện",
+    "teacher": "giáo viên",
+    "ticket": "vé",
+    "timetable": "thời khóa biểu",
+    "topic": "chủ đề",
+    "transport": "giao thông",
+    "travel": "du lịch",
+    "visitor": "khách tham quan",
+    "weather": "thời tiết",
+    "work": "công việc",
+    "workplace": "nơi làm việc",
+    "writing": "viết",
+}
+
+
+def _advanced_topic_vi(topic):
+    topic_key = str(topic or "").strip().lower()
+    if topic_key in ADVANCED_TOPIC_VI_OVERRIDES:
+        return ADVANCED_TOPIC_VI_OVERRIDES[topic_key]
+    words = []
+    for raw in topic_key.replace("-", " ").replace("/", " ").split():
+        words.append(ADVANCED_TOPIC_WORD_VI.get(raw, raw))
+    return " ".join(words).strip() or topic_key
 
 ADVANCED_LESSON_MODES = [
     {
-        "suffix": "",
-        "unitFocus": "Core vocabulary and key information.",
-        "wordOffsets": [0, 1, 2, 3],
+        "skill": "vocabulary",
+        "suffix": "Vocabulary Builder",
+        "wordOffsets": list(range(8)),
         "patterns": [
-            "I need information about {topic}.",
-            "The key detail is {word1}.",
-            "Please check the details carefully.",
+            ("I use {word1} when I talk about {topic}.", "Tôi dùng {word1} khi nói về {topic}."),
+            ("The word {word2} is useful in this lesson.", "Từ {word2} rất hữu ích trong bài này."),
+            ("Please make one sentence with {word3}.", "Hãy đặt một câu với {word3}."),
         ],
         "grammar": [
-            "Use clear nouns to name the topic.",
-            "Use polite requests when you need information.",
+            ("Learn the meaning first, then read the example sentence.", "Học nghĩa trước, sau đó đọc câu ví dụ."),
+            ("Use each new word in one short sentence.", "Dùng mỗi từ mới trong một câu ngắn."),
         ],
         "dialogue": [
-            ("A", "Excuse me, I need information about {topic}."),
-            ("B", "Sure. Which detail do you need?"),
-            ("A", "I need to check {word1} and {word2}."),
+            ("A", "Which word is new for you in {topic}?", "Từ nào mới với bạn trong chủ đề {topic}?"),
+            ("B", "The word {word1} is new for me.", "Từ {word1} mới với tôi."),
+            ("A", "Good. Make one sentence with it.", "Tốt. Hãy đặt một câu với từ đó."),
         ],
         "speaking": [
-            "I need information about {topic}.",
-            "Please check {word1} carefully.",
-            "The key detail is {word2}.",
+            ("I can say {word1} clearly.", "Tôi có thể nói rõ từ {word1}."),
+            ("I can use {word2} in a sentence.", "Tôi có thể dùng {word2} trong một câu."),
         ],
-        "quiz": ("Choose the best information request.", "I need information about this."),
+        "quiz": ("Choose the word from this vocabulary lesson.", "{word1}"),
     },
     {
-        "suffix": "Situation",
-        "unitFocus": "Real-life situation practice.",
-        "wordOffsets": [4, 5, 6, 7],
-        "patterns": [
-            "I have a question about {word1}.",
-            "Could you help me with {topic}?",
-            "What should I do next?",
-        ],
-        "grammar": [
-            "Use could you to ask for help politely.",
-            "Use short follow-up questions in real situations.",
-        ],
-        "dialogue": [
-            ("A", "Could you help me with {topic}?"),
-            ("B", "Of course. What happened?"),
-            ("A", "I have a question about {word1}."),
-        ],
-        "speaking": [
-            "Could you help me with {topic}?",
-            "I have a question about {word1}.",
-            "What should I do next?",
-        ],
-        "quiz": ("Choose the polite help request.", "Could you help me?"),
-    },
-    {
-        "suffix": "Details",
-        "unitFocus": "Forms, details, and confirmation.",
-        "wordOffsets": [1, 3, 5, 7],
-        "patterns": [
-            "Please confirm the {word1}.",
-            "I need to write the details clearly.",
-            "Can you check this for me?",
-        ],
-        "grammar": [
-            "Use please plus base verb for polite instructions.",
-            "Use can you to ask someone to check details.",
-        ],
-        "dialogue": [
-            ("A", "Can you check this for me?"),
-            ("B", "Yes. Please confirm the {word1}."),
-            ("A", "I will write the details clearly."),
-        ],
-        "speaking": [
-            "Please confirm the {word1}.",
-            "I need to write the details clearly.",
-            "Can you check this for me?",
-        ],
-        "quiz": ("Choose the confirmation phrase.", "Please confirm the details."),
-    },
-    {
-        "suffix": "Speaking Task",
-        "unitFocus": "Speaking in short turns.",
+        "skill": "grammar",
+        "suffix": "Grammar Focus",
         "wordOffsets": [0, 2, 4, 6],
         "patterns": [
-            "Let me explain {topic} step by step.",
-            "My first point is about {word1}.",
-            "Can I ask a follow-up question?",
+            ("Could you help me with {topic}?", "Bạn có thể giúp tôi về {topic} không?"),
+            ("I need to check {word1} before I answer.", "Tôi cần kiểm tra {word1} trước khi trả lời."),
+            ("Please explain {word2} one more time.", "Vui lòng giải thích {word2} thêm một lần nữa."),
         ],
         "grammar": [
-            "Use first/next to organize spoken answers.",
-            "Use follow-up questions to continue a conversation.",
+            ("Use could you + base verb for polite questions.", "Dùng could you + động từ nguyên mẫu để hỏi lịch sự."),
+            ("Use need to + verb when something is necessary.", "Dùng need to + động từ khi việc gì đó cần thiết."),
+            ("Use before/after to show order of actions.", "Dùng before/after để nói thứ tự hành động."),
         ],
         "dialogue": [
-            ("A", "Let me explain {topic} step by step."),
-            ("B", "Good. What is your first point?"),
-            ("A", "My first point is about {word1}."),
+            ("A", "Could you explain {topic}?", "Bạn có thể giải thích {topic} không?"),
+            ("B", "Sure. First, check {word1}.", "Được. Trước tiên, hãy kiểm tra {word1}."),
+            ("A", "Then I can answer clearly.", "Sau đó tôi có thể trả lời rõ ràng."),
         ],
         "speaking": [
-            "Let me explain {topic} step by step.",
-            "My first point is about {word1}.",
-            "Can I ask a follow-up question?",
+            ("Could you help me with {topic}?", "Bạn có thể giúp tôi về {topic} không?"),
+            ("I need to check {word1} before I answer.", "Tôi cần kiểm tra {word1} trước khi trả lời."),
         ],
-        "quiz": ("Choose a speaking organizer.", "My first point is"),
+        "quiz": ("Complete: Could you ___ me?", "help"),
     },
     {
-        "suffix": "Review Challenge",
-        "unitFocus": "Review and active recall.",
-        "wordOffsets": [2, 5, 0, 7],
+        "skill": "listening",
+        "suffix": "Listening Practice",
+        "wordOffsets": [1, 3, 5, 7],
         "patterns": [
-            "Today I reviewed {topic}.",
-            "I can use {word1} and {word2}.",
-            "I will practise this again tomorrow.",
+            ("Listen for the main idea about {topic}.", "Nghe để nắm ý chính về {topic}."),
+            ("Write down the detail about {word1}.", "Ghi lại chi tiết về {word1}."),
+            ("Listen again and check your answer.", "Nghe lại và kiểm tra câu trả lời."),
         ],
         "grammar": [
-            "Use reviewed for finished practice.",
-            "Use will to make a simple learning plan.",
+            ("When listening, catch names, numbers, places, and actions first.", "Khi nghe, bắt tên, số, nơi chốn và hành động trước."),
+            ("Do not translate every word; listen for the task answer.", "Không cần dịch từng từ; hãy nghe để trả lời nhiệm vụ."),
         ],
         "dialogue": [
-            ("A", "What did you review today?"),
-            ("B", "Today I reviewed {topic}."),
-            ("A", "Great. Use {word1} in one sentence."),
+            ("A", "I need help with {topic}.", "Tôi cần giúp về {topic}."),
+            ("B", "Please listen carefully. The first detail is {word1}.", "Hãy nghe kỹ. Chi tiết đầu tiên là {word1}."),
+            ("A", "I heard {word1}, but I need to check {word2}.", "Tôi nghe được {word1}, nhưng cần kiểm tra {word2}."),
+            ("B", "Listen again. The answer is in the last sentence.", "Nghe lại nhé. Câu trả lời nằm ở câu cuối."),
         ],
         "speaking": [
-            "Today I reviewed {topic}.",
-            "I can use {word1} and {word2}.",
-            "I will practise this again tomorrow.",
+            ("I heard the main idea about {topic}.", "Tôi đã nghe được ý chính về {topic}."),
+            ("The important detail is {word1}.", "Chi tiết quan trọng là {word1}."),
         ],
-        "quiz": ("Choose a review sentence.", "Today I reviewed this topic."),
+        "quiz": ("What should you listen for first?", "main idea"),
+    },
+    {
+        "skill": "reading",
+        "suffix": "Reading Practice",
+        "wordOffsets": [2, 4, 6, 0],
+        "patterns": [
+            ("Read the short text about {topic}.", "Đọc đoạn văn ngắn về {topic}."),
+            ("Underline the sentence with {word1}.", "Gạch dưới câu có {word1}."),
+            ("Choose the best answer from the text.", "Chọn câu trả lời đúng nhất từ bài đọc."),
+        ],
+        "grammar": [
+            ("Read the title first to predict the topic.", "Đọc tiêu đề trước để đoán chủ đề."),
+            ("Look for repeated words because they often show the main idea.", "Tìm từ lặp lại vì chúng thường cho biết ý chính."),
+        ],
+        "dialogue": [
+            ("A", "What is this text about?", "Đoạn văn này nói về gì?"),
+            ("B", "It is about {topic}.", "Nó nói về {topic}."),
+            ("A", "Which detail supports your answer?", "Chi tiết nào chứng minh câu trả lời của bạn?"),
+        ],
+        "speaking": [
+            ("This text is about {topic}.", "Đoạn văn này nói về {topic}."),
+            ("The detail about {word1} is important.", "Chi tiết về {word1} rất quan trọng."),
+        ],
+        "quiz": ("What should you read first?", "title"),
+    },
+    {
+        "skill": "writing",
+        "suffix": "Writing Task",
+        "wordOffsets": [3, 5, 7, 1],
+        "patterns": [
+            ("I will write about {topic}.", "Tôi sẽ viết về {topic}."),
+            ("My first sentence will mention {word1}.", "Câu đầu tiên của tôi sẽ nhắc đến {word1}."),
+            ("I will finish with one clear idea.", "Tôi sẽ kết thúc bằng một ý rõ ràng."),
+        ],
+        "grammar": [
+            ("Write one topic sentence, two details, and one final sentence.", "Viết một câu chủ đề, hai chi tiết và một câu kết."),
+            ("Keep sentences short and clear at this level.", "Ở trình độ này, hãy viết câu ngắn và rõ."),
+        ],
+        "dialogue": [
+            ("A", "What will you write about?", "Bạn sẽ viết về điều gì?"),
+            ("B", "I will write about {topic}.", "Tôi sẽ viết về {topic}."),
+            ("A", "Good. Use {word1} in your first sentence.", "Tốt. Hãy dùng {word1} trong câu đầu."),
+        ],
+        "speaking": [
+            ("I will write about {topic}.", "Tôi sẽ viết về {topic}."),
+            ("My first sentence will mention {word1}.", "Câu đầu tiên của tôi sẽ nhắc đến {word1}."),
+        ],
+        "quiz": ("What should a short paragraph start with?", "topic sentence"),
     },
 ]
 
@@ -1180,39 +1291,162 @@ def _advanced_mode_words(pool, idx):
     return [pool[(unit_shift + offset) % len(pool)] for offset in mode["wordOffsets"]]
 
 
-def _advanced_format_lines(lines, topic_key, words):
+def _advanced_format_lines(lines, topic_key, words, topic_vi=None):
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
-    return [line.format(topic=topic_key, **word_map) for line in lines]
+    translation_map = dict(word_map)
+    translation_map["topic"] = topic_vi or topic_key
+    formatted = []
+    for item in lines:
+        if isinstance(item, tuple):
+            text, translation = item
+            formatted.append({
+                "text": text.format(topic=topic_key, **word_map),
+                "translation": translation.format(**translation_map),
+            })
+        else:
+            formatted.append(item.format(topic=topic_key, **word_map))
+    return formatted
 
 
-def _advanced_format_dialogue(lines, topic_key, words):
+def _advanced_format_dialogue(lines, topic_key, words, topic_vi=None):
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
-    return [(speaker, text.format(topic=topic_key, **word_map)) for speaker, text in lines]
+    translation_map = dict(word_map)
+    translation_map["topic"] = topic_vi or topic_key
+    formatted = []
+    for item in lines:
+        speaker, text, translation = item
+        formatted.append({
+            "speaker": speaker,
+            "text": text.format(topic=topic_key, **word_map),
+            "translation": translation.format(**translation_map),
+        })
+    return formatted
+
+
+def _advanced_format_rules(lines, topic_key, words, topic_vi=None):
+    return _advanced_format_lines(lines, topic_key, words, topic_vi)
+
+
+def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
+    word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
+    display_topic = topic_vi or topic_key
+    skill = mode.get("skill")
+    if skill == "grammar":
+        return {
+            "skillFocus": "grammar",
+            "grammarPractice": {
+                "title": "Grammar practice",
+                "translation": "Luyện ngữ pháp",
+                "examples": _advanced_format_lines([
+                    ("Could you help me with {topic}?", "Bạn có thể giúp tôi về {topic} không?"),
+                    ("I need to check {word1} before I answer.", "Tôi cần kiểm tra {word1} trước khi trả lời."),
+                ], topic_key, words, display_topic),
+                "tasks": [
+                    "Fill in the blank: Could you ___ me?",
+                    "Rewrite the sentence with 'need to'.",
+                    "Say one polite question about this topic.",
+                ],
+            },
+        }
+    if skill == "listening":
+        passage = (
+            "A student asks for help with {topic}. The teacher says the first important detail is {word1}. "
+            "The student also needs to check {word2}. In the end, the teacher asks the student to listen again."
+        ).format(topic=topic_key, **word_map)
+        return {
+            "skillFocus": "listening",
+            "listeningTask": {
+                "title": "Long listening",
+                "translation": "Bài nghe dài",
+                "passage": passage,
+                "passageTranslation": (
+                    "Một học viên nhờ giúp về {topic}. Giáo viên nói chi tiết quan trọng đầu tiên là {word1}. "
+                    "Học viên cũng cần kiểm tra {word2}. Cuối cùng, giáo viên yêu cầu học viên nghe lại."
+                ).format(topic=display_topic, **word_map),
+                "questions": [
+                    {"question": "What is the listening mainly about?", "translation": "Bài nghe chủ yếu nói về gì?", "answer": topic_key},
+                    {"question": "Which detail is mentioned first?", "translation": "Chi tiết nào được nhắc đến đầu tiên?", "answer": word_map.get("word1", "")},
+                ],
+            },
+        }
+    if skill == "reading":
+        passage = (
+            "{topic} is a common situation in daily English. A learner should read the title first, then find key words such as {word1} and {word2}. "
+            "These details help the learner choose the best answer without translating every word."
+        ).format(topic=topic_key, **word_map)
+        return {
+            "skillFocus": "reading",
+            "readingTask": {
+                "title": "Reading text",
+                "translation": "Bài đọc",
+                "passage": passage,
+                "passageTranslation": (
+                    "{topic} là một tình huống thường gặp trong tiếng Anh hằng ngày. Người học nên đọc tiêu đề trước, "
+                    "sau đó tìm từ khóa như {word1} và {word2}. Những chi tiết này giúp chọn câu trả lời đúng mà không cần dịch từng từ."
+                ).format(topic=display_topic, **word_map),
+                "questions": [
+                    {"question": "What should the learner read first?", "translation": "Người học nên đọc gì trước?", "answer": "the title"},
+                    {"question": "Name one key word from the text.", "translation": "Nêu một từ khóa trong bài đọc.", "answer": word_map.get("word1", "")},
+                ],
+            },
+        }
+    if skill == "writing":
+        return {
+            "skillFocus": "writing",
+            "writingTask": {
+                "title": "Writing guide",
+                "translation": "Gợi ý viết",
+                "prompt": "Write 4 short sentences about {topic}. Use {word1} and {word2}.".format(topic=topic_key, **word_map),
+                "promptTranslation": "Viết 4 câu ngắn về {topic}. Dùng {word1} và {word2}.".format(topic=display_topic, **word_map),
+                "outline": [
+                    "Sentence 1: introduce the topic.",
+                    "Sentence 2: add one detail.",
+                    "Sentence 3: add one example.",
+                    "Sentence 4: finish with your opinion or plan.",
+                ],
+                "outlineTranslation": [
+                    "Câu 1: giới thiệu chủ đề.",
+                    "Câu 2: thêm một chi tiết.",
+                    "Câu 3: thêm một ví dụ.",
+                    "Câu 4: kết thúc bằng ý kiến hoặc kế hoạch của bạn.",
+                ],
+            },
+        }
+    return {"skillFocus": skill or "vocabulary"}
 
 
 def _advanced_topic_spec(level_id, topic, idx):
     profile = LEVEL_CONTENT_PROFILES[level_id]
     topic_key = topic.lower()
+    topic_vi = _advanced_topic_vi(topic)
     pool = profile["words"]
     mode = ADVANCED_LESSON_MODES[idx % len(ADVANCED_LESSON_MODES)]
     mode_words = _advanced_mode_words(pool, idx)
-    selected_words = [(topic_key, topic_key)] + mode_words
+    selected_words = [(topic_key, topic_vi)] + mode_words
     words = []
     for word, meaning in selected_words:
         example, example_translation = _advanced_vocab_example(word, meaning, topic_key)
         words.append((word, meaning, example, "", meaning, "", example_translation))
-    patterns = _advanced_format_lines(mode["patterns"], topic_key, mode_words)
-    grammar = list(mode["grammar"]) + list(profile["grammar"][:1])
-    dialogue = _advanced_format_dialogue(mode["dialogue"], topic_key, mode_words)
-    speaking = _advanced_format_lines(mode["speaking"], topic_key, mode_words)
-    quiz_prompt, quiz_answer = mode["quiz"]
+    patterns = _advanced_format_lines(mode["patterns"], topic_key, mode_words, topic_vi)
+    grammar = _advanced_format_rules(mode["grammar"], topic_key, mode_words, topic_vi)
+    dialogue = _advanced_format_dialogue(mode["dialogue"], topic_key, mode_words, topic_vi)
+    speaking = _advanced_format_lines(mode["speaking"], topic_key, mode_words, topic_vi)
+    quiz_prompt_template, quiz_answer_template = mode["quiz"]
+    word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(mode_words)}
+    quiz_prompt = quiz_prompt_template.format(topic=topic_key, **word_map)
+    quiz_answer = quiz_answer_template.format(topic=topic_key, **word_map)
     title = _advanced_lesson_title(topic, mode)
-    return (topic, title, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
+    extra_content = _advanced_skill_extra(mode, topic_key, mode_words, topic_vi)
+    return (topic, title, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}", extra_content)
 
 
 for level in ROADMAP_LEVELS:
     if level["id"] not in {"starter", "flyer"} and level["id"] in ADVANCED_LEVEL_TOPICS:
-        specs = [_advanced_topic_spec(level["id"], topic, idx) for idx, topic in enumerate(ADVANCED_LEVEL_TOPICS.get(level["id"], []))]
+        specs = []
+        for topic_idx, topic in enumerate(ADVANCED_LEVEL_TOPICS.get(level["id"], [])):
+            base_idx = topic_idx * len(ADVANCED_LESSON_MODES)
+            for mode_idx in range(len(ADVANCED_LESSON_MODES)):
+                specs.append(_advanced_topic_spec(level["id"], topic, base_idx + mode_idx))
         ROADMAP_UNITS += _build_units(level["id"], level["title"], specs)
 
 
