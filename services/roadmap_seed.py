@@ -985,6 +985,7 @@ JAPANESE_LEVEL_TOPICS = {
     "jp_intro": [
         "Hiragana A Line", "Hiragana K Line", "Hiragana S Line", "Hiragana T Line", "Hiragana N Line",
         "Hiragana H Line", "Hiragana M Line", "Hiragana Y Line", "Hiragana R Line", "Hiragana W Line",
+        "Dakuten G and Z Sounds", "Dakuten D B P Sounds", "Small Ya Yu Yo Sounds",
         "Numbers 0 to 10", "Numbers 11 to 100", "Days of Week", "Months of Year", "Dates and Calendar",
         "Daily Greetings", "Thank You and Sorry", "Simple Self Introduction", "Classroom Survival", "Starter Review",
     ],
@@ -1369,6 +1370,73 @@ def _japanese_alphabet_spec(topic):
 
 
 JAPANESE_INTRO_LESSONS = {
+    "Dakuten G and Z Sounds": {
+        "title": "Dakuten: G and Z Sounds",
+        "words": [
+            ("が", "ga", "âm ga", "がくせいです。", "gakusei desu", "Tôi là học sinh/sinh viên."),
+            ("ぎ", "gi", "âm gi", "ぎんこうです。", "ginkou desu", "Đó là ngân hàng."),
+            ("ぐ", "gu", "âm gu", "ぐあいが いいです。", "guai ga ii desu", "Tình trạng/cảm giác ổn."),
+            ("げ", "ge", "âm ge", "げんきです。", "genki desu", "Tôi khỏe."),
+            ("ご", "go", "âm go / số 5", "ごです。", "go desu", "Đây là số 5."),
+            ("ざ", "za", "âm za", "ざっしです。", "zasshi desu", "Đó là tạp chí."),
+            ("じ", "ji", "âm ji", "じかんです。", "jikan desu", "Đó là thời gian."),
+            ("ず", "zu", "âm zu", "ずっとです。", "zutto desu", "Liên tục/mãi."),
+            ("ぜ", "ze", "âm ze", "ぜんぶです。", "zenbu desu", "Là tất cả."),
+            ("ぞ", "zo", "âm zo", "どうぞ。", "douzo", "Xin mời."),
+        ],
+        "patterns": [
+            ("か に てんてん で が。", "ka ni ten-ten de ga", "Thêm dấu ten-ten vào か thành が."),
+            ("ご は ご と よみます。", "go wa go to yomimasu", "Chữ ご đọc là go."),
+            ("どうぞ。", "douzo", "Xin mời."),
+        ],
+    },
+    "Dakuten D B P Sounds": {
+        "title": "Dakuten: D, B and P Sounds",
+        "words": [
+            ("だ", "da", "âm da", "だいじょうぶです。", "daijoubu desu", "Không sao / ổn ạ."),
+            ("ぢ", "ji", "âm ji hiếm", "ぢ は じ に にています。", "ji wa ji ni niteimasu", "ぢ giống âm じ."),
+            ("づ", "zu", "âm zu hiếm", "づ は ず に にています。", "zu wa zu ni niteimasu", "づ giống âm ず."),
+            ("で", "de", "âm de", "でんしゃです。", "densha desu", "Đó là tàu điện."),
+            ("ど", "do", "âm do", "どうぞ。", "douzo", "Xin mời."),
+            ("ば", "ba", "âm ba", "ばんごうです。", "bangou desu", "Đó là số."),
+            ("び", "bi", "âm bi", "びょういんです。", "byouin desu", "Đó là bệnh viện."),
+            ("ぶ", "bu", "âm bu", "ぶんです。", "bun desu", "Đó là câu."),
+            ("べ", "be", "âm be", "べんきょうします。", "benkyou shimasu", "Tôi học."),
+            ("ぼ", "bo", "âm bo", "ぼうしです。", "boushi desu", "Đó là cái mũ."),
+            ("ぱ", "pa", "âm pa", "パンです。", "pan desu", "Đó là bánh mì."),
+            ("ぴ", "pi", "âm pi", "ピンクです。", "pinku desu", "Màu hồng."),
+            ("ぷ", "pu", "âm pu", "プールです。", "puuru desu", "Đó là hồ bơi."),
+            ("ぺ", "pe", "âm pe", "ペンです。", "pen desu", "Đó là cây bút."),
+            ("ぽ", "po", "âm po", "ポケットです。", "poketto desu", "Đó là túi áo/quần."),
+        ],
+        "patterns": [
+            ("た に てんてん で だ。", "ta ni ten-ten de da", "Thêm ten-ten vào た thành だ."),
+            ("は に てんてん で ば。", "ha ni ten-ten de ba", "Thêm ten-ten vào は thành ば."),
+            ("は に まる で ぱ。", "ha ni maru de pa", "Thêm dấu tròn vào は thành ぱ."),
+        ],
+    },
+    "Small Ya Yu Yo Sounds": {
+        "title": "Small や・ゆ・よ Combinations",
+        "words": [
+            ("きゃ", "kya", "âm kya", "きゃくです。", "kyaku desu", "Đó là khách."),
+            ("きゅ", "kyu", "âm kyu", "きゅうです。", "kyuu desu", "Đó là số 9."),
+            ("きょ", "kyo", "âm kyo", "きょうです。", "kyou desu", "Hôm nay."),
+            ("しゃ", "sha", "âm sha", "しゃしんです。", "shashin desu", "Đó là ảnh."),
+            ("しゅ", "shu", "âm shu", "しゅくだいです。", "shukudai desu", "Đó là bài tập về nhà."),
+            ("しょ", "sho", "âm sho", "しょくどうです。", "shokudou desu", "Đó là nhà ăn."),
+            ("ちゃ", "cha", "âm cha", "おちゃです。", "ocha desu", "Đó là trà."),
+            ("ちゅ", "chu", "âm chu", "ちゅういです。", "chuui desu", "Chú ý."),
+            ("ちょ", "cho", "âm cho", "ちょっと。", "chotto", "Một chút / chờ chút."),
+            ("にゃ", "nya", "âm nya", "にゃ と よみます。", "nya to yomimasu", "Đọc là nya."),
+            ("りゃ", "rya", "âm rya", "りゃ と よみます。", "rya to yomimasu", "Đọc là rya."),
+            ("りょ", "ryo", "âm ryo", "りょうりです。", "ryouri desu", "Đó là món ăn/nấu ăn."),
+        ],
+        "patterns": [
+            ("き + や nhỏ = きゃ。", "ki + small ya = kya", "き ghép ゃ nhỏ thành きゃ."),
+            ("し + ゆ nhỏ = しゅ。", "shi + small yu = shu", "し ghép ゅ nhỏ thành しゅ."),
+            ("ちょっと まってください。", "chotto matte kudasai", "Xin chờ một chút."),
+        ],
+    },
     "Numbers 0 to 10": {
         "title": "Numbers 0-10",
         "words": [
