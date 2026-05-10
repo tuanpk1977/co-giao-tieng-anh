@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-042-japanese-roadmap";
+const APP_VERSION = "hybrid-roadmap-043-japanese-reading";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2218,6 +2218,34 @@ function bilingualLine(text, className = 'bilingual-vn', translator = viForSente
     const vi = translator(text);
     return vi ? `<span class="${className}">${escapeHtml(vi)}</span>` : '';
 }
+
+function learningText(item, fallback = '') {
+    if (typeof item === 'string') return item;
+    return item?.text || item?.word || fallback || '';
+}
+
+function supportReadingLine(item) {
+    if (!item || typeof item === 'string') return '';
+    const reading = item.reading || item.kana || item.hiragana || item.romaji || '';
+    return reading ? `<span class="jp-reading">${escapeHtml(reading)}</span>` : '';
+}
+
+function supportTranslationLine(item, fallbackText = '', className = 'jp-translation') {
+    if (item && typeof item !== 'string') {
+        const translation = item.translation || item.vi || item.vietnamese || '';
+        if (translation) return `<span class="${className}">${escapeHtml(translation)}</span>`;
+    }
+    return fallbackText ? bilingualLine(fallbackText, className) : '';
+}
+
+function supportExampleLines(item) {
+    if (!item || typeof item === 'string') return '';
+    const reading = item.exampleReading ? `<span class="jp-example-reading">${escapeHtml(item.exampleReading)}</span>` : '';
+    const translation = item.exampleTranslation ? `<span class="jp-example-translation">${escapeHtml(item.exampleTranslation)}</span>` : '';
+    if (reading || translation) return `${reading}${translation}`;
+    return item.example ? bilingualLine(item.example) : '';
+}
+
 function renderRoadmapContent(lesson) {
     const content = lesson.content || {};
     if (lesson.type === 'integrated') {
@@ -2234,9 +2262,10 @@ function renderRoadmapContent(lesson) {
                 <div class="roadmap-vocab">${vocab.map(w => `
                     <div class="vocab-tile">
                         <strong>${escapeHtml(w.word)}</strong>
-                        <span>${escapeHtml(viGlossary(w.meaning, w.word))}</span>
+                        ${supportReadingLine(w)}
+                        <span>${escapeHtml(w.translation || viGlossary(w.meaning, w.word))}</span>
                         <small>${escapeHtml(w.example)}</small>
-                        ${bilingualLine(w.example)}
+                        ${supportExampleLines(w)}
                         <div>
                             <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.word)}', '${escapeAttr(w.audioUrl || '')}')"><i class="fas fa-volume-up"></i></button>
                             <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(w.example)}')"><i class="fas fa-comment-dots"></i></button>
@@ -2246,7 +2275,10 @@ function renderRoadmapContent(lesson) {
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-layer-group"></i><h4>Sentence Patterns</h4></div>
-                ${patterns.map(p => `<p class="pattern-line"><span>${escapeHtml(p)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(p)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(p)}</p>`).join('')}
+                ${patterns.map(p => {
+                    const text = learningText(p);
+                    return `<p class="pattern-line"><span>${escapeHtml(text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(text)}')"><i class="fas fa-volume-up"></i></button></span>${supportReadingLine(p)}${supportTranslationLine(p, text)}</p>`;
+                }).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-diagram-project"></i><h4>Grammar Mini</h4></div>
@@ -2259,17 +2291,18 @@ function renderRoadmapContent(lesson) {
                     <button class="btn btn-secondary" onclick="playDialogueSmart(true)"><i class="fas fa-gauge-low"></i> Slow 0.8x</button>
                     <button class="btn btn-secondary" onclick="repeatDialogueSmart()"><i class="fas fa-repeat"></i> Repeat</button>
                 </div>
-                ${dialogue.map(line => `<p class="dialogue-app-line"><span><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${bilingualLine(line.text)}</p>`).join('')}
+                ${dialogue.map(line => `<p class="dialogue-app-line"><span><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${supportReadingLine(line)}${supportTranslationLine(line, line.text)}</p>`).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-microphone-lines"></i><h4>Speaking Practice</h4></div>
                 <div class="speaking-practice-panel">
                     ${speaking.map(item => {
-                        const sentence = item.text || item;
+                        const sentence = learningText(item);
                         return `
                             <div class="speaking-line">
                                 <strong>${escapeHtml(sentence)}</strong>
-                                ${bilingualLine(sentence)}
+                                ${supportReadingLine(item)}
+                                ${supportTranslationLine(item, sentence)}
                                 <div class="speaking-line-actions">
                                     <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
                                     <button class="btn btn-record" onclick="recordRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-microphone"></i> Record</button>

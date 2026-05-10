@@ -182,6 +182,66 @@ ROADMAP_UNITS = [
 
 def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, grammar, dialogue, speaking, quiz):
     audio_base = f"/static/audio/{level_id}/{unit_id}_l{order}"
+
+    def _vocab_payload(item, idx):
+        if isinstance(item, dict):
+            payload = dict(item)
+        else:
+            payload = {
+                "word": item[0],
+                "meaning": item[1],
+                "example": item[2],
+            }
+            if len(item) > 3:
+                payload["reading"] = item[3]
+            if len(item) > 4:
+                payload["translation"] = item[4]
+            if len(item) > 5:
+                payload["exampleReading"] = item[5]
+            if len(item) > 6:
+                payload["exampleTranslation"] = item[6]
+        payload.setdefault("word", "")
+        payload.setdefault("meaning", "")
+        payload.setdefault("example", "")
+        payload["audioUrl"] = payload.get("audioUrl") or f"{audio_base}_word_{idx + 1}.mp3"
+        return payload
+
+    def _dialogue_payload(item):
+        if isinstance(item, dict):
+            return dict(item)
+        payload = {
+            "speaker": item[0],
+            "text": item[1],
+        }
+        if len(item) > 2:
+            payload["reading"] = item[2]
+        if len(item) > 3:
+            payload["translation"] = item[3]
+        return payload
+
+    def _speaking_payload(item, idx):
+        if isinstance(item, dict):
+            payload = dict(item)
+        else:
+            payload = {"text": item[0] if isinstance(item, tuple) else item}
+            if isinstance(item, tuple) and len(item) > 1:
+                payload["reading"] = item[1]
+            if isinstance(item, tuple) and len(item) > 2:
+                payload["translation"] = item[2]
+        payload.setdefault("text", "")
+        payload["audioUrl"] = payload.get("audioUrl") or f"{audio_base}_speak_{idx + 1}.mp3"
+        return payload
+
+    first_speaking = ""
+    if speaking:
+        first_item = speaking[0]
+        if isinstance(first_item, dict):
+            first_speaking = first_item.get("text", "")
+        elif isinstance(first_item, tuple):
+            first_speaking = first_item[0]
+        else:
+            first_speaking = first_item
+
     return {
         "id": f"{unit_id}_lesson_{order}",
         "levelId": level_id,
@@ -199,27 +259,16 @@ def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, 
             "slowRate": 0.8,
         },
         "content": {
-            "vocabulary": [
-                {
-                    "word": item[0],
-                    "meaning": item[1],
-                    "example": item[2],
-                    "audioUrl": f"{audio_base}_word_{idx + 1}.mp3",
-                }
-                for idx, item in enumerate(words)
-            ],
+            "vocabulary": [_vocab_payload(item, idx) for idx, item in enumerate(words)],
             "sentencePatterns": patterns,
             "grammar": grammar,
-            "dialogue": dialogue,
-            "speaking": [
-                {"text": text, "audioUrl": f"{audio_base}_speak_{idx + 1}.mp3"}
-                for idx, text in enumerate(speaking)
-            ],
+            "dialogue": [_dialogue_payload(item) for item in dialogue],
+            "speaking": [_speaking_payload(item, idx) for idx, item in enumerate(speaking)],
             "quiz": quiz,
             "review": [
                 f"Say 3 words about {topic}.",
                 f"Make 2 sentences about {topic}.",
-                f"Record yourself saying: {speaking[0] if speaking else title}.",
+                f"Record yourself saying: {first_speaking or title}.",
             ],
         },
     }
@@ -348,7 +397,7 @@ def _build_units(level_id, level_title, specs):
                     words,
                     patterns,
                     grammar,
-                    [{"speaker": speaker, "text": text} for speaker, text in dialogue],
+                    dialogue,
                     speaking,
                     _quiz_from_prompt(quiz_prompt),
                 )
@@ -1010,16 +1059,150 @@ JAPANESE_CONTENT_PROFILES = {
 }
 
 
+JAPANESE_PATTERN_SUPPORT = {
+    "jp_n5": [
+        ("わたしは このテーマ を べんきょうします。", "Tôi học chủ đề này."),
+        ("このテーマ は やさしいです。", "Chủ đề này dễ."),
+        ("このテーマ は どこですか。", "Chủ đề này ở đâu?"),
+    ],
+    "jp_n4": [
+        ("このテーマ について はなしたいです。", "Tôi muốn nói về chủ đề này."),
+        ("このテーマ してもいいですか。", "Tôi có thể làm việc này không?"),
+        ("このテーマ したことがあります。", "Tôi đã từng làm việc này."),
+    ],
+    "jp_n3": [
+        ("このテーマ について どうおもいますか。", "Bạn nghĩ gì về chủ đề này?"),
+        ("このテーマ だとおもいます。", "Tôi nghĩ là chủ đề này."),
+        ("このテーマ かもしれません。", "Có thể là chủ đề này."),
+    ],
+    "jp_n2": [
+        ("このテーマ について ごせつめいします。", "Tôi xin giải thích về chủ đề này."),
+        ("このテーマ による えいきょうがあります。", "Có ảnh hưởng do chủ đề này."),
+        ("このテーマ を かくにんしていただけますか。", "Bạn có thể xác nhận chủ đề này giúp tôi không?"),
+    ],
+    "jp_n1": [
+        ("このテーマ という かんてんから かんがえる ひつようがあります。", "Cần suy nghĩ từ góc nhìn của chủ đề này."),
+        ("このテーマ には いっていの こんきょがあります。", "Chủ đề này có căn cứ nhất định."),
+        ("このテーマ とは いいきれません。", "Không thể nói chắc là chủ đề này."),
+    ],
+}
+
+
+JAPANESE_DIALOGUE_SUPPORT = {
+    "jp_n5": [("こんにちは。", "Xin chào."), ("こんにちは。このテーマをべんきょうしています。", "Xin chào. Tôi đang học chủ đề này."), ("いいですね。", "Hay quá.")],
+    "jp_n4": [("このテーマしてもいいですか。", "Tôi có thể làm việc này không?"), ("はい、いいですよ。", "Vâng, được."), ("ありがとうございます。", "Cảm ơn.")],
+    "jp_n3": [("このテーマについてどうおもいますか。", "Bạn nghĩ gì về chủ đề này?"), ("たいせつだとおもいます。", "Tôi nghĩ là quan trọng."), ("どうしてですか。", "Tại sao vậy?")],
+    "jp_n2": [("このテーマについてごせつめいします。", "Tôi xin giải thích về chủ đề này."), ("おねがいします。", "Vâng, nhờ bạn."), ("まず、かだいをかくにんします。", "Trước hết, tôi xác nhận vấn đề.")],
+    "jp_n1": [("このテーマについてどうひょうかしますか。", "Bạn đánh giá chủ đề này như thế nào?"), ("べつのかんてんからかんがえるひつようがあります。", "Cần suy nghĩ từ góc nhìn khác."), ("こんきょをおしえてください。", "Hãy cho tôi biết căn cứ.")],
+}
+
+
+JAPANESE_SPEAKING_SUPPORT = {
+    "jp_n5": [("わたしは このテーマ を べんきょうします。", "Tôi học chủ đề này."), ("このテーマ は やさしいです。", "Chủ đề này dễ."), ("もういちど おねがいします。", "Làm ơn nói lại một lần nữa.")],
+    "jp_n4": [("このテーマ してもいいですか。", "Tôi có thể làm việc này không?"), ("このテーマ したことがあります。", "Tôi đã từng làm việc này."), ("どうしてですか。", "Tại sao vậy?")],
+    "jp_n3": [("このテーマ について どうおもいますか。", "Bạn nghĩ gì về chủ đề này?"), ("たいせつだとおもいます。", "Tôi nghĩ là quan trọng."), ("もうすこし せつめいします。", "Tôi sẽ giải thích thêm một chút.")],
+    "jp_n2": [("このテーマ について ごせつめいします。", "Tôi xin giải thích về chủ đề này."), ("かくにんしていただけますか。", "Bạn có thể xác nhận giúp tôi không?"), ("すぐ たいおういたします。", "Tôi sẽ xử lý ngay.")],
+    "jp_n1": [("このテーマ という かんてんから かんがえます。", "Tôi suy nghĩ từ góc nhìn của chủ đề này."), ("こんきょを しめす ひつようがあります。", "Cần đưa ra căn cứ."), ("いちがいには いえません。", "Không thể nói một cách tuyệt đối.")],
+}
+
+
+JAPANESE_GRAMMAR_SUPPORT = {
+    "jp_n5": [
+        "は (wa): dung de danh dau chu de trong cau. Vi du: わたしはアンです。",
+        "です (desu): ket thuc cau lich su, nghia gan voi 'la'.",
+        "を (o): dung truoc tan ngu cua hanh dong. Vi du: みずをのみます。",
+    ],
+    "jp_n4": [
+        "The て form: dung khi xin phep, nho giup hoac noi cac hanh dong noi tiep.",
+        "たことがあります: noi ve trai nghiem da tung lam.",
+        "から: dung de neu ly do, giong 'vi/bởi vi' trong tieng Viet.",
+    ],
+    "jp_n3": [
+        "とおもいます: dung de dua ra y kien ca nhan.",
+        "かもしれません: dien ta kha nang 'co the'.",
+        "ようです: dien ta 'co ve nhu / duong nhu'.",
+    ],
+    "jp_n2": [
+        "Keigo: cach noi lich su trong cong viec, voi khach hang va nguoi tren.",
+        "による: noi nguyen nhan, co so hoac tac nhan gay anh huong.",
+        "いただけますか: mau cau nho/yeu cau rat lich su.",
+    ],
+    "jp_n1": [
+        "という観点から: noi 'tu goc nhin / theo quan diem'.",
+        "とは言い切れません: tranh noi qua chac chan, nghia la 'khong the noi chac rang'.",
+        "抽象名詞: danh tu truu tuong giup lap luan chinh xac hon.",
+    ],
+}
+
+
+def _split_japanese_meaning(value):
+    text = str(value or "")
+    if " - " in text:
+        reading, vietnamese = text.split(" - ", 1)
+        return reading.strip(), vietnamese.strip()
+    return "", text.strip()
+
+
+def _japanese_word_payload(item):
+    if isinstance(item, dict):
+        return item
+    reading, vietnamese = _split_japanese_meaning(item[1])
+    return {
+        "word": item[0],
+        "reading": reading,
+        "meaning": vietnamese,
+        "translation": vietnamese,
+        "example": item[2],
+        "exampleReading": item[2],
+        "exampleTranslation": f"Câu ví dụ với từ '{vietnamese or item[0]}'.",
+    }
+
+
 def _japanese_topic_spec(level_id, topic, idx):
     profile = JAPANESE_CONTENT_PROFILES[level_id]
-    topic_key = topic.lower()
     pool = profile["words"]
-    selected_words = [(topic, topic_key, f"{topic} をべんきょうします。")] + [pool[(idx + offset) % len(pool)] for offset in range(4)]
-    words = [(word, meaning, example) for word, meaning, example in selected_words]
-    patterns = [pattern.format(topic=topic) for pattern in profile["patterns"]]
-    grammar = list(profile["grammar"])
-    dialogue = [(speaker, text.format(topic=topic)) for speaker, text in profile["dialogue"]]
-    speaking = [text.format(topic=topic) for text in profile["speaking"]]
+    topic_word = {
+        "word": "テーマ",
+        "reading": "てーま / teema",
+        "meaning": f"chu de: {topic}",
+        "translation": f"chu de: {topic}",
+        "example": "このテーマをべんきょうします。",
+        "exampleReading": "このテーマをべんきょうします。 / kono teema o benkyou shimasu",
+        "exampleTranslation": f"Toi hoc chu de {topic}.",
+    }
+    words = [topic_word] + [
+        _japanese_word_payload(pool[(idx + offset) % len(pool)])
+        for offset in range(4)
+    ]
+    pattern_support = JAPANESE_PATTERN_SUPPORT.get(level_id, [])
+    patterns = []
+    for pattern_idx, pattern in enumerate(profile["patterns"]):
+        reading, translation = pattern_support[pattern_idx] if pattern_idx < len(pattern_support) else ("", "")
+        patterns.append({
+            "text": pattern.format(topic="このテーマ"),
+            "reading": reading,
+            "translation": translation,
+        })
+    grammar = JAPANESE_GRAMMAR_SUPPORT.get(level_id, list(profile["grammar"]))
+    dialogue_support = JAPANESE_DIALOGUE_SUPPORT.get(level_id, [])
+    dialogue = []
+    for line_idx, (speaker, text) in enumerate(profile["dialogue"]):
+        reading, translation = dialogue_support[line_idx] if line_idx < len(dialogue_support) else ("", "")
+        dialogue.append({
+            "speaker": speaker,
+            "text": text.format(topic="このテーマ"),
+            "reading": reading,
+            "translation": translation,
+        })
+    speaking_support = JAPANESE_SPEAKING_SUPPORT.get(level_id, [])
+    speaking = []
+    for speech_idx, text in enumerate(profile["speaking"]):
+        reading, translation = speaking_support[speech_idx] if speech_idx < len(speaking_support) else ("", "")
+        speaking.append({
+            "text": text.format(topic="このテーマ"),
+            "reading": reading,
+            "translation": translation,
+        })
     quiz_prompt, quiz_answer = profile["quiz"]
     return (topic, topic, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
 

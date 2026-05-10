@@ -2515,6 +2515,30 @@ body {
     line-height: 1.35;
 }
 
+.jp-reading,
+.jp-example-reading {
+    display: block;
+    margin-top: 4px;
+    color: #2563eb;
+    font-size: 0.92rem;
+    line-height: 1.35;
+    font-weight: 700;
+}
+
+.jp-translation,
+.jp-example-translation {
+    display: block;
+    margin-top: 4px;
+    color: #475569;
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.jp-example-reading,
+.jp-example-translation {
+    font-size: 0.86rem;
+}
+
 .pattern-line,
 .dialogue-app-line {
     padding: 10px;
