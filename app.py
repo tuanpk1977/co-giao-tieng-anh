@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-045-japanese-starter-path"
+APP_VERSION = "hybrid-roadmap-046-japanese-reading-layout"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS

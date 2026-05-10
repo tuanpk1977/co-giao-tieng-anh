@@ -1257,9 +1257,9 @@ def _japanese_alphabet_spec(topic):
     first = words[0]
     second = words[1] if len(words) > 1 else first
     patterns = [
-        {"text": f"{first['word']} は {cards[0][1]} と読みます。", "reading": f"{first['word']} wa {cards[0][1]} to yomimasu", "translation": f"Chữ {first['word']} đọc là {cards[0][1]}."},
-        {"text": f"{second['word']} を 3回 書きます。", "reading": f"{second['word']} o san-kai kakimasu", "translation": f"Viết chữ {second['word']} 3 lần."},
-        {"text": "見て、読んで、書きます。", "reading": "mite, yonde, kakimasu", "translation": "Nhìn, đọc rồi viết."},
+        {"text": f"{first['word']} は {first['word']} と よみます。", "reading": f"{cards[0][1]} wa {cards[0][1]} to yomimasu", "translation": f"Chữ {first['word']} đọc là {cards[0][1]}."},
+        {"text": f"{second['word']} を さんかい かきます。", "reading": f"{cards[1][1] if len(cards) > 1 else cards[0][1]} o san-kai kakimasu", "translation": f"Viết chữ {second['word']} 3 lần."},
+        {"text": "みて、 よんで、 かきます。", "reading": "mite yonde kakimasu", "translation": "Nhìn, đọc rồi viết."},
     ]
     grammar = [
         "Bước 1: nhìn chữ Hiragana và đọc to romaji.",
@@ -1268,9 +1268,9 @@ def _japanese_alphabet_spec(topic):
         "Mục tiêu bài này: nhận mặt chữ nhanh, chưa cần dùng AI.",
     ]
     dialogue = [
-        {"speaker": "Ms. Sakura", "text": "いっしょに ひらがなを よみましょう。", "reading": "issho ni hiragana o yomimashou", "translation": "Mình cùng đọc Hiragana nhé."},
-        {"speaker": "You", "text": f"{first['word']} は {cards[0][1]} です。", "reading": f"{first['word']} wa {cards[0][1]} desu", "translation": f"Chữ {first['word']} là âm {cards[0][1]}."},
-        {"speaker": "Ms. Sakura", "text": "いいですね。つぎは 書きましょう。", "reading": "ii desu ne. tsugi wa kakimashou", "translation": "Tốt lắm. Tiếp theo mình viết nhé."},
+        {"speaker": "Ms. Sakura", "text": "いっしょに ひらがなを よみましょう。", "reading": "issho-ni hiragana-o yomimashou", "translation": "Mình cùng đọc Hiragana nhé."},
+        {"speaker": "You", "text": f"{first['word']} は {first['word']} です。", "reading": f"{cards[0][1]} wa {cards[0][1]} desu", "translation": f"Chữ {first['word']} là âm {cards[0][1]}."},
+        {"speaker": "Ms. Sakura", "text": "いいですね。 つぎは かきましょう。", "reading": "ii-desu-ne tsugi-wa kakimashou", "translation": "Tốt lắm. Tiếp theo mình viết nhé."},
     ]
     speaking = [
         {"text": kana, "reading": f"{kana} / {romaji}", "translation": f"Đọc âm {romaji}"}

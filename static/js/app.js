@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-045-japanese-starter-path";
+const APP_VERSION = "hybrid-roadmap-046-japanese-reading-layout";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2230,6 +2230,31 @@ function supportReadingLine(item) {
     return reading ? `<span class="jp-reading">${escapeHtml(reading)}</span>` : '';
 }
 
+function renderJapaneseReadingStack(text, reading = '') {
+    const japaneseText = String(text || '').trim();
+    const romajiText = String(reading || '').trim();
+    if (!romajiText) return escapeHtml(japaneseText);
+    const japaneseTokens = japaneseText.split(/\s+/).filter(Boolean);
+    const romajiTokens = romajiText.split(/\s+/).filter(Boolean);
+    if (japaneseTokens.length > 1 && japaneseTokens.length === romajiTokens.length) {
+        return `<span class="jp-token-line">${japaneseTokens.map((token, index) => `
+            <span class="jp-token">
+                <span class="jp-token-text">${escapeHtml(token)}</span>
+                <span class="jp-token-reading">${escapeHtml(romajiTokens[index])}</span>
+            </span>
+        `).join('')}</span>`;
+    }
+    return `<span class="jp-stacked-line"><span class="jp-main-text">${escapeHtml(japaneseText)}</span><span class="jp-reading-inline">${escapeHtml(romajiText)}</span></span>`;
+}
+
+function renderLearningLineText(item, text) {
+    if (item && typeof item !== 'string') {
+        const reading = item.reading || item.kana || item.hiragana || item.romaji || '';
+        if (reading) return renderJapaneseReadingStack(text, reading);
+    }
+    return escapeHtml(text);
+}
+
 function supportTranslationLine(item, fallbackText = '', className = 'jp-translation') {
     if (item && typeof item !== 'string') {
         const translation = item.translation || item.vi || item.vietnamese || '';
@@ -2369,7 +2394,8 @@ function renderRoadmapContent(lesson) {
                 <div class="lesson-section-header"><i class="fas fa-layer-group"></i><h4>Sentence Patterns</h4></div>
                 ${patterns.map(p => {
                     const text = learningText(p);
-                    return `<p class="pattern-line"><span>${escapeHtml(text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(text)}')"><i class="fas fa-volume-up"></i></button></span>${supportReadingLine(p)}${supportTranslationLine(p, text)}</p>`;
+                    const hasReading = p && typeof p !== 'string' && (p.reading || p.kana || p.hiragana || p.romaji);
+                    return `<p class="pattern-line ${hasReading ? 'jp-pattern-line' : ''}"><span>${renderLearningLineText(p, text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(text)}')"><i class="fas fa-volume-up"></i></button></span>${hasReading ? '' : supportReadingLine(p)}${supportTranslationLine(p, text)}</p>`;
                 }).join('')}
             </div>
             <div class="lesson-app-card">
@@ -2383,7 +2409,10 @@ function renderRoadmapContent(lesson) {
                     <button class="btn btn-secondary" onclick="playDialogueSmart(true)"><i class="fas fa-gauge-low"></i> Slow 0.8x</button>
                     <button class="btn btn-secondary" onclick="repeatDialogueSmart()"><i class="fas fa-repeat"></i> Repeat</button>
                 </div>
-                ${dialogue.map(line => `<p class="dialogue-app-line"><span><strong>${escapeHtml(line.speaker)}:</strong> ${escapeHtml(line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${supportReadingLine(line)}${supportTranslationLine(line, line.text)}</p>`).join('')}
+                ${dialogue.map(line => {
+                    const hasReading = line && typeof line !== 'string' && (line.reading || line.kana || line.hiragana || line.romaji);
+                    return `<p class="dialogue-app-line ${hasReading ? 'jp-dialogue-line' : ''}"><span><strong>${escapeHtml(line.speaker)}:</strong> ${renderLearningLineText(line, line.text)} <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(line.text)}')"><i class="fas fa-volume-up"></i></button></span>${hasReading ? '' : supportReadingLine(line)}${supportTranslationLine(line, line.text)}</p>`;
+                }).join('')}
             </div>
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-microphone-lines"></i><h4>Speaking Practice</h4></div>
@@ -2392,8 +2421,8 @@ function renderRoadmapContent(lesson) {
                         const sentence = learningText(item);
                         return `
                             <div class="speaking-line">
-                                <strong>${escapeHtml(sentence)}</strong>
-                                ${supportReadingLine(item)}
+                                <strong>${renderLearningLineText(item, sentence)}</strong>
+                                ${item && typeof item !== 'string' && (item.reading || item.kana || item.hiragana || item.romaji) ? '' : supportReadingLine(item)}
                                 ${supportTranslationLine(item, sentence)}
                                 <div class="speaking-line-actions">
                                     <button class="btn btn-audio" onclick="startRoadmapSpeaking('${escapeAttr(sentence)}')"><i class="fas fa-volume-up"></i> Listen</button>
