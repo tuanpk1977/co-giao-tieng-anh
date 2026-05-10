@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-051-kana-stroke-single-panel";
+const APP_VERSION = "hybrid-roadmap-052-kana-stroke-fit-vietnamese";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2334,8 +2334,8 @@ function renderKanaStrokeSvg(card = {}, strokes = []) {
         <svg class="kana-stroke-svg" viewBox="0 0 100 100" role="img" aria-label="Thứ tự nét của ${escapeAttr(card.kana || '')}">
             <defs>
                 ${KANA_STROKE_COLORS.map((color, index) => `
-                    <marker id="${markerPrefix}-${index}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L0,6 L7,3 z" fill="${escapeAttr(color)}"></path>
+                    <marker id="${markerPrefix}-${index}" markerWidth="5" markerHeight="5" refX="4.2" refY="2.5" orient="auto" markerUnits="userSpaceOnUse">
+                        <path d="M0,0 L0,5 L5,2.5 z" fill="${escapeAttr(color)}"></path>
                     </marker>
                 `).join('')}
             </defs>
@@ -2433,6 +2433,7 @@ function renderAlphabetPractice(practice = {}) {
                             <div class="writing-letter-head">
                                 <span>${escapeHtml(card.kana)}</span>
                                 <strong>${escapeHtml(card.romaji || '')}</strong>
+                                ${card.vietnamese ? `<em>${escapeHtml(card.vietnamese)}</em>` : ''}
                             </div>
                             ${renderStrokeSteps(card)}
                             <small>${escapeHtml(card.strokeHint || 'Viết 3 lần và đọc thành tiếng.')}</small>
