@@ -1032,16 +1032,56 @@ ADVANCED_WORD_EXAMPLES = {
 }
 
 
-def _advanced_vocab_example(word, meaning, topic_key):
+def _advanced_vocab_example(word, meaning, topic_key, skill="vocabulary"):
     clean_word = str(word or "").strip()
     clean_topic = str(topic_key or "").strip()
     if clean_word == clean_topic:
+        if skill == "grammar":
+            return (
+                f"We will use grammar to talk about {clean_topic}.",
+                f"Chúng ta sẽ dùng ngữ pháp để nói về {meaning}.",
+            )
+        if skill == "listening":
+            return (
+                f"Listen for the main idea about {clean_topic}.",
+                f"Hãy nghe để nắm ý chính về {meaning}.",
+            )
+        if skill == "reading":
+            return (
+                f"Read the text and find information about {clean_topic}.",
+                f"Đọc bài và tìm thông tin về {meaning}.",
+            )
+        if skill == "writing":
+            return (
+                f"Write a short paragraph about {clean_topic}.",
+                f"Viết một đoạn ngắn về {meaning}.",
+            )
         return (
             f"This lesson is about {clean_topic}.",
             f"Bài này nói về {meaning}.",
         )
-    if clean_word in ADVANCED_WORD_EXAMPLES:
+    if skill == "vocabulary" and clean_word in ADVANCED_WORD_EXAMPLES:
         return ADVANCED_WORD_EXAMPLES[clean_word]
+    skill_templates = {
+        "grammar": (
+            f"Use '{clean_word}' in one clear grammar sentence.",
+            f"Dùng '{clean_word}' trong một câu ngữ pháp rõ ràng về {meaning}.",
+        ),
+        "listening": (
+            f"Listen carefully when you hear the word '{clean_word}'.",
+            f"Hãy nghe kỹ khi bạn nghe thấy từ '{clean_word}' ({meaning}).",
+        ),
+        "reading": (
+            f"Find the word '{clean_word}' in the reading text.",
+            f"Tìm từ '{clean_word}' ({meaning}) trong bài đọc.",
+        ),
+        "writing": (
+            f"Use '{clean_word}' in your writing task.",
+            f"Dùng '{clean_word}' ({meaning}) trong bài viết của bạn.",
+        ),
+    }
+    if skill in skill_templates:
+        return skill_templates[skill]
     return (
         f"We use '{clean_word}' when we talk about {clean_topic}.",
         f"Chúng ta dùng '{clean_word}' khi nói về {meaning}.",
@@ -1291,6 +1331,21 @@ def _advanced_mode_words(pool, idx):
     return [pool[(unit_shift + offset) % len(pool)] for offset in mode["wordOffsets"]]
 
 
+def _advanced_secondary_count(skill, section):
+    counts = {
+        "vocabulary": {"patterns": 3, "grammar": 2, "dialogue": 3, "speaking": 2, "words": 9},
+        "grammar": {"patterns": 2, "grammar": 5, "dialogue": 2, "speaking": 1, "words": 4},
+        "listening": {"patterns": 1, "grammar": 1, "dialogue": 4, "speaking": 1, "words": 4},
+        "reading": {"patterns": 1, "grammar": 1, "dialogue": 2, "speaking": 1, "words": 4},
+        "writing": {"patterns": 2, "grammar": 1, "dialogue": 2, "speaking": 1, "words": 4},
+    }
+    return counts.get(skill, {}).get(section, 2)
+
+
+def _take_primary_sized(items, skill, section):
+    return list(items)[:_advanced_secondary_count(skill, section)]
+
+
 def _advanced_format_lines(lines, topic_key, words, topic_vi=None):
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
     translation_map = dict(word_map)
@@ -1327,6 +1382,24 @@ def _advanced_format_rules(lines, topic_key, words, topic_vi=None):
     return _advanced_format_lines(lines, topic_key, words, topic_vi)
 
 
+def _advanced_expand_grammar_rules(skill, topic_key, words, topic_vi=None):
+    if skill != "grammar":
+        return []
+    word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
+    translation_map = dict(word_map)
+    translation_map["topic"] = topic_vi or topic_key
+    extra_rules = [
+        ("Pattern: Could you + verb + ...?", "Mẫu câu: Could you + động từ + ...?"),
+        ("Example: Could you check {word1}?", "Ví dụ: Bạn có thể kiểm tra {word1} không?"),
+        ("Pattern: I need to + verb + ...", "Mẫu câu: I need to + động từ + ..."),
+        ("Example: I need to check {word2}.", "Ví dụ: Tôi cần kiểm tra {word2}."),
+    ]
+    return [
+        {"text": text.format(topic=topic_key, **word_map), "translation": translation.format(**translation_map)}
+        for text, translation in extra_rules
+    ]
+
+
 def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
     display_topic = topic_vi or topic_key
@@ -1345,6 +1418,8 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
                     "Fill in the blank: Could you ___ me?",
                     "Rewrite the sentence with 'need to'.",
                     "Say one polite question about this topic.",
+                    "Make one sentence with 'before'.",
+                    "Make one sentence with 'after'.",
                 ],
             },
         }
@@ -1366,6 +1441,8 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
                 "questions": [
                     {"question": "What is the listening mainly about?", "translation": "Bài nghe chủ yếu nói về gì?", "answer": topic_key},
                     {"question": "Which detail is mentioned first?", "translation": "Chi tiết nào được nhắc đến đầu tiên?", "answer": word_map.get("word1", "")},
+                    {"question": "What does the student need to check?", "translation": "Học viên cần kiểm tra điều gì?", "answer": word_map.get("word2", "")},
+                    {"question": "What should the student do at the end?", "translation": "Cuối cùng học viên nên làm gì?", "answer": "listen again"},
                 ],
             },
         }
@@ -1387,6 +1464,8 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
                 "questions": [
                     {"question": "What should the learner read first?", "translation": "Người học nên đọc gì trước?", "answer": "the title"},
                     {"question": "Name one key word from the text.", "translation": "Nêu một từ khóa trong bài đọc.", "answer": word_map.get("word1", "")},
+                    {"question": "Why are repeated words useful?", "translation": "Vì sao từ lặp lại hữu ích?", "answer": "They show the main idea."},
+                    {"question": "Should the learner translate every word?", "translation": "Người học có nên dịch từng từ không?", "answer": "No"},
                 ],
             },
         }
@@ -1410,6 +1489,18 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
                     "Câu 3: thêm một ví dụ.",
                     "Câu 4: kết thúc bằng ý kiến hoặc kế hoạch của bạn.",
                 ],
+                "sample": "I want to improve my English for {topic}. First, I will learn the word {word1}. Then I will use {word2} in one sentence. I will practise again tomorrow.".format(topic=topic_key, **word_map),
+                "sampleTranslation": "Tôi muốn cải thiện tiếng Anh cho chủ đề {topic}. Đầu tiên, tôi sẽ học từ {word1}. Sau đó tôi sẽ dùng {word2} trong một câu. Tôi sẽ luyện lại vào ngày mai.".format(topic=display_topic, **word_map),
+                "checklist": [
+                    "I wrote 4 short sentences.",
+                    "I used 2 words from this lesson.",
+                    "I checked capital letters and periods.",
+                ],
+                "checklistTranslation": [
+                    "Tôi đã viết 4 câu ngắn.",
+                    "Tôi đã dùng 2 từ trong bài này.",
+                    "Tôi đã kiểm tra chữ hoa và dấu chấm.",
+                ],
             },
         }
     return {"skillFocus": skill or "vocabulary"}
@@ -1421,16 +1512,20 @@ def _advanced_topic_spec(level_id, topic, idx):
     topic_vi = _advanced_topic_vi(topic)
     pool = profile["words"]
     mode = ADVANCED_LESSON_MODES[idx % len(ADVANCED_LESSON_MODES)]
+    skill = mode.get("skill", "vocabulary")
     mode_words = _advanced_mode_words(pool, idx)
-    selected_words = [(topic_key, topic_vi)] + mode_words
+    primary_word_limit = max(_advanced_secondary_count(skill, "words") - 1, 1)
+    selected_words = [(topic_key, topic_vi)] + mode_words[:primary_word_limit]
     words = []
     for word, meaning in selected_words:
-        example, example_translation = _advanced_vocab_example(word, meaning, topic_key)
+        example, example_translation = _advanced_vocab_example(word, meaning, topic_key, skill)
         words.append((word, meaning, example, "", meaning, "", example_translation))
-    patterns = _advanced_format_lines(mode["patterns"], topic_key, mode_words, topic_vi)
-    grammar = _advanced_format_rules(mode["grammar"], topic_key, mode_words, topic_vi)
-    dialogue = _advanced_format_dialogue(mode["dialogue"], topic_key, mode_words, topic_vi)
-    speaking = _advanced_format_lines(mode["speaking"], topic_key, mode_words, topic_vi)
+    patterns = _advanced_format_lines(_take_primary_sized(mode["patterns"], skill, "patterns"), topic_key, mode_words, topic_vi)
+    grammar = _advanced_format_rules(_take_primary_sized(mode["grammar"], skill, "grammar"), topic_key, mode_words, topic_vi)
+    grammar += _advanced_expand_grammar_rules(skill, topic_key, mode_words, topic_vi)
+    grammar = grammar[:_advanced_secondary_count(skill, "grammar")]
+    dialogue = _advanced_format_dialogue(_take_primary_sized(mode["dialogue"], skill, "dialogue"), topic_key, mode_words, topic_vi)
+    speaking = _advanced_format_lines(_take_primary_sized(mode["speaking"], skill, "speaking"), topic_key, mode_words, topic_vi)
     quiz_prompt_template, quiz_answer_template = mode["quiz"]
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(mode_words)}
     quiz_prompt = quiz_prompt_template.format(topic=topic_key, **word_map)

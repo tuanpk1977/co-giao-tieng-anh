@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-055-skill-based-unit-lessons"
+APP_VERSION = "hybrid-roadmap-056-primary-skill-balance"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
