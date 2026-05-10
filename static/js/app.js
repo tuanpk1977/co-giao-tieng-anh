@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-044-japanese-alphabet-game";
+const APP_VERSION = "hybrid-roadmap-045-japanese-starter-path";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2250,10 +2250,14 @@ function renderAlphabetPractice(practice = {}) {
     const cards = practice.cards || [];
     const prompts = practice.gamePrompts || [];
     if (!cards.length) return '';
+    const title = practice.title || (practice.script === 'intro' ? 'Japanese Quick Practice' : 'Hiragana Read & Write');
+    const helper = practice.script === 'intro'
+        ? 'Nhìn cụm tiếng Nhật, đọc romaji, hiểu nghĩa tiếng Việt rồi chọn nhanh đáp án. Phần này không dùng AI.'
+        : 'Nhìn chữ, đọc romaji, nghe mẫu rồi tự viết lại. Phần này không dùng AI.';
     return `
         <div class="lesson-app-card alphabet-practice-card">
-            <div class="lesson-section-header"><i class="fas fa-pen-nib"></i><h4>Hiragana Read & Write</h4></div>
-            <p class="alphabet-helper">Nhìn chữ, đọc romaji, nghe mẫu rồi tự viết lại. Phần này không dùng AI.</p>
+            <div class="lesson-section-header"><i class="fas fa-pen-nib"></i><h4>${escapeHtml(title)}</h4></div>
+            <p class="alphabet-helper">${escapeHtml(helper)}</p>
             <div class="kana-card-grid">
                 ${cards.map(card => `
                     <div class="kana-card">
@@ -2261,6 +2265,7 @@ function renderAlphabetPractice(practice = {}) {
                         <span>${escapeHtml(card.romaji)}</span>
                         <small>${escapeHtml(card.vietnamese || '')}</small>
                         <em>${escapeHtml(card.example || '')} / ${escapeHtml(card.exampleReading || '')}</em>
+                        ${card.exampleTranslation ? `<small>${escapeHtml(card.exampleTranslation)}</small>` : ''}
                         <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(card.kana)}')"><i class="fas fa-volume-up"></i></button>
                     </div>
                 `).join('')}

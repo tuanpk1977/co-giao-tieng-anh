@@ -29,7 +29,8 @@ ROADMAP_LEVELS = [
     {"id": "sales", "title": "English for Sales", "description": "Customer needs, product pitch, objection handling.", "target": "Sales", "order": 9},
     {"id": "cafe", "title": "English for Cafe Staff", "description": "Taking orders, apologizing, recommending drinks.", "target": "Cafe Staff", "order": 10},
     {"id": "factory", "title": "English for Factory Workers", "description": "Safety, shifts, machine issues and supervisor communication.", "target": "Factory", "order": 11},
-    {"id": "jp_n5", "title": "JLPT N5", "description": "Nen tang tieng Nhat: hiragana, greeting, cau don gian va doi song hang ngay.", "target": "N5", "order": 101, "language": "japanese"},
+    {"id": "jp_intro", "title": "Japanese Starter", "description": "Nhap mon truoc N5: bang chu cai, so dem, thu ngay thang va cau chao hoi hang ngay.", "target": "Pre-N5", "order": 100, "language": "japanese"},
+    {"id": "jp_n5", "title": "JLPT N5", "description": "Nen tang tieng Nhat: tu vung doi song, cau don gian va ngu phap co ban.", "target": "N5", "order": 101, "language": "japanese"},
     {"id": "jp_n4", "title": "JLPT N4", "description": "Mo rong giao tiep co ban: ke hoach, ly do, thoi quen va hoi dap tu nhien hon.", "target": "N4", "order": 102, "language": "japanese"},
     {"id": "jp_n3", "title": "JLPT N3", "description": "Trung cap: noi ve cong viec, truong hoc, cam xuc, y kien va tinh huong thuc te.", "target": "N3", "order": 103, "language": "japanese"},
     {"id": "jp_n2", "title": "JLPT N2", "description": "Trung cao cap: van phong, tin tuc, tranh luan nhe, keigo va doc hieu dai hon.", "target": "N2", "order": 104, "language": "japanese"},
@@ -981,9 +982,13 @@ for level in ROADMAP_LEVELS:
 
 
 JAPANESE_LEVEL_TOPICS = {
-    "jp_n5": [
+    "jp_intro": [
         "Hiragana A Line", "Hiragana K Line", "Hiragana S Line", "Hiragana T Line", "Hiragana N Line",
         "Hiragana H Line", "Hiragana M Line", "Hiragana Y Line", "Hiragana R Line", "Hiragana W Line",
+        "Numbers 0 to 10", "Numbers 11 to 100", "Days of Week", "Months of Year", "Dates and Calendar",
+        "Daily Greetings", "Thank You and Sorry", "Simple Self Introduction", "Classroom Survival", "Starter Review",
+    ],
+    "jp_n5": [
         "Greetings", "Self Introduction", "Numbers 1 to 100", "Family", "Time and Days",
         "Classroom Objects", "Food and Drinks", "Shopping Basics", "Places in Town", "Daily Routine",
         "Particles wa and ga", "Particle o", "Particle ni", "I Like It", "Simple Questions",
@@ -1308,10 +1313,253 @@ def _japanese_alphabet_spec(topic):
     return (topic, f"{topic} - Read and Write", words, patterns, grammar, dialogue, speaking, f"How do you read {first['word']}?||{cards[0][1]}", extra_content)
 
 
+JAPANESE_INTRO_LESSONS = {
+    "Numbers 0 to 10": {
+        "title": "Numbers 0-10",
+        "words": [
+            ("ゼロ", "zero", "số 0", "ゼロです。", "zero desu", "Đây là số 0."),
+            ("いち", "ichi", "số 1", "いちです。", "ichi desu", "Đây là số 1."),
+            ("に", "ni", "số 2", "にです。", "ni desu", "Đây là số 2."),
+            ("さん", "san", "số 3", "さんです。", "san desu", "Đây là số 3."),
+            ("よん", "yon", "số 4", "よんです。", "yon desu", "Đây là số 4."),
+            ("ご", "go", "số 5", "ごです。", "go desu", "Đây là số 5."),
+            ("ろく", "roku", "số 6", "ろくです。", "roku desu", "Đây là số 6."),
+            ("なな", "nana", "số 7", "ななです。", "nana desu", "Đây là số 7."),
+            ("はち", "hachi", "số 8", "はちです。", "hachi desu", "Đây là số 8."),
+            ("きゅう", "kyuu", "số 9", "きゅうです。", "kyuu desu", "Đây là số 9."),
+            ("じゅう", "juu", "số 10", "じゅうです。", "juu desu", "Đây là số 10."),
+        ],
+        "patterns": [
+            ("いち、に、さん。", "ichi, ni, san", "Một, hai, ba."),
+            ("これは ご です。", "kore wa go desu", "Đây là số 5."),
+            ("もういちど おねがいします。", "mou ichido onegaishimasu", "Làm ơn nói lại một lần nữa."),
+        ],
+    },
+    "Numbers 11 to 100": {
+        "title": "Numbers 11-100",
+        "words": [
+            ("じゅういち", "juu-ichi", "số 11", "じゅういちです。", "juu-ichi desu", "Đây là số 11."),
+            ("じゅうに", "juu-ni", "số 12", "じゅうにです。", "juu-ni desu", "Đây là số 12."),
+            ("にじゅう", "ni-juu", "số 20", "にじゅうです。", "ni-juu desu", "Đây là số 20."),
+            ("さんじゅう", "san-juu", "số 30", "さんじゅうです。", "san-juu desu", "Đây là số 30."),
+            ("ごじゅう", "go-juu", "số 50", "ごじゅうです。", "go-juu desu", "Đây là số 50."),
+            ("ひゃく", "hyaku", "số 100", "ひゃくです。", "hyaku desu", "Đây là số 100."),
+        ],
+        "patterns": [
+            ("じゅう + いち = じゅういち。", "juu + ichi = juu-ichi", "10 + 1 = 11."),
+            ("に + じゅう = にじゅう。", "ni + juu = ni-juu", "2 x 10 = 20."),
+            ("これは さんじゅう です。", "kore wa san-juu desu", "Đây là số 30."),
+        ],
+    },
+    "Days of Week": {
+        "title": "Days of the Week",
+        "words": [
+            ("げつようび", "getsuyoubi", "thứ Hai", "げつようびに べんきょうします。", "getsuyoubi ni benkyou shimasu", "Tôi học vào thứ Hai."),
+            ("かようび", "kayoubi", "thứ Ba", "かようびです。", "kayoubi desu", "Hôm nay là thứ Ba."),
+            ("すいようび", "suiyoubi", "thứ Tư", "すいようびに あいます。", "suiyoubi ni aimasu", "Gặp nhau vào thứ Tư."),
+            ("もくようび", "mokuyoubi", "thứ Năm", "もくようびです。", "mokuyoubi desu", "Hôm nay là thứ Năm."),
+            ("きんようび", "kinyoubi", "thứ Sáu", "きんようびに いきます。", "kinyoubi ni ikimasu", "Tôi đi vào thứ Sáu."),
+            ("どようび", "doyoubi", "thứ Bảy", "どようびは やすみです。", "doyoubi wa yasumi desu", "Thứ Bảy là ngày nghỉ."),
+            ("にちようび", "nichiyoubi", "Chủ nhật", "にちようびは やすみです。", "nichiyoubi wa yasumi desu", "Chủ nhật là ngày nghỉ."),
+        ],
+        "patterns": [
+            ("きょうは げつようび です。", "kyou wa getsuyoubi desu", "Hôm nay là thứ Hai."),
+            ("にちようびは やすみです。", "nichiyoubi wa yasumi desu", "Chủ nhật là ngày nghỉ."),
+            ("なんようび ですか。", "nan-youbi desu ka", "Hôm nay là thứ mấy?"),
+        ],
+    },
+    "Months of Year": {
+        "title": "Months of the Year",
+        "words": [
+            ("いちがつ", "ichigatsu", "tháng 1", "いちがつです。", "ichigatsu desu", "Là tháng 1."),
+            ("にがつ", "nigatsu", "tháng 2", "にがつです。", "nigatsu desu", "Là tháng 2."),
+            ("さんがつ", "sangatsu", "tháng 3", "さんがつです。", "sangatsu desu", "Là tháng 3."),
+            ("しがつ", "shigatsu", "tháng 4", "しがつです。", "shigatsu desu", "Là tháng 4."),
+            ("ごがつ", "gogatsu", "tháng 5", "ごがつです。", "gogatsu desu", "Là tháng 5."),
+            ("ろくがつ", "rokugatsu", "tháng 6", "ろくがつです。", "rokugatsu desu", "Là tháng 6."),
+            ("しちがつ", "shichigatsu", "tháng 7", "しちがつです。", "shichigatsu desu", "Là tháng 7."),
+            ("はちがつ", "hachigatsu", "tháng 8", "はちがつです。", "hachigatsu desu", "Là tháng 8."),
+            ("くがつ", "kugatsu", "tháng 9", "くがつです。", "kugatsu desu", "Là tháng 9."),
+            ("じゅうがつ", "juugatsu", "tháng 10", "じゅうがつです。", "juugatsu desu", "Là tháng 10."),
+            ("じゅういちがつ", "juuichigatsu", "tháng 11", "じゅういちがつです。", "juuichigatsu desu", "Là tháng 11."),
+            ("じゅうにがつ", "juunigatsu", "tháng 12", "じゅうにがつです。", "juunigatsu desu", "Là tháng 12."),
+        ],
+        "patterns": [
+            ("いまは ごがつ です。", "ima wa gogatsu desu", "Bây giờ là tháng 5."),
+            ("なんがつ ですか。", "nan-gatsu desu ka", "Là tháng mấy?"),
+            ("わたしの たんじょうびは しがつ です。", "watashi no tanjoubi wa shigatsu desu", "Sinh nhật của tôi vào tháng 4."),
+        ],
+    },
+    "Dates and Calendar": {
+        "title": "Dates and Calendar",
+        "words": [
+            ("きょう", "kyou", "hôm nay", "きょうは げつようびです。", "kyou wa getsuyoubi desu", "Hôm nay là thứ Hai."),
+            ("あした", "ashita", "ngày mai", "あした あいます。", "ashita aimasu", "Ngày mai gặp nhau."),
+            ("きのう", "kinou", "hôm qua", "きのう べんきょうしました。", "kinou benkyou shimashita", "Hôm qua tôi đã học."),
+            ("ついたち", "tsuitachi", "ngày 1", "ついたちです。", "tsuitachi desu", "Là ngày 1."),
+            ("ふつか", "futsuka", "ngày 2", "ふつかです。", "futsuka desu", "Là ngày 2."),
+            ("さんにち", "san-nichi", "ngày 3", "さんにちです。", "san-nichi desu", "Là ngày 3."),
+        ],
+        "patterns": [
+            ("きょうは なんにち ですか。", "kyou wa nan-nichi desu ka", "Hôm nay là ngày mấy?"),
+            ("きょうは いつですか。", "kyou wa itsu desu ka", "Hôm nay là khi nào/ngày nào?"),
+            ("あした べんきょうします。", "ashita benkyou shimasu", "Ngày mai tôi học."),
+        ],
+    },
+    "Daily Greetings": {
+        "title": "Daily Greetings",
+        "words": [
+            ("おはよう", "ohayou", "chào buổi sáng thân mật", "おはよう。", "ohayou", "Chào buổi sáng."),
+            ("おはようございます", "ohayou gozaimasu", "chào buổi sáng lịch sự", "おはようございます。", "ohayou gozaimasu", "Chào buổi sáng ạ."),
+            ("こんにちは", "konnichiwa", "xin chào", "こんにちは。", "konnichiwa", "Xin chào."),
+            ("こんばんは", "konbanwa", "chào buổi tối", "こんばんは。", "konbanwa", "Chào buổi tối."),
+            ("さようなら", "sayounara", "tạm biệt", "さようなら。", "sayounara", "Tạm biệt."),
+        ],
+        "patterns": [
+            ("こんにちは。わたしは アンです。", "konnichiwa. watashi wa An desu", "Xin chào. Tôi là An."),
+            ("おはようございます。", "ohayou gozaimasu", "Chào buổi sáng ạ."),
+            ("また あした。", "mata ashita", "Hẹn gặp ngày mai."),
+        ],
+    },
+    "Thank You and Sorry": {
+        "title": "Thank You and Sorry",
+        "words": [
+            ("ありがとう", "arigatou", "cảm ơn thân mật", "ありがとう。", "arigatou", "Cảm ơn."),
+            ("ありがとうございます", "arigatou gozaimasu", "cảm ơn lịch sự", "ありがとうございます。", "arigatou gozaimasu", "Cảm ơn ạ."),
+            ("すみません", "sumimasen", "xin lỗi / làm phiền", "すみません。", "sumimasen", "Xin lỗi / cho tôi hỏi."),
+            ("ごめんなさい", "gomen nasai", "xin lỗi", "ごめんなさい。", "gomen nasai", "Tôi xin lỗi."),
+            ("だいじょうぶ", "daijoubu", "không sao / ổn", "だいじょうぶです。", "daijoubu desu", "Không sao / ổn ạ."),
+        ],
+        "patterns": [
+            ("ありがとうございます。", "arigatou gozaimasu", "Cảm ơn ạ."),
+            ("すみません、もういちど。", "sumimasen, mou ichido", "Xin lỗi, nói lại một lần nữa."),
+            ("だいじょうぶです。", "daijoubu desu", "Không sao ạ."),
+        ],
+    },
+    "Simple Self Introduction": {
+        "title": "Simple Self Introduction",
+        "words": [
+            ("わたし", "watashi", "tôi", "わたしは アンです。", "watashi wa An desu", "Tôi là An."),
+            ("なまえ", "namae", "tên", "なまえは アンです。", "namae wa An desu", "Tên tôi là An."),
+            ("ベトナム", "betonamu", "Việt Nam", "ベトナムから きました。", "betonamu kara kimashita", "Tôi đến từ Việt Nam."),
+            ("よろしく", "yoroshiku", "mong được giúp đỡ", "よろしく おねがいします。", "yoroshiku onegaishimasu", "Rất mong được giúp đỡ."),
+            ("がくせい", "gakusei", "học sinh/sinh viên", "がくせいです。", "gakusei desu", "Tôi là học sinh/sinh viên."),
+        ],
+        "patterns": [
+            ("わたしは アンです。", "watashi wa An desu", "Tôi là An."),
+            ("ベトナムから きました。", "betonamu kara kimashita", "Tôi đến từ Việt Nam."),
+            ("よろしく おねがいします。", "yoroshiku onegaishimasu", "Rất mong được giúp đỡ."),
+        ],
+    },
+    "Classroom Survival": {
+        "title": "Classroom Survival",
+        "words": [
+            ("もういちど", "mou ichido", "một lần nữa", "もういちど おねがいします。", "mou ichido onegaishimasu", "Làm ơn nói lại một lần nữa."),
+            ("ゆっくり", "yukkuri", "chậm", "ゆっくり おねがいします。", "yukkuri onegaishimasu", "Làm ơn nói chậm lại."),
+            ("わかります", "wakarimasu", "hiểu", "わかります。", "wakarimasu", "Tôi hiểu."),
+            ("わかりません", "wakarimasen", "không hiểu", "わかりません。", "wakarimasen", "Tôi không hiểu."),
+            ("これは なんですか", "kore wa nan desu ka", "đây là gì?", "これは なんですか。", "kore wa nan desu ka", "Đây là gì?"),
+        ],
+        "patterns": [
+            ("ゆっくり おねがいします。", "yukkuri onegaishimasu", "Làm ơn nói chậm lại."),
+            ("わかりません。", "wakarimasen", "Tôi không hiểu."),
+            ("これは なんですか。", "kore wa nan desu ka", "Đây là gì?"),
+        ],
+    },
+    "Starter Review": {
+        "title": "Japanese Starter Review",
+        "words": [
+            ("ひらがな", "hiragana", "bảng chữ Hiragana", "ひらがなを よみます。", "hiragana o yomimasu", "Tôi đọc Hiragana."),
+            ("すうじ", "suuji", "số", "すうじを よみます。", "suuji o yomimasu", "Tôi đọc số."),
+            ("ようび", "youbi", "thứ trong tuần", "なんようびですか。", "nan-youbi desu ka", "Hôm nay là thứ mấy?"),
+            ("あいさつ", "aisatsu", "chào hỏi", "あいさつを します。", "aisatsu o shimasu", "Tôi chào hỏi."),
+            ("れんしゅう", "renshuu", "luyện tập", "まいにち れんしゅうします。", "mainichi renshuu shimasu", "Tôi luyện tập mỗi ngày."),
+        ],
+        "patterns": [
+            ("ひらがなを よみます。", "hiragana o yomimasu", "Tôi đọc Hiragana."),
+            ("すうじを いいます。", "suuji o iimasu", "Tôi nói số."),
+            ("まいにち れんしゅうします。", "mainichi renshuu shimasu", "Tôi luyện tập mỗi ngày."),
+        ],
+    },
+}
+
+
+def _japanese_intro_spec(topic):
+    data = JAPANESE_INTRO_LESSONS.get(topic)
+    if not data:
+        return None
+    words = [
+        {
+            "word": word,
+            "reading": f"{word} / {reading}",
+            "meaning": meaning,
+            "translation": meaning,
+            "example": example,
+            "exampleReading": f"{example} / {example_reading}",
+            "exampleTranslation": example_translation,
+        }
+        for word, reading, meaning, example, example_reading, example_translation in data["words"]
+    ]
+    patterns = [
+        {"text": text, "reading": reading, "translation": translation}
+        for text, reading, translation in data["patterns"]
+    ]
+    grammar = [
+        "Nghe - nhìn chữ - đọc romaji - nói lại. Phần này ưu tiên ghi nhớ, không cần AI.",
+        "Học theo cụm ngắn trước, sau đó mới ghép câu dài.",
+        "Mỗi bài chỉ cần nhớ chắc 3-5 mẫu dùng hằng ngày.",
+    ]
+    dialogue = [
+        {"speaker": "Ms. Sakura", "text": "いっしょに れんしゅうしましょう。", "reading": "issho ni renshuu shimashou", "translation": "Mình cùng luyện nhé."},
+        {"speaker": "You", "text": patterns[0]["text"], "reading": patterns[0]["reading"], "translation": patterns[0]["translation"]},
+        {"speaker": "Ms. Sakura", "text": "いいですね。もういちど。", "reading": "ii desu ne. mou ichido", "translation": "Tốt lắm. Thêm một lần nữa nhé."},
+    ]
+    speaking = patterns[:3]
+    extra_content = {
+        "alphabetPractice": {
+            "title": data["title"],
+            "script": "intro",
+            "cards": [
+                {
+                    "kana": item["word"],
+                    "romaji": item["reading"].split(" / ", 1)[-1],
+                    "vietnamese": item["meaning"],
+                    "example": item["example"],
+                    "exampleReading": item["exampleReading"].split(" / ", 1)[-1],
+                    "exampleTranslation": item["exampleTranslation"],
+                    "strokeHint": "Nhìn - đọc - che lại - nói lại 3 lần.",
+                }
+                for item in words[:6]
+            ],
+            "gamePrompts": [
+                {
+                    "kana": item["word"],
+                    "answer": item["reading"].split(" / ", 1)[-1],
+                    "choices": [item["reading"].split(" / ", 1)[-1]] + [
+                        other["reading"].split(" / ", 1)[-1] for other in words[:6] if other["word"] != item["word"]
+                    ][:2],
+                    "hint": item["meaning"],
+                }
+                for item in words[:6]
+            ],
+            "writingTips": [
+                "Chơi game chọn đáp án trước để nhớ mặt chữ/cụm.",
+                "Sau đó đọc to ví dụ tiếng Nhật và nhìn nghĩa tiếng Việt.",
+                "Không dùng AI cho bước ghi nhớ cơ bản này.",
+            ],
+        }
+    }
+    return (topic, data["title"], words[:6], patterns, grammar, dialogue, speaking, f"How do you say '{words[0]['meaning']}'?||{words[0]['word']}", extra_content)
+
+
 def _japanese_topic_spec(level_id, topic, idx):
     alphabet_spec = _japanese_alphabet_spec(topic)
     if alphabet_spec:
         return alphabet_spec
+    if level_id == "jp_intro":
+        intro_spec = _japanese_intro_spec(topic)
+        if intro_spec:
+            return intro_spec
     profile = JAPANESE_CONTENT_PROFILES[level_id]
     pool = profile["words"]
     topic_word = {

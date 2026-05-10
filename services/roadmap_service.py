@@ -176,7 +176,7 @@ class RoadmapService:
         if self.is_free_plan(user):
             free_levels = {
                 "english": {"starter", "flyer"},
-                "japanese": {"jp_n5", "jp_n4"},
+                "japanese": {"jp_intro", "jp_n5"},
             }
             lesson_language = self.get_lesson_language(lesson)
             return lesson.get("levelId") in free_levels.get(lesson_language, {"starter", "flyer"})
@@ -218,7 +218,7 @@ class RoadmapService:
         level_sequence = self.lesson_sequence_by_level.get(lesson.get("levelId"), [])
         idx = level_sequence.index(lesson_id) if lesson_id in level_sequence else 0
         if not user:
-            guest_starter = {"english": "starter", "japanese": "jp_n5"}
+            guest_starter = {"english": "starter", "japanese": "jp_intro"}
             starter_level = guest_starter.get(self.get_lesson_language(lesson), "starter")
             return "unlocked" if lesson.get("levelId") == starter_level and idx < 2 else "locked"
         if not self.is_allowed_by_plan(lesson, user):
@@ -241,6 +241,7 @@ class RoadmapService:
             "sales": "handshake",
             "cafe": "mug-hot",
             "factory": "industry",
+            "jp_intro": "language",
             "jp_n5": "seedling",
             "jp_n4": "paper-plane",
             "jp_n3": "comments",
