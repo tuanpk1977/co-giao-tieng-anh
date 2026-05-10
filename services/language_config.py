@@ -63,11 +63,11 @@ LANGUAGE_CONFIGS = {
             "rate": 0.95,
         },
         "lessonCategories": [
-            "Hiragana Basics",
-            "Greetings",
-            "Self Introduction",
-            "Travel Japanese",
-            "Workplace Japanese",
+            "JLPT N5",
+            "JLPT N4",
+            "JLPT N3",
+            "JLPT N2",
+            "JLPT N1",
         ],
         "systemPrompt": (
             "Bạn là Ms. Sakura, cô giáo tiếng Nhật thân thiện cho người Việt. "

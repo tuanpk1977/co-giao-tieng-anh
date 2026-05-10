@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-041-multilanguage-foundation";
+const APP_VERSION = "hybrid-roadmap-042-japanese-roadmap";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -236,8 +236,16 @@ function getPreferredLanguageCode() {
     return state.currentUser?.preferred_language || state.currentUser?.language || localStorage.getItem('ms_smile_language') || 'english';
 }
 
+function buildRoadmapQuery() {
+    const params = new URLSearchParams();
+    if (state.currentUser?.id) params.set('user_id', state.currentUser.id);
+    params.set('language', getPreferredLanguageCode());
+    return `?${params.toString()}`;
+}
+
 async function loadCurrentLanguageConfig(languageCode = null) {
     try {
+        const previousLanguage = state.currentLanguage?.code;
         const params = new URLSearchParams();
         if (state.currentUser?.id) params.set('user_id', state.currentUser.id);
         if (languageCode || getPreferredLanguageCode()) params.set('language', languageCode || getPreferredLanguageCode());
@@ -247,6 +255,13 @@ async function loadCurrentLanguageConfig(languageCode = null) {
         state.currentLanguage = data.language;
         state.availableLanguages = data.available || [];
         localStorage.setItem('ms_smile_language', state.currentLanguage.code);
+        if (previousLanguage && previousLanguage !== state.currentLanguage.code) {
+            state.roadmapCache = null;
+            state.roadmapCacheAt = 0;
+            state.selectedRoadmapLevelId = null;
+            localStorage.removeItem('selectedRoadmapLevelId');
+            console.log('[Language] roadmap cache reset', previousLanguage, '->', state.currentLanguage.code);
+        }
         applyLanguageConfig(state.currentLanguage);
         populateLanguageSelects();
         console.log('[Language] loaded', state.currentLanguage.code, state.currentLanguage);
@@ -333,7 +348,7 @@ function populateLanguageSelects() {
 async function loadDailyRetentionOnOpen() {
     if (!state.currentUser?.id) return;
     try {
-        const response = await fetch(`/api/roadmap/dashboard?user_id=${state.currentUser.id}`);
+        const response = await fetch(`/api/roadmap/dashboard${buildRoadmapQuery()}`);
         const data = await response.json();
         if (!data.success || !data.dashboard) return;
         state.roadmapDashboard = data.dashboard;
@@ -1600,7 +1615,7 @@ async function loadRoadmapLevels() {
     container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai lo trinh...</p></div>';
     if (detail) detail.classList.add('hidden');
     try {
-        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const userParam = buildRoadmapQuery();
         const response = await fetch(`/api/roadmap/levels${userParam}`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Roadmap error');
@@ -1627,7 +1642,7 @@ async function loadRoadmapLevel(levelId) {
     if (!detail) return;
     detail.classList.remove('hidden');
     detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai bai hoc...</p></div>';
-    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const userParam = buildRoadmapQuery();
     const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`);
     const data = await response.json();
     if (!data.success) {
@@ -1749,15 +1764,16 @@ async function loadRoadmapLevels() {
     container.innerHTML = renderRoadmapSkeleton();
     if (detail) detail.classList.add('hidden');
     try {
-        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const userParam = buildRoadmapQuery();
         const now = Date.now();
-        if (state.roadmapCache && now - state.roadmapCacheAt < 45000) {
+        if (state.roadmapCache && state.roadmapCache.language === getPreferredLanguageCode() && now - state.roadmapCacheAt < 45000) {
             renderRoadmapLevels(state.roadmapCache.levels || []);
             return;
         }
         const response = await fetch(`/api/roadmap/levels${userParam}`);
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Roadmap error');
+        data.language = getPreferredLanguageCode();
         state.roadmapCache = data;
         state.roadmapCacheAt = now;
         renderRoadmapLevels(data.levels || []);
@@ -1784,7 +1800,7 @@ async function saveRoadmapSelection(levelId) {
         const response = await fetch('/api/roadmap/selection', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.currentUser.id, level_id: levelId })
+            body: JSON.stringify({ user_id: state.currentUser.id, level_id: levelId, language: getPreferredLanguageCode() })
         });
         const data = await response.json();
         if (data.success && data.user) {
@@ -1806,7 +1822,7 @@ async function loadRoadmapLevel(levelId, options = {}) {
     detail.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Dang tai bai hoc...</p></div>';
     let level;
     try {
-        const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+        const userParam = buildRoadmapQuery();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 12000);
         const response = await fetch(`/api/roadmap/levels/${levelId}${userParam}`, { signal: controller.signal });
@@ -1867,7 +1883,7 @@ async function loadRoadmapLevel(levelId, options = {}) {
 }
 
 async function openRoadmapLesson(lessonId) {
-    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const userParam = buildRoadmapQuery();
     const response = await fetch(`/api/roadmap/lessons/${lessonId}${userParam}`);
     const data = await response.json();
     if (!data.success) {
@@ -2518,7 +2534,7 @@ function showDailyRetentionToast(dashboard = {}, message = '') {
 }
 
 async function continueRoadmapLesson() {
-    const userParam = state.currentUser?.id ? `?user_id=${state.currentUser.id}` : '';
+    const userParam = buildRoadmapQuery();
     const response = await fetch(`/api/roadmap/continue${userParam}`);
     const data = await response.json();
     if (data.success && data.lesson) {
@@ -4084,7 +4100,7 @@ async function showDashboard() {
     try {
         const [progressRes, roadmapRes] = await Promise.all([
             fetch(`/api/user/progress?user_id=${state.currentUser.id}`),
-            fetch(`/api/roadmap/dashboard?user_id=${state.currentUser.id}`)
+            fetch(`/api/roadmap/dashboard${buildRoadmapQuery()}`)
         ]);
         const data = await progressRes.json();
         const roadmapData = await roadmapRes.json();

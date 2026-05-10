@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-041-multilanguage-foundation"
+APP_VERSION = "hybrid-roadmap-042-japanese-roadmap"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
@@ -963,15 +963,17 @@ def require_admin(request):
 @app.route('/api/roadmap/levels', methods=['GET'])
 def roadmap_levels():
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    language = request.args.get('language')
     service = get_roadmap_service()
-    return jsonify({"success": True, "levels": service.get_levels(user_id)})
+    return jsonify({"success": True, "levels": service.get_levels(user_id, language)})
 
 
 @app.route('/api/roadmap/levels/<level_id>', methods=['GET'])
 def roadmap_level_detail(level_id):
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
+    language = request.args.get('language')
     service = get_roadmap_service()
-    detail = service.get_level_detail(level_id, user_id)
+    detail = service.get_level_detail(level_id, user_id, language)
     if not detail:
         return jsonify({"success": False, "error": "Level not found"}), 404
     return jsonify({"success": True, "level": detail})
@@ -1034,13 +1036,15 @@ def roadmap_speaking_attempt():
 @app.route('/api/roadmap/dashboard', methods=['GET'])
 def roadmap_dashboard():
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
-    return jsonify({"success": True, "dashboard": get_roadmap_service().get_dashboard(user_id)})
+    language = request.args.get('language')
+    return jsonify({"success": True, "dashboard": get_roadmap_service().get_dashboard(user_id, language)})
 
 
 @app.route('/api/roadmap/continue', methods=['GET'])
 def roadmap_continue():
     user_id = request.args.get('user_id', type=int) or session.get('user_id')
-    lesson = get_roadmap_service().get_continue_lesson(user_id)
+    language = request.args.get('language')
+    lesson = get_roadmap_service().get_continue_lesson(user_id, language)
     return jsonify({"success": True, "lesson": lesson})
 
 
@@ -1049,9 +1053,10 @@ def roadmap_selection():
     data = request.get_json() or {}
     user_id = data.get('user_id') or session.get('user_id')
     level_id = data.get('level_id')
+    language = data.get('language')
     if not user_id or not level_id:
         return jsonify({"success": False, "error": "user_id and level_id are required"}), 400
-    success, result = get_roadmap_service().set_selected_level(user_id, level_id)
+    success, result = get_roadmap_service().set_selected_level(user_id, level_id, language)
     if success:
         user = get_user_service().get_user(user_id)
         return jsonify({"success": True, **result, "user": user.to_dict() if user else None})

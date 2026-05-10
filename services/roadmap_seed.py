@@ -29,6 +29,11 @@ ROADMAP_LEVELS = [
     {"id": "sales", "title": "English for Sales", "description": "Customer needs, product pitch, objection handling.", "target": "Sales", "order": 9},
     {"id": "cafe", "title": "English for Cafe Staff", "description": "Taking orders, apologizing, recommending drinks.", "target": "Cafe Staff", "order": 10},
     {"id": "factory", "title": "English for Factory Workers", "description": "Safety, shifts, machine issues and supervisor communication.", "target": "Factory", "order": 11},
+    {"id": "jp_n5", "title": "JLPT N5", "description": "Nen tang tieng Nhat: hiragana, greeting, cau don gian va doi song hang ngay.", "target": "N5", "order": 101, "language": "japanese"},
+    {"id": "jp_n4", "title": "JLPT N4", "description": "Mo rong giao tiep co ban: ke hoach, ly do, thoi quen va hoi dap tu nhien hon.", "target": "N4", "order": 102, "language": "japanese"},
+    {"id": "jp_n3", "title": "JLPT N3", "description": "Trung cap: noi ve cong viec, truong hoc, cam xuc, y kien va tinh huong thuc te.", "target": "N3", "order": 103, "language": "japanese"},
+    {"id": "jp_n2", "title": "JLPT N2", "description": "Trung cao cap: van phong, tin tuc, tranh luan nhe, keigo va doc hieu dai hon.", "target": "N2", "order": 104, "language": "japanese"},
+    {"id": "jp_n1", "title": "JLPT N1", "description": "Nang cao: bieu dat tinh te, chu de xa hoi, kinh doanh va ngon ngu tu nhien.", "target": "N1", "order": 105, "language": "japanese"},
 ]
 
 
@@ -917,9 +922,114 @@ def _advanced_topic_spec(level_id, topic, idx):
 
 
 for level in ROADMAP_LEVELS:
-    if level["id"] not in {"starter", "flyer"}:
+    if level["id"] not in {"starter", "flyer"} and level["id"] in ADVANCED_LEVEL_TOPICS:
         specs = [_advanced_topic_spec(level["id"], topic, idx) for idx, topic in enumerate(ADVANCED_LEVEL_TOPICS.get(level["id"], []))]
         ROADMAP_UNITS += _build_units(level["id"], level["title"], specs)
+
+
+JAPANESE_LEVEL_TOPICS = {
+    "jp_n5": [
+        "Hiragana A Line", "Hiragana K Line", "Greetings", "Self Introduction", "Numbers 1 to 100",
+        "Family", "Time and Days", "Classroom Objects", "Food and Drinks", "Shopping Basics",
+        "Places in Town", "Daily Routine", "Particles wa and ga", "Particle o", "Particle ni",
+        "I Like It", "Simple Questions", "There Is", "Adjectives i", "Adjectives na",
+        "Past Tense Basics", "Invitation", "At the Station", "At the Restaurant", "N5 Review",
+    ],
+    "jp_n4": [
+        "Te Form", "Requests", "Permission", "Prohibition", "Experience",
+        "Plans", "Reasons with kara", "Comparisons", "Want To Do", "Giving Advice",
+        "Weather Talk", "Travel Plan", "Lost Item", "Phone Message", "Doctor Visit",
+        "School Rules", "Part-time Job", "Hobby Details", "Going to Japan", "Simple Email",
+        "Potential Form", "Before and After", "Because and Although", "Listening Practice", "N4 Review",
+    ],
+    "jp_n3": [
+        "Giving Opinions", "Explaining Reasons", "Workplace Basics", "School Discussion", "Making Complaints",
+        "Apologizing Naturally", "Asking for Help", "News Topic", "Health Habits", "Travel Trouble",
+        "Indirect Speech", "Trying To Do", "Seems Like", "Must Do", "May Happen",
+        "Respectful Speech Basics", "Casual Conversation", "Storytelling", "Comparing Choices", "Making Suggestions",
+        "Reading Short Article", "Speaking Fluency", "Grammar Review", "Vocabulary Review", "N3 Review",
+    ],
+    "jp_n2": [
+        "Business Greeting", "Meeting Update", "Keigo Requests", "Customer Support", "Explaining Data",
+        "Social Issue", "News Summary", "Agreeing Politely", "Disagreeing Softly", "Presentation Opening",
+        "Formal Email", "Job Interview", "Problem Solving", "Cause and Effect", "Nuance Practice",
+        "Reading Essay", "Listening News", "Work Report", "Negotiation Basics", "Giving Feedback",
+        "Advanced Particles", "Sentence Connectors", "Natural Fillers", "Kanji in Context", "N2 Review",
+    ],
+    "jp_n1": [
+        "Abstract Opinion", "Economic Topic", "Cultural Debate", "Academic Reading", "Executive Summary",
+        "Advanced Keigo", "Formal Apology", "Persuasive Speaking", "Policy Discussion", "Risk Explanation",
+        "Subtle Emotion", "Literary Expression", "Idioms", "Advanced Connectors", "Precise Vocabulary",
+        "Negotiation Strategy", "Presentation Q and A", "Critical Reading", "Long Listening", "Natural Conversation",
+        "Writing Argument", "Summarizing Article", "High-level Interview", "Final Speaking", "N1 Review",
+    ],
+}
+
+
+JAPANESE_CONTENT_PROFILES = {
+    "jp_n5": {
+        "words": [("わたし", "watashi - toi", "わたしはアンです。"), ("せんせい", "sensei - giao vien", "せんせいはやさしいです。"), ("がっこう", "gakkou - truong hoc", "がっこうへいきます。"), ("みず", "mizu - nuoc", "みずをのみます。"), ("ともだち", "tomodachi - ban be", "ともだちにあいます。"), ("えき", "eki - nha ga", "えきはどこですか。"), ("いくら", "ikura - bao nhieu tien", "これはいくらですか。"), ("すき", "suki - thich", "すしがすきです。")],
+        "patterns": ["わたしは {topic} をべんきょうします。", "{topic} はやさしいです。", "{topic} はどこですか。"],
+        "grammar": ["Use は to mark the topic.", "Use です for simple polite sentences.", "Use を before the object of an action."],
+        "dialogue": [("A", "こんにちは。"), ("B", "こんにちは。{topic} をべんきょうしています。"), ("A", "いいですね。")],
+        "speaking": ["わたしは {topic} をべんきょうします。", "{topic} はやさしいです。", "もういちどおねがいします。"],
+        "quiz": ("Choose the polite ending for a simple sentence.", "です"),
+    },
+    "jp_n4": {
+        "words": [("よてい", "yotei - ke hoach", "あしたのよていがあります。"), ("りゆう", "riyuu - ly do", "りゆうをせつめいします。"), ("てつだう", "tetsudau - giup do", "ともだちをてつだいます。"), ("けいけん", "keiken - kinh nghiem", "日本へいったことがあります。"), ("しゅみ", "shumi - so thich", "しゅみはりょうりです。"), ("びょういん", "byouin - benh vien", "びょういんへいきます。"), ("ゆるす", "yurusu - cho phep", "ここでしゃしんをとってもいいです。"), ("れんらく", "renraku - lien lac", "あとでれんらくします。")],
+        "patterns": ["{topic} についてはなしたいです。", "{topic} してもいいですか。", "{topic} したことがあります。"],
+        "grammar": ["Use て form for requests and permission.", "Use たことがあります for experience.", "Use から to give a reason."],
+        "dialogue": [("A", "{topic} してもいいですか。"), ("B", "はい、いいですよ。"), ("A", "ありがとうございます。")],
+        "speaking": ["{topic} してもいいですか。", "{topic} したことがあります。", "どうしてですか。"],
+        "quiz": ("Choose the pattern for experience.", "たことがあります"),
+    },
+    "jp_n3": {
+        "words": [("いけん", "iken - y kien", "わたしのいけんをいいます。"), ("せつめい", "setsumei - giai thich", "理由をせつめいします。"), ("しょくば", "shokuba - noi lam viec", "しょくばで話します。"), ("もんだい", "mondai - van de", "もんだいがあります。"), ("ていあん", "teian - de xuat", "新しいていあんです。"), ("れんしゅう", "renshuu - luyen tap", "毎日れんしゅうします。"), ("きもち", "kimochi - cam xuc", "きもちを伝えます。"), ("じょうきょう", "joukyou - tinh hinh", "じょうきょうを説明します。")],
+        "patterns": ["{topic} についてどう思いますか。", "{topic} と思います。", "{topic} かもしれません。"],
+        "grammar": ["Use と思います to give an opinion.", "Use かもしれません for possibility.", "Use ようです for 'it seems'."],
+        "dialogue": [("A", "{topic} についてどう思いますか。"), ("B", "大切だと思います。"), ("A", "どうしてですか。")],
+        "speaking": ["{topic} についてどう思いますか。", "大切だと思います。", "もう少し説明します。"],
+        "quiz": ("Choose the phrase for giving an opinion.", "と思います"),
+    },
+    "jp_n2": {
+        "words": [("かいぎ", "kaigi - cuoc hop", "会議で報告します。"), ("ほうこく", "houkoku - bao cao", "結果を報告します。"), ("お客様", "okyakusama - khach hang", "お客様に説明します。"), ("課題", "kadai - van de/can lam", "課題を整理します。"), ("提案", "teian - de xuat", "提案をまとめます。"), ("影響", "eikyou - anh huong", "影響があります。"), ("対応", "taiou - xu ly", "すぐ対応します。"), ("確認", "kakunin - xac nhan", "内容を確認します。")],
+        "patterns": ["{topic} についてご説明します。", "{topic} による影響があります。", "{topic} を確認していただけますか。"],
+        "grammar": ["Use keigo for polite workplace requests.", "Use による for cause or basis.", "Use いただけますか for polite requests."],
+        "dialogue": [("A", "{topic} についてご説明します。"), ("B", "お願いします。"), ("A", "まず、課題を確認します。")],
+        "speaking": ["{topic} についてご説明します。", "確認していただけますか。", "すぐ対応いたします。"],
+        "quiz": ("Choose a polite request pattern.", "いただけますか"),
+    },
+    "jp_n1": {
+        "words": [("観点", "kanten - goc nhin", "別の観点から考えます。"), ("傾向", "keikou - xu huong", "新しい傾向が見られます。"), ("根拠", "konkyo - can cu", "根拠を示します。"), ("妥当", "datou - thoa dang", "妥当な判断です。"), ("推測", "suisoku - suy doan", "結果を推測します。"), ("課題解決", "kadai kaiketsu - giai quyet van de", "課題解決が必要です。"), ("多様性", "tayousei - da dang", "多様性を尊重します。"), ("持続可能", "jizoku kanou - ben vung", "持続可能な方法です。")],
+        "patterns": ["{topic} という観点から考える必要があります。", "{topic} には一定の根拠があります。", "{topic} とは言い切れません。"],
+        "grammar": ["Use abstract nouns to make arguments precise.", "Use とは言い切れません to avoid overstatement.", "Use という観点から for perspective."],
+        "dialogue": [("A", "{topic} についてどう評価しますか。"), ("B", "別の観点から考える必要があります。"), ("A", "根拠を教えてください。")],
+        "speaking": ["{topic} という観点から考えます。", "根拠を示す必要があります。", "一概には言えません。"],
+        "quiz": ("Choose the phrase for 'from the perspective of'.", "という観点から"),
+    },
+}
+
+
+def _japanese_topic_spec(level_id, topic, idx):
+    profile = JAPANESE_CONTENT_PROFILES[level_id]
+    topic_key = topic.lower()
+    pool = profile["words"]
+    selected_words = [(topic, topic_key, f"{topic} をべんきょうします。")] + [pool[(idx + offset) % len(pool)] for offset in range(4)]
+    words = [(word, meaning, example) for word, meaning, example in selected_words]
+    patterns = [pattern.format(topic=topic) for pattern in profile["patterns"]]
+    grammar = list(profile["grammar"])
+    dialogue = [(speaker, text.format(topic=topic)) for speaker, text in profile["dialogue"]]
+    speaking = [text.format(topic=topic) for text in profile["speaking"]]
+    quiz_prompt, quiz_answer = profile["quiz"]
+    return (topic, topic, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
+
+
+for level_id, topics in JAPANESE_LEVEL_TOPICS.items():
+    level_title = next((level["title"] for level in ROADMAP_LEVELS if level["id"] == level_id), level_id.upper())
+    ROADMAP_UNITS += _build_units(level_id, level_title, [
+        _japanese_topic_spec(level_id, topic, idx)
+        for idx, topic in enumerate(topics)
+    ])
 
 
 PLACEMENT_QUESTIONS = [
