@@ -952,21 +952,104 @@ LEVEL_CONTENT_PROFILES = {
 }
 
 
+ADVANCED_WORD_EXAMPLES = {
+    "schedule": ("Please check the schedule before class.", "Hãy kiểm tra lịch trình trước giờ học."),
+    "ticket": ("I bought a train ticket this morning.", "Sáng nay tôi đã mua một vé tàu."),
+    "notice": ("Please read the notice on the board.", "Hãy đọc thông báo trên bảng."),
+    "form": ("Please fill out this form.", "Vui lòng điền vào mẫu đơn này."),
+    "station": ("The station is near the city center.", "Nhà ga ở gần trung tâm thành phố."),
+    "appointment": ("I have an appointment at three o'clock.", "Tôi có một cuộc hẹn lúc ba giờ."),
+    "message": ("I sent a short message to my teacher.", "Tôi đã gửi một tin nhắn ngắn cho giáo viên."),
+    "direction": ("Can you give me directions to the station?", "Bạn có thể chỉ đường đến nhà ga cho tôi không?"),
+    "opinion": ("In my opinion, this plan is useful.", "Theo ý kiến của tôi, kế hoạch này hữu ích."),
+    "reason": ("The main reason is easy to understand.", "Lý do chính rất dễ hiểu."),
+    "experience": ("This experience helped me learn faster.", "Kinh nghiệm này giúp tôi học nhanh hơn."),
+    "suggestion": ("Thank you for your helpful suggestion.", "Cảm ơn bạn vì lời gợi ý hữu ích."),
+    "choice": ("This choice is better for beginners.", "Lựa chọn này tốt hơn cho người mới bắt đầu."),
+    "improve": ("I want to improve my speaking every day.", "Tôi muốn cải thiện kỹ năng nói mỗi ngày."),
+    "compare": ("Compare the two answers before you choose.", "Hãy so sánh hai câu trả lời trước khi chọn."),
+    "explain": ("Can you explain your answer?", "Bạn có thể giải thích câu trả lời của mình không?"),
+    "topic": ("This topic is about daily life.", "Chủ đề này nói về đời sống hằng ngày."),
+    "example": ("This example makes the idea clearer.", "Ví dụ này làm cho ý tưởng rõ hơn."),
+    "habit": ("Reading every day is a good habit.", "Đọc mỗi ngày là một thói quen tốt."),
+    "benefit": ("One benefit is better pronunciation.", "Một lợi ích là phát âm tốt hơn."),
+    "problem": ("We should solve this problem step by step.", "Chúng ta nên giải quyết vấn đề này từng bước."),
+    "answer": ("Please write your answer clearly.", "Hãy viết câu trả lời của bạn thật rõ ràng."),
+    "overview": ("The overview shows the main trend.", "Phần tổng quan cho thấy xu hướng chính."),
+    "trend": ("The trend increased slowly last year.", "Xu hướng đã tăng chậm vào năm ngoái."),
+    "support": ("This detail can support your opinion.", "Chi tiết này có thể hỗ trợ ý kiến của bạn."),
+    "contrast": ("Use contrast to show a different idea.", "Hãy dùng sự tương phản để thể hiện một ý khác."),
+    "cause": ("The cause of the problem is clear.", "Nguyên nhân của vấn đề rất rõ."),
+    "effect": ("The effect can be seen quickly.", "Kết quả có thể được nhìn thấy nhanh chóng."),
+    "solution": ("This solution is simple and practical.", "Giải pháp này đơn giản và thực tế."),
+    "conclusion": ("The conclusion should answer the question.", "Kết luận nên trả lời đúng câu hỏi."),
+    "nuance": ("This word has a small nuance in meaning.", "Từ này có một sắc thái nghĩa nhỏ."),
+    "evidence": ("Strong evidence makes your argument better.", "Bằng chứng mạnh làm lập luận tốt hơn."),
+    "coherence": ("Coherence helps the reader follow your ideas.", "Sự mạch lạc giúp người đọc theo dõi ý của bạn."),
+    "concession": ("A concession shows that you understand both sides.", "Sự nhượng bộ cho thấy bạn hiểu cả hai phía."),
+    "argument": ("Your argument needs clear evidence.", "Lập luận của bạn cần bằng chứng rõ ràng."),
+    "emphasis": ("Use emphasis for the most important idea.", "Hãy nhấn mạnh ý quan trọng nhất."),
+    "precise": ("A precise word makes your answer stronger.", "Một từ chính xác làm câu trả lời mạnh hơn."),
+    "perspective": ("This perspective is useful for the essay.", "Góc nhìn này hữu ích cho bài luận."),
+    "agenda": ("The meeting agenda has three items.", "Chương trình họp có ba mục."),
+    "deadline": ("The deadline is Friday afternoon.", "Hạn chót là chiều thứ Sáu."),
+    "client": ("The client asked for a quick update.", "Khách hàng yêu cầu cập nhật nhanh."),
+    "proposal": ("I will send the proposal today.", "Tôi sẽ gửi đề xuất hôm nay."),
+    "budget": ("The budget is limited this month.", "Ngân sách tháng này bị giới hạn."),
+    "update": ("Please send me an update after lunch.", "Vui lòng gửi cho tôi bản cập nhật sau bữa trưa."),
+    "action item": ("Each action item needs an owner.", "Mỗi việc cần làm cần có người phụ trách."),
+    "decision": ("We need a decision before Monday.", "Chúng ta cần quyết định trước thứ Hai."),
+    "customer": ("The customer needs more information.", "Khách hàng cần thêm thông tin."),
+    "need": ("Ask about the customer's need first.", "Hãy hỏi về nhu cầu của khách hàng trước."),
+    "price": ("The price is clear on the label.", "Giá được ghi rõ trên nhãn."),
+    "discount": ("This discount is available today.", "Giảm giá này có hiệu lực hôm nay."),
+    "objection": ("Listen carefully to the customer's objection.", "Hãy lắng nghe kỹ sự phản đối của khách hàng."),
+    "value": ("This product gives good value.", "Sản phẩm này mang lại giá trị tốt."),
+    "follow-up": ("I will send a follow-up message tomorrow.", "Tôi sẽ gửi tin nhắn theo dõi vào ngày mai."),
+    "order": ("I would like to place an order.", "Tôi muốn đặt món/đặt hàng."),
+    "recommend": ("Can you recommend a cold drink?", "Bạn có thể gợi ý một món uống lạnh không?"),
+    "takeaway": ("This coffee is for takeaway.", "Ly cà phê này mang đi."),
+    "receipt": ("Can I have a receipt, please?", "Cho tôi xin hóa đơn được không?"),
+    "sugar": ("I would like less sugar, please.", "Tôi muốn ít đường hơn."),
+    "allergy": ("Do you have any food allergy?", "Bạn có bị dị ứng thực phẩm nào không?"),
+    "combo": ("The lunch combo is cheaper.", "Combo bữa trưa rẻ hơn."),
+    "counter": ("Please pay at the counter.", "Vui lòng thanh toán tại quầy."),
+    "safety": ("Safety comes first in the factory.", "An toàn là ưu tiên hàng đầu trong nhà máy."),
+    "shift": ("My shift starts at eight o'clock.", "Ca làm của tôi bắt đầu lúc tám giờ."),
+    "machine": ("The machine needs a quick check.", "Máy móc cần được kiểm tra nhanh."),
+    "supervisor": ("Please tell your supervisor about the issue.", "Hãy báo cho giám sát của bạn về vấn đề này."),
+    "helmet": ("Please wear your helmet in this area.", "Vui lòng đội mũ bảo hộ trong khu vực này."),
+    "checklist": ("Use the checklist before you start.", "Hãy dùng danh sách kiểm tra trước khi bắt đầu."),
+    "defect": ("This product has a small defect.", "Sản phẩm này có một lỗi nhỏ."),
+    "warehouse": ("The boxes are in the warehouse.", "Các thùng hàng ở trong kho."),
+}
+
+
+def _advanced_vocab_example(word, meaning, topic_key):
+    clean_word = str(word or "").strip()
+    clean_topic = str(topic_key or "").strip()
+    if clean_word == clean_topic:
+        return (
+            f"This lesson is about {clean_topic}.",
+            f"Bài này nói về {clean_topic}.",
+        )
+    if clean_word in ADVANCED_WORD_EXAMPLES:
+        return ADVANCED_WORD_EXAMPLES[clean_word]
+    return (
+        f"We use '{clean_word}' when we talk about {clean_topic}.",
+        f"Chúng ta dùng '{clean_word}' khi nói về {clean_topic}.",
+    )
+
+
 def _advanced_topic_spec(level_id, topic, idx):
     profile = LEVEL_CONTENT_PROFILES[level_id]
     topic_key = topic.lower()
     pool = profile["words"]
     selected_words = [(topic_key, topic_key)] + [pool[(idx + offset) % len(pool)] for offset in range(4)]
-    words = [
-        (word, meaning, sentence.format(topic=topic_key) if "{topic}" in sentence else sentence)
-        for word, meaning, sentence in [
-            (selected_words[0][0], selected_words[0][1], f"This lesson is about {topic_key}."),
-            (selected_words[1][0], selected_words[1][1], profile["patterns"][0]),
-            (selected_words[2][0], selected_words[2][1], profile["patterns"][1]),
-            (selected_words[3][0], selected_words[3][1], profile["patterns"][2]),
-            (selected_words[4][0], selected_words[4][1], "Please check this word in context."),
-        ]
-    ]
+    words = []
+    for word, meaning in selected_words:
+        example, example_translation = _advanced_vocab_example(word, meaning, topic_key)
+        words.append((word, meaning, example, "", meaning, "", example_translation))
     patterns = [pattern.format(topic=topic_key) for pattern in profile["patterns"]]
     grammar = list(profile["grammar"])
     dialogue = [(speaker, text.format(topic=topic_key)) for speaker, text in profile["dialogue"]]

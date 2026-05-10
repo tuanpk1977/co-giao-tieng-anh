@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-052-kana-stroke-fit-vietnamese";
+const APP_VERSION = "hybrid-roadmap-053-contextual-vocab-examples";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
