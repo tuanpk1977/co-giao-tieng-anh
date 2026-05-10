@@ -1237,6 +1237,59 @@ JAPANESE_HIRAGANA_LINES = {
     ],
 }
 
+HIRAGANA_STROKE_STEPS = {
+    "あ": ["Nét 1: ngang ngắn từ trái sang phải.", "Nét 2: kéo dọc xuống rồi cong nhẹ sang trái.", "Nét 3: vòng cong lớn, kết thúc ở dưới bên phải."],
+    "い": ["Nét 1: kéo cong xuống bên trái.", "Nét 2: kéo cong xuống bên phải, ngắn hơn nét 1."],
+    "う": ["Nét 1: chấm/ngang ngắn ở trên.", "Nét 2: kéo cong từ trái sang phải rồi hạ xuống."],
+    "え": ["Nét 1: chấm/ngang ngắn ở trên.", "Nét 2: ngang ngắn, gập xuống rồi kéo sang phải."],
+    "お": ["Nét 1: ngang từ trái sang phải.", "Nét 2: kéo dọc xuống, cong vòng sang trái rồi qua phải.", "Nét 3: chấm nhỏ bên phải."],
+    "か": ["Nét 1: ngang rồi kéo xuống cong sang trái.", "Nét 2: phẩy chéo từ trên phải xuống dưới trái.", "Nét 3: chấm nhỏ bên phải."],
+    "き": ["Nét 1: ngang trên từ trái sang phải.", "Nét 2: ngang dưới từ trái sang phải.", "Nét 3: kéo chéo xuống rồi cong nhẹ."],
+    "く": ["Nét 1: một nét gấp khúc từ trên xuống dưới, mở sang trái."],
+    "け": ["Nét 1: kéo dọc bên trái.", "Nét 2: ngang ngắn bên phải.", "Nét 3: kéo dọc xuống rồi cong nhẹ."],
+    "こ": ["Nét 1: ngang trên hơi cong.", "Nét 2: ngang dưới hơi cong."],
+    "さ": ["Nét 1: ngang trên từ trái sang phải.", "Nét 2: kéo chéo xuống.", "Nét 3: nét cong ngắn ở dưới."],
+    "し": ["Nét 1: kéo cong từ trên xuống dưới rồi hất nhẹ sang phải."],
+    "す": ["Nét 1: ngang từ trái sang phải.", "Nét 2: kéo xuống qua giữa, tạo vòng nhỏ rồi cong xuống."],
+    "せ": ["Nét 1: ngang dài từ trái sang phải.", "Nét 2: dọc ngắn bên trái.", "Nét 3: dọc bên phải rồi cong nhẹ."],
+    "そ": ["Nét 1: một nét liền: ngang, gập chéo xuống rồi cong sang phải."],
+    "た": ["Nét 1: ngang trên.", "Nét 2: kéo dọc xuống cắt nét 1.", "Nét 3: ngang nhỏ bên phải.", "Nét 4: cong dưới bên phải."],
+    "ち": ["Nét 1: ngang từ trái sang phải.", "Nét 2: kéo dọc xuống rồi cong lớn sang phải."],
+    "つ": ["Nét 1: cong dài từ trái sang phải, hạ xuống nhẹ."],
+    "て": ["Nét 1: ngang ngắn rồi kéo cong xuống sang trái."],
+    "と": ["Nét 1: nét ngắn chéo xuống.", "Nét 2: cong dài từ trái sang phải."],
+    "な": ["Nét 1: ngang trên.", "Nét 2: dọc xuống cắt nét 1.", "Nét 3: chấm nhỏ bên phải.", "Nét 4: cong dưới tạo đuôi."],
+    "に": ["Nét 1: kéo dọc bên trái.", "Nét 2: ngang ngắn bên phải.", "Nét 3: ngang dưới bên phải."],
+    "ぬ": ["Nét 1: cong từ trên trái xuống rồi vòng sang phải.", "Nét 2: vòng nhỏ ở giữa, kết thúc hất nhẹ."],
+    "ね": ["Nét 1: dọc bên trái, có móc nhẹ.", "Nét 2: từ giữa kéo sang phải, vòng xuống rồi hất lên."],
+    "の": ["Nét 1: một vòng cong từ trên phải xuống trái rồi quay sang phải."],
+    "は": ["Nét 1: kéo dọc bên trái.", "Nét 2: ngang ngắn bên phải.", "Nét 3: dọc xuống rồi cong tạo vòng nhỏ."],
+    "ひ": ["Nét 1: cong dài từ trên trái xuống rồi lên nhẹ bên phải."],
+    "ふ": ["Nét 1: chấm/ngắn ở trên.", "Nét 2: cong chính ở giữa.", "Nét 3: chấm nhỏ bên trái.", "Nét 4: chấm nhỏ bên phải."],
+    "へ": ["Nét 1: gấp khúc một nét, lên nhẹ rồi xuống sang phải."],
+    "ほ": ["Nét 1: kéo dọc bên trái.", "Nét 2: ngang trên bên phải.", "Nét 3: ngang giữa bên phải.", "Nét 4: dọc xuống rồi cong tạo vòng."],
+    "ま": ["Nét 1: ngang trên.", "Nét 2: ngang dưới.", "Nét 3: dọc xuống rồi vòng cong ở dưới."],
+    "み": ["Nét 1: cong từ trái xuống rồi vòng lên.", "Nét 2: nét nhỏ kéo xuống bên phải."],
+    "む": ["Nét 1: ngang ngắn.", "Nét 2: dọc xuống rồi vòng lớn.", "Nét 3: chấm nhỏ bên phải."],
+    "め": ["Nét 1: cong từ trên trái xuống.", "Nét 2: vòng lớn từ phải sang trái rồi kết thúc bên phải."],
+    "も": ["Nét 1: dọc cong xuống.", "Nét 2: ngang trên.", "Nét 3: ngang dưới."],
+    "や": ["Nét 1: cong chéo từ trái sang phải.", "Nét 2: nét ngắn chéo ở trên.", "Nét 3: dọc xuống qua giữa."],
+    "ゆ": ["Nét 1: cong lớn từ trái xuống và vòng lại.", "Nét 2: dọc cong bên phải."],
+    "よ": ["Nét 1: ngang ngắn trên.", "Nét 2: dọc xuống rồi vòng sang phải."],
+    "ら": ["Nét 1: ngang ngắn trên.", "Nét 2: cong xuống rồi vòng sang phải."],
+    "り": ["Nét 1: kéo dọc cong bên trái.", "Nét 2: kéo dọc cong bên phải, dài hơn."],
+    "る": ["Nét 1: một nét cong xuống, vòng nhỏ ở cuối."],
+    "れ": ["Nét 1: dọc bên trái có móc nhẹ.", "Nét 2: kéo sang phải rồi cong xuống."],
+    "ろ": ["Nét 1: một nét cong xuống rồi vòng ngang ở dưới."],
+    "わ": ["Nét 1: dọc bên trái có móc nhẹ.", "Nét 2: kéo sang phải rồi vòng xuống."],
+    "を": ["Nét 1: ngang trên.", "Nét 2: kéo dọc xuống rồi cong.", "Nét 3: cong dài phía dưới sang phải."],
+    "ん": ["Nét 1: một nét cong từ trên trái xuống rồi hất sang phải."],
+}
+
+
+def _hiragana_stroke_steps(kana):
+    return HIRAGANA_STROKE_STEPS.get(kana, ["Viết theo mẫu từ trên xuống dưới, trái sang phải."])
+
 
 def _japanese_alphabet_spec(topic):
     cards = JAPANESE_HIRAGANA_LINES.get(topic)
@@ -1298,6 +1351,8 @@ def _japanese_alphabet_spec(topic):
                     "example": example,
                     "exampleReading": example_romaji,
                     "exampleTranslation": example_vi,
+                    "strokeSteps": _hiragana_stroke_steps(kana),
+                    "strokeCount": len(_hiragana_stroke_steps(kana)),
                     "strokeHint": "Viết chậm 3 lần, đọc thành tiếng sau mỗi lần viết.",
                 }
                 for kana, romaji, vietnamese, example, example_romaji, example_vi in cards

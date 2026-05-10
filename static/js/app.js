@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-046-japanese-reading-layout";
+const APP_VERSION = "hybrid-roadmap-047-japanese-stroke-order";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2271,6 +2271,21 @@ function supportExampleLines(item) {
     return item.example ? bilingualLine(item.example) : '';
 }
 
+function renderStrokeSteps(card = {}) {
+    const steps = Array.isArray(card.strokeSteps) ? card.strokeSteps : [];
+    if (!steps.length) return '';
+    const count = card.strokeCount || steps.length;
+    return `
+        <div class="stroke-order-box">
+            <div class="stroke-order-title">
+                <span>Thứ tự nét</span>
+                <em>${escapeHtml(String(count))} nét</em>
+            </div>
+            <ol>${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
+        </div>
+    `;
+}
+
 function renderAlphabetPractice(practice = {}) {
     const cards = practice.cards || [];
     const prompts = practice.gamePrompts || [];
@@ -2315,7 +2330,11 @@ function renderAlphabetPractice(practice = {}) {
                 <div class="writing-grid">
                     ${cards.map(card => `
                         <div>
-                            <span>${escapeHtml(card.kana)}</span>
+                            <div class="writing-letter-head">
+                                <span>${escapeHtml(card.kana)}</span>
+                                <strong>${escapeHtml(card.romaji || '')}</strong>
+                            </div>
+                            ${renderStrokeSteps(card)}
                             <small>${escapeHtml(card.strokeHint || 'Viết 3 lần và đọc thành tiếng.')}</small>
                         </div>
                     `).join('')}
