@@ -2387,16 +2387,16 @@ body {
 
 .writing-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
 }
 
 .writing-grid > div {
     display: grid;
-    gap: 8px;
+    gap: 10px;
     border-radius: 8px;
     background: #f8fafc;
-    padding: 10px;
+    padding: 12px;
 }
 
 .writing-letter-head {
@@ -2413,6 +2413,123 @@ body {
 .writing-letter-head strong {
     color: #2563eb;
     font-size: 0.95rem;
+}
+
+.kana-stroke-panel {
+    display: grid;
+    gap: 10px;
+}
+
+.kana-stroke-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.kana-stroke-panel-head span,
+.kana-stroke-panel-head em {
+    color: #2563eb;
+    font-size: 0.82rem;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.kana-stroke-panel-head button {
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 900;
+    padding: 6px 10px;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.kana-stroke-panel-head button:hover {
+    background: #dbeafe;
+    transform: translateY(-1px);
+}
+
+.kana-stroke-svg {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: block;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        linear-gradient(0deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        #fff;
+}
+
+.kana-stroke-grid-line {
+    stroke: #bae6fd;
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+.kana-stroke-path {
+    fill: none;
+    stroke: var(--stroke-color);
+    stroke-width: 8.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.82;
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.12));
+}
+
+.kana-stroke-number {
+    fill: #fff;
+    font-size: 10px;
+    font-weight: 900;
+    text-anchor: middle;
+}
+
+.kana-stroke-number-bg {
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.15));
+}
+
+.kana-stroke-panel.is-replaying .kana-stroke-path {
+    animation: kanaStrokeReplay 0.55s ease both;
+    animation-delay: var(--stroke-delay);
+    stroke-dasharray: 180;
+    stroke-dashoffset: 180;
+}
+
+.kana-stroke-placeholder {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 180px;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        linear-gradient(0deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        #fff;
+}
+
+.kana-stroke-placeholder span {
+    color: rgba(15, 23, 42, 0.24);
+    font-size: 4.75rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.kana-stroke-placeholder small {
+    position: absolute;
+    bottom: 10px;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+@keyframes kanaStrokeReplay {
+    to {
+        stroke-dashoffset: 0;
+    }
 }
 
 .stroke-order-box {

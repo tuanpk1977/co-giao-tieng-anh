@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-050-japanese-safe-strokes-quota";
+const APP_VERSION = "hybrid-roadmap-051-kana-stroke-single-panel";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2271,14 +2271,86 @@ function supportExampleLines(item) {
     return item.example ? bilingualLine(item.example) : '';
 }
 
-function renderStrokeVisual(card = {}, stepIndex = 0) {
-    const cumulative = Array.from({ length: stepIndex + 1 }, (_, i) => i + 1).join('+');
+const KANA_STROKE_COLORS = ['#ff6b6b', '#51cf66', '#22b8cf', '#cc5de8'];
+
+const KANA_STROKE_ORDER_DATA = {
+    'あ': [
+        { path: 'M22 31 C40 34 60 32 78 27', number: [18, 24] },
+        { path: 'M49 16 C47 37 47 56 51 74', number: [52, 18] },
+        { path: 'M41 47 C25 57 22 76 36 84 C52 94 74 80 75 62 C77 43 55 39 42 53 C32 64 35 78 54 80', number: [77, 72] },
+    ],
+    'い': [
+        { path: 'M30 18 C24 39 27 64 43 78', number: [22, 20] },
+        { path: 'M69 27 C77 43 78 61 70 76', number: [72, 28] },
+    ],
+    'う': [
+        { path: 'M38 19 C49 17 60 19 68 24', number: [34, 20] },
+        { path: 'M29 43 C45 36 70 37 72 54 C73 72 53 83 34 84', number: [25, 47] },
+    ],
+    'え': [
+        { path: 'M39 19 C50 17 61 20 68 25', number: [35, 20] },
+        { path: 'M27 43 C42 37 62 37 72 44 C61 52 48 63 39 78 C51 70 64 70 77 77', number: [24, 46] },
+    ],
+    'お': [
+        { path: 'M20 35 C40 37 60 34 79 29', number: [17, 30] },
+        { path: 'M49 14 C46 38 45 58 50 78 C35 88 20 78 31 63 C42 48 62 51 73 61', number: [52, 16] },
+        { path: 'M78 37 C86 43 89 52 87 61', number: [81, 39] },
+    ],
+    'か': [
+        { path: 'M21 35 C38 37 55 32 71 23 C67 48 55 70 38 83', number: [18, 31] },
+        { path: 'M45 16 C34 42 29 64 31 82', number: [47, 18] },
+        { path: 'M76 45 C85 52 89 62 89 73', number: [78, 47] },
+    ],
+    'き': [
+        { path: 'M20 26 C40 30 61 28 81 23', number: [17, 22] },
+        { path: 'M18 44 C41 48 63 45 84 39', number: [16, 45] },
+        { path: 'M51 14 C52 38 59 58 73 77 C56 70 39 72 28 80', number: [54, 17] },
+    ],
+    'く': [
+        { path: 'M66 17 C53 33 40 47 28 58 C42 68 56 79 71 90', number: [64, 18] },
+    ],
+    'け': [
+        { path: 'M28 18 C23 39 23 62 30 81', number: [23, 20] },
+        { path: 'M49 35 C61 36 73 34 85 31', number: [47, 34] },
+        { path: 'M69 16 C70 39 68 63 54 83', number: [72, 18] },
+    ],
+    'こ': [
+        { path: 'M25 32 C42 36 61 35 77 30', number: [22, 30] },
+        { path: 'M22 72 C39 78 64 78 83 71', number: [20, 73] },
+    ],
+};
+
+function renderKanaStrokeSvg(card = {}, strokes = []) {
+    if (!strokes.length) {
+        return `
+            <div class="kana-stroke-placeholder">
+                <span>${escapeHtml(card.kana || '')}</span>
+                <small>Đọc mô tả nét bên dưới</small>
+            </div>
+        `;
+    }
+    const markerPrefix = `kanaArrow-${(card.kana || 'kana').codePointAt(0) || 'x'}`;
     return `
-        <div class="stroke-guide-grid stroke-guide-safe" role="img" aria-label="Nét ${stepIndex + 1} của ${escapeAttr(card.kana || '')}">
-            <span class="stroke-ghost">${escapeHtml(card.kana || '')}</span>
-            <span class="stroke-cumulative">${escapeHtml(cumulative)}</span>
-            <span class="stroke-safe-label">Xem mô tả nét</span>
-        </div>
+        <svg class="kana-stroke-svg" viewBox="0 0 100 100" role="img" aria-label="Thứ tự nét của ${escapeAttr(card.kana || '')}">
+            <defs>
+                ${KANA_STROKE_COLORS.map((color, index) => `
+                    <marker id="${markerPrefix}-${index}" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L7,3 z" fill="${escapeAttr(color)}"></path>
+                    </marker>
+                `).join('')}
+            </defs>
+            <line x1="50" y1="6" x2="50" y2="94" class="kana-stroke-grid-line"></line>
+            <line x1="6" y1="50" x2="94" y2="50" class="kana-stroke-grid-line"></line>
+            ${strokes.map((stroke, index) => {
+                const color = stroke.color || KANA_STROKE_COLORS[index % KANA_STROKE_COLORS.length];
+                const pos = stroke.number || [12 + index * 12, 18 + index * 8];
+                return `
+                    <path d="${escapeAttr(stroke.path)}" class="kana-stroke-path kana-stroke-${index + 1}" style="--stroke-color:${escapeAttr(color)}; --stroke-delay:${index * 0.18}s" marker-end="url(#${markerPrefix}-${index % KANA_STROKE_COLORS.length})"></path>
+                    <circle cx="${escapeAttr(String(pos[0]))}" cy="${escapeAttr(String(pos[1]))}" r="6.5" fill="${escapeAttr(color)}" class="kana-stroke-number-bg"></circle>
+                    <text x="${escapeAttr(String(pos[0]))}" y="${escapeAttr(String(pos[1] + 3.5))}" class="kana-stroke-number">${index + 1}</text>
+                `;
+            }).join('')}
+        </svg>
     `;
 }
 
@@ -2286,23 +2358,32 @@ function renderStrokeSteps(card = {}) {
     const steps = Array.isArray(card.strokeSteps) ? card.strokeSteps : [];
     if (!steps.length) return '';
     const count = card.strokeCount || steps.length;
+    const strokes = KANA_STROKE_ORDER_DATA[card.kana] || [];
     return `
-        <div class="stroke-visual-strip" aria-label="Minh họa thứ tự nét cho ${escapeAttr(card.kana || '')}">
-            ${steps.map((_, index) => `
-                <div class="stroke-visual-card">
-                    ${renderStrokeVisual(card, index)}
-                    <small>Nét ${index + 1}</small>
-                </div>
-            `).join('')}
-        </div>
-        <div class="stroke-order-box">
-            <div class="stroke-order-title">
-                <span>Thứ tự nét</span>
-                <em>${escapeHtml(String(count))} nét</em>
+        <div class="kana-stroke-panel ${strokes.length ? 'has-stroke-svg' : 'needs-stroke-asset'}">
+            <div class="kana-stroke-panel-head">
+                <span>${escapeHtml(String(count))} nét</span>
+                ${strokes.length ? `<button type="button" onclick="replayKanaStrokeOrder(this)">Xem thứ tự nét</button>` : `<em>Chưa có SVG chuẩn</em>`}
             </div>
-            <ol>${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
+            ${renderKanaStrokeSvg(card, strokes)}
+            <div class="stroke-order-box">
+                <div class="stroke-order-title">
+                    <span>Cách viết</span>
+                    <em>${escapeHtml(String(count))} nét</em>
+                </div>
+                <ol>${steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}</ol>
+            </div>
         </div>
     `;
+}
+
+function replayKanaStrokeOrder(button) {
+    const panel = button.closest('.kana-stroke-panel');
+    if (!panel) return;
+    panel.classList.remove('is-replaying');
+    void panel.offsetWidth;
+    panel.classList.add('is-replaying');
+    window.setTimeout(() => panel.classList.remove('is-replaying'), 1400);
 }
 
 function renderAlphabetPractice(practice = {}) {

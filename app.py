@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-050-japanese-safe-strokes-quota"
+APP_VERSION = "hybrid-roadmap-051-kana-stroke-single-panel"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS
