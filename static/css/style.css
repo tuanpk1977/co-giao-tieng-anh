@@ -2424,7 +2424,7 @@ body {
 
 .stroke-visual-strip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     gap: 8px;
 }
 
@@ -2435,7 +2435,7 @@ body {
 
 .stroke-guide-grid {
     position: relative;
-    min-height: 82px;
+    min-height: 96px;
     border: 1px solid #bae6fd;
     border-radius: 8px;
     overflow: hidden;
@@ -2443,6 +2443,42 @@ body {
         linear-gradient(90deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
         linear-gradient(0deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
         #fff;
+}
+
+.stroke-svg {
+    width: 100%;
+    min-height: 96px;
+    display: block;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.stroke-grid-line {
+    stroke: #bae6fd;
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+.stroke-path {
+    fill: none;
+    stroke: var(--stroke-color);
+    stroke-width: 9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.16));
+}
+
+.stroke-number {
+    font-size: 13px;
+    font-weight: 900;
+    paint-order: stroke;
+    stroke: #fff;
+    stroke-width: 3px;
+}
+
+.stroke-end-dot {
+    fill: #f59e0b;
 }
 
 .stroke-ghost {
@@ -2560,11 +2596,15 @@ body {
     }
 
     .stroke-visual-strip {
-        grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
     }
 
     .stroke-guide-grid {
-        min-height: 72px;
+        min-height: 92px;
+    }
+
+    .stroke-svg {
+        min-height: 92px;
     }
 
     .stroke-ghost {
