@@ -2422,6 +2422,93 @@ body {
     padding: 8px;
 }
 
+.stroke-visual-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 8px;
+}
+
+.stroke-visual-card {
+    display: grid;
+    gap: 4px;
+}
+
+.stroke-guide-grid {
+    position: relative;
+    min-height: 82px;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+        linear-gradient(90deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        linear-gradient(0deg, transparent calc(50% - 1px), #bae6fd 50%, transparent calc(50% + 1px)),
+        #fff;
+}
+
+.stroke-ghost {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #111827;
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.stroke-cumulative {
+    position: absolute;
+    left: 6px;
+    top: 5px;
+    color: #ef4444;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.stroke-dot {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 900;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.16);
+}
+
+.stroke-dot-1 {
+    left: 10px;
+    top: 10px;
+    background: #ef4444;
+}
+
+.stroke-dot-2 {
+    right: 10px;
+    top: 12px;
+    background: #22c55e;
+}
+
+.stroke-dot-3 {
+    right: 12px;
+    bottom: 10px;
+    background: #0ea5e9;
+}
+
+.stroke-dot-4 {
+    left: 12px;
+    bottom: 10px;
+    background: #a855f7;
+}
+
+.stroke-visual-card small {
+    text-align: center;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
 .stroke-order-title {
     display: flex;
     justify-content: space-between;
@@ -2470,6 +2557,18 @@ body {
 
     .writing-grid {
         grid-template-columns: 1fr;
+    }
+
+    .stroke-visual-strip {
+        grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+    }
+
+    .stroke-guide-grid {
+        min-height: 72px;
+    }
+
+    .stroke-ghost {
+        font-size: 2.65rem;
     }
 }
 

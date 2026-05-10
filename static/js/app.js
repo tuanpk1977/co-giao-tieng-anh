@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-047-japanese-stroke-order";
+const APP_VERSION = "hybrid-roadmap-048-japanese-stroke-visuals";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2276,6 +2276,18 @@ function renderStrokeSteps(card = {}) {
     if (!steps.length) return '';
     const count = card.strokeCount || steps.length;
     return `
+        <div class="stroke-visual-strip" aria-label="Minh họa thứ tự nét cho ${escapeAttr(card.kana || '')}">
+            ${steps.map((_, index) => `
+                <div class="stroke-visual-card">
+                    <div class="stroke-guide-grid">
+                        <span class="stroke-ghost">${escapeHtml(card.kana || '')}</span>
+                        <span class="stroke-cumulative">${Array.from({ length: index + 1 }, (_, i) => i + 1).join('+')}</span>
+                        <span class="stroke-dot stroke-dot-${(index % 4) + 1}">${index + 1}</span>
+                    </div>
+                    <small>Nét ${index + 1}</small>
+                </div>
+            `).join('')}
+        </div>
         <div class="stroke-order-box">
             <div class="stroke-order-title">
                 <span>Thứ tự nét</span>
