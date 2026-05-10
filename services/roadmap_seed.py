@@ -180,7 +180,7 @@ ROADMAP_UNITS = [
 ]
 
 
-def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, grammar, dialogue, speaking, quiz):
+def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, grammar, dialogue, speaking, quiz, extra_content=None):
     audio_base = f"/static/audio/{level_id}/{unit_id}_l{order}"
 
     def _vocab_payload(item, idx):
@@ -242,6 +242,22 @@ def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, 
         else:
             first_speaking = first_item
 
+    content = {
+        "vocabulary": [_vocab_payload(item, idx) for idx, item in enumerate(words)],
+        "sentencePatterns": patterns,
+        "grammar": grammar,
+        "dialogue": [_dialogue_payload(item) for item in dialogue],
+        "speaking": [_speaking_payload(item, idx) for idx, item in enumerate(speaking)],
+        "quiz": quiz,
+        "review": [
+            f"Say 3 words about {topic}.",
+            f"Make 2 sentences about {topic}.",
+            f"Record yourself saying: {first_speaking or title}.",
+        ],
+    }
+    if extra_content:
+        content.update(extra_content)
+
     return {
         "id": f"{unit_id}_lesson_{order}",
         "levelId": level_id,
@@ -258,19 +274,7 @@ def _integrated_lesson(level_id, unit_id, order, title, topic, words, patterns, 
             "dialogueUrl": f"{audio_base}_dialogue.mp3",
             "slowRate": 0.8,
         },
-        "content": {
-            "vocabulary": [_vocab_payload(item, idx) for idx, item in enumerate(words)],
-            "sentencePatterns": patterns,
-            "grammar": grammar,
-            "dialogue": [_dialogue_payload(item) for item in dialogue],
-            "speaking": [_speaking_payload(item, idx) for idx, item in enumerate(speaking)],
-            "quiz": quiz,
-            "review": [
-                f"Say 3 words about {topic}.",
-                f"Make 2 sentences about {topic}.",
-                f"Record yourself saying: {first_speaking or title}.",
-            ],
-        },
+        "content": content,
     }
 
 
@@ -392,17 +396,17 @@ def _build_units(level_id, level_title, specs):
                     level_id,
                     unit_id,
                     lesson_idx + 1,
-                    title,
-                    topic,
-                    words,
-                    patterns,
-                    grammar,
-                    dialogue,
-                    speaking,
-                    _quiz_from_prompt(quiz_prompt),
+                    spec[1],
+                    spec[0],
+                    spec[2],
+                    spec[3],
+                    spec[4],
+                    spec[5],
+                    spec[6],
+                    _quiz_from_prompt(spec[7]),
+                    spec[8] if len(spec) > 8 else None,
                 )
-                for lesson_idx, (topic, title, words, patterns, grammar, dialogue, speaking, quiz_prompt)
-                in enumerate(group)
+                for lesson_idx, spec in enumerate(group)
             ],
         })
     return units
@@ -978,11 +982,12 @@ for level in ROADMAP_LEVELS:
 
 JAPANESE_LEVEL_TOPICS = {
     "jp_n5": [
-        "Hiragana A Line", "Hiragana K Line", "Greetings", "Self Introduction", "Numbers 1 to 100",
-        "Family", "Time and Days", "Classroom Objects", "Food and Drinks", "Shopping Basics",
-        "Places in Town", "Daily Routine", "Particles wa and ga", "Particle o", "Particle ni",
-        "I Like It", "Simple Questions", "There Is", "Adjectives i", "Adjectives na",
-        "Past Tense Basics", "Invitation", "At the Station", "At the Restaurant", "N5 Review",
+        "Hiragana A Line", "Hiragana K Line", "Hiragana S Line", "Hiragana T Line", "Hiragana N Line",
+        "Hiragana H Line", "Hiragana M Line", "Hiragana Y Line", "Hiragana R Line", "Hiragana W Line",
+        "Greetings", "Self Introduction", "Numbers 1 to 100", "Family", "Time and Days",
+        "Classroom Objects", "Food and Drinks", "Shopping Basics", "Places in Town", "Daily Routine",
+        "Particles wa and ga", "Particle o", "Particle ni", "I Like It", "Simple Questions",
+        "There Is", "Adjectives i", "Adjectives na", "Past Tense Basics", "N5 Review",
     ],
     "jp_n4": [
         "Te Form", "Requests", "Permission", "Prohibition", "Experience",
@@ -1158,7 +1163,155 @@ def _japanese_word_payload(item):
     }
 
 
+JAPANESE_HIRAGANA_LINES = {
+    "Hiragana A Line": [
+        ("あ", "a", "âm a", "あさ", "asa", "buổi sáng"),
+        ("い", "i", "âm i", "いす", "isu", "cái ghế"),
+        ("う", "u", "âm u", "うみ", "umi", "biển"),
+        ("え", "e", "âm e", "えき", "eki", "nhà ga"),
+        ("お", "o", "âm o", "おかね", "okane", "tiền"),
+    ],
+    "Hiragana K Line": [
+        ("か", "ka", "âm ka", "かさ", "kasa", "cái ô"),
+        ("き", "ki", "âm ki", "き", "ki", "cây"),
+        ("く", "ku", "âm ku", "くつ", "kutsu", "giày"),
+        ("け", "ke", "âm ke", "けさ", "kesa", "sáng nay"),
+        ("こ", "ko", "âm ko", "こえ", "koe", "giọng nói"),
+    ],
+    "Hiragana S Line": [
+        ("さ", "sa", "âm sa", "さかな", "sakana", "cá"),
+        ("し", "shi", "âm shi", "しお", "shio", "muối"),
+        ("す", "su", "âm su", "すし", "sushi", "sushi"),
+        ("せ", "se", "âm se", "せんせい", "sensei", "giáo viên"),
+        ("そ", "so", "âm so", "そら", "sora", "bầu trời"),
+    ],
+    "Hiragana T Line": [
+        ("た", "ta", "âm ta", "たべる", "taberu", "ăn"),
+        ("ち", "chi", "âm chi", "ちず", "chizu", "bản đồ"),
+        ("つ", "tsu", "âm tsu", "つき", "tsuki", "mặt trăng"),
+        ("て", "te", "âm te", "て", "te", "tay"),
+        ("と", "to", "âm to", "ともだち", "tomodachi", "bạn bè"),
+    ],
+    "Hiragana N Line": [
+        ("な", "na", "âm na", "なまえ", "namae", "tên"),
+        ("に", "ni", "âm ni", "にほん", "nihon", "Nhật Bản"),
+        ("ぬ", "nu", "âm nu", "ぬの", "nuno", "vải"),
+        ("ね", "ne", "âm ne", "ねこ", "neko", "mèo"),
+        ("の", "no", "âm no", "のむ", "nomu", "uống"),
+    ],
+    "Hiragana H Line": [
+        ("は", "ha", "âm ha", "はな", "hana", "hoa"),
+        ("ひ", "hi", "âm hi", "ひと", "hito", "người"),
+        ("ふ", "fu", "âm fu", "ふね", "fune", "thuyền"),
+        ("へ", "he", "âm he", "へや", "heya", "phòng"),
+        ("ほ", "ho", "âm ho", "ほん", "hon", "sách"),
+    ],
+    "Hiragana M Line": [
+        ("ま", "ma", "âm ma", "まち", "machi", "thị trấn"),
+        ("み", "mi", "âm mi", "みず", "mizu", "nước"),
+        ("む", "mu", "âm mu", "むし", "mushi", "côn trùng"),
+        ("め", "me", "âm me", "め", "me", "mắt"),
+        ("も", "mo", "âm mo", "もの", "mono", "đồ vật"),
+    ],
+    "Hiragana Y Line": [
+        ("や", "ya", "âm ya", "やま", "yama", "núi"),
+        ("ゆ", "yu", "âm yu", "ゆき", "yuki", "tuyết"),
+        ("よ", "yo", "âm yo", "よる", "yoru", "buổi tối"),
+    ],
+    "Hiragana R Line": [
+        ("ら", "ra", "âm ra", "らいねん", "rainen", "năm sau"),
+        ("り", "ri", "âm ri", "りんご", "ringo", "táo"),
+        ("る", "ru", "âm ru", "るす", "rusu", "vắng nhà"),
+        ("れ", "re", "âm re", "れい", "rei", "ví dụ"),
+        ("ろ", "ro", "âm ro", "ろく", "roku", "số sáu"),
+    ],
+    "Hiragana W Line": [
+        ("わ", "wa", "âm wa", "わたし", "watashi", "tôi"),
+        ("を", "o", "trợ từ o", "みずをのむ", "mizu o nomu", "uống nước"),
+        ("ん", "n", "âm n", "ほん", "hon", "sách"),
+    ],
+}
+
+
+def _japanese_alphabet_spec(topic):
+    cards = JAPANESE_HIRAGANA_LINES.get(topic)
+    if not cards:
+        return None
+    words = [
+        {
+            "word": kana,
+            "reading": f"{kana} / {romaji}",
+            "meaning": vietnamese,
+            "translation": vietnamese,
+            "example": example,
+            "exampleReading": f"{example} / {example_romaji}",
+            "exampleTranslation": example_vi,
+        }
+        for kana, romaji, vietnamese, example, example_romaji, example_vi in cards
+    ]
+    first = words[0]
+    second = words[1] if len(words) > 1 else first
+    patterns = [
+        {"text": f"{first['word']} は {cards[0][1]} と読みます。", "reading": f"{first['word']} wa {cards[0][1]} to yomimasu", "translation": f"Chữ {first['word']} đọc là {cards[0][1]}."},
+        {"text": f"{second['word']} を 3回 書きます。", "reading": f"{second['word']} o san-kai kakimasu", "translation": f"Viết chữ {second['word']} 3 lần."},
+        {"text": "見て、読んで、書きます。", "reading": "mite, yonde, kakimasu", "translation": "Nhìn, đọc rồi viết."},
+    ]
+    grammar = [
+        "Bước 1: nhìn chữ Hiragana và đọc to romaji.",
+        "Bước 2: che romaji, nhìn chữ và tự đọc lại.",
+        "Bước 3: viết mỗi chữ 3 lần theo thứ tự từ trên xuống, trái sang phải.",
+        "Mục tiêu bài này: nhận mặt chữ nhanh, chưa cần dùng AI.",
+    ]
+    dialogue = [
+        {"speaker": "Ms. Sakura", "text": "いっしょに ひらがなを よみましょう。", "reading": "issho ni hiragana o yomimashou", "translation": "Mình cùng đọc Hiragana nhé."},
+        {"speaker": "You", "text": f"{first['word']} は {cards[0][1]} です。", "reading": f"{first['word']} wa {cards[0][1]} desu", "translation": f"Chữ {first['word']} là âm {cards[0][1]}."},
+        {"speaker": "Ms. Sakura", "text": "いいですね。つぎは 書きましょう。", "reading": "ii desu ne. tsugi wa kakimashou", "translation": "Tốt lắm. Tiếp theo mình viết nhé."},
+    ]
+    speaking = [
+        {"text": kana, "reading": f"{kana} / {romaji}", "translation": f"Đọc âm {romaji}"}
+        for kana, romaji, *_ in cards[:3]
+    ]
+    choices = [card[1] for card in cards]
+    game_prompts = []
+    for kana, romaji, vietnamese, *_ in cards:
+        wrong_choices = [choice for choice in choices if choice != romaji][:2]
+        game_prompts.append({
+            "kana": kana,
+            "answer": romaji,
+            "choices": [romaji] + wrong_choices,
+            "hint": vietnamese,
+        })
+    extra_content = {
+        "alphabetPractice": {
+            "title": topic,
+            "script": "hiragana",
+            "cards": [
+                {
+                    "kana": kana,
+                    "romaji": romaji,
+                    "vietnamese": vietnamese,
+                    "example": example,
+                    "exampleReading": example_romaji,
+                    "exampleTranslation": example_vi,
+                    "strokeHint": "Viết chậm 3 lần, đọc thành tiếng sau mỗi lần viết.",
+                }
+                for kana, romaji, vietnamese, example, example_romaji, example_vi in cards
+            ],
+            "gamePrompts": game_prompts,
+            "writingTips": [
+                "Nhìn chữ 2 giây rồi che lại để viết từ trí nhớ.",
+                "Đọc to romaji trước khi viết để não nối âm với mặt chữ.",
+                "Nếu sai, viết lại ngay 1 lần, không cần dùng AI.",
+            ],
+        }
+    }
+    return (topic, f"{topic} - Read and Write", words, patterns, grammar, dialogue, speaking, f"How do you read {first['word']}?||{cards[0][1]}", extra_content)
+
+
 def _japanese_topic_spec(level_id, topic, idx):
+    alphabet_spec = _japanese_alphabet_spec(topic)
+    if alphabet_spec:
+        return alphabet_spec
     profile = JAPANESE_CONTENT_PROFILES[level_id]
     pool = profile["words"]
     topic_word = {

@@ -2245,6 +2245,179 @@ body {
     font-family: inherit;
 }
 
+.alphabet-practice-card {
+    border-color: #c7d2fe;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+}
+
+.alphabet-helper {
+    margin: 0 0 12px;
+    color: #475569;
+    font-size: 0.95rem;
+}
+
+.kana-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.kana-card {
+    display: grid;
+    gap: 5px;
+    align-content: start;
+    min-height: 150px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    padding: 12px;
+}
+
+.kana-card strong {
+    font-size: 2.5rem;
+    line-height: 1;
+    color: #0f172a;
+}
+
+.kana-card span {
+    font-weight: 800;
+    color: #2563eb;
+}
+
+.kana-card small,
+.kana-card em,
+.kana-prompt em,
+.writing-practice small {
+    color: #64748b;
+}
+
+.kana-card em {
+    min-height: 34px;
+    font-style: normal;
+}
+
+.alphabet-game {
+    display: grid;
+    gap: 10px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #eff6ff;
+    padding: 12px;
+    margin-bottom: 14px;
+}
+
+.alphabet-game-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.kana-prompt {
+    display: grid;
+    grid-template-columns: 58px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+}
+
+.kana-symbol {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+.kana-choices {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kana-choice {
+    min-height: 42px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-weight: 800;
+    transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.kana-choice:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: #2563eb;
+}
+
+.kana-choice.correct {
+    border-color: #16a34a;
+    background: #dcfce7;
+    color: #166534;
+}
+
+.kana-choice.wrong {
+    border-color: #f97316;
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.kana-prompt em {
+    grid-column: 2;
+    font-style: normal;
+}
+
+.writing-practice {
+    display: grid;
+    gap: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    padding: 12px;
+}
+
+.writing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+}
+
+.writing-grid > div {
+    display: grid;
+    gap: 5px;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 10px;
+}
+
+.writing-grid span {
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+@media (max-width: 560px) {
+    .kana-prompt {
+        grid-template-columns: 1fr;
+    }
+
+    .kana-prompt em {
+        grid-column: 1;
+    }
+
+    .kana-symbol {
+        width: 100%;
+    }
+}
+
 .skeleton-card {
     overflow: hidden;
 }

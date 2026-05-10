@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-043-japanese-reading";
+const APP_VERSION = "hybrid-roadmap-044-japanese-alphabet-game";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2246,6 +2246,92 @@ function supportExampleLines(item) {
     return item.example ? bilingualLine(item.example) : '';
 }
 
+function renderAlphabetPractice(practice = {}) {
+    const cards = practice.cards || [];
+    const prompts = practice.gamePrompts || [];
+    if (!cards.length) return '';
+    return `
+        <div class="lesson-app-card alphabet-practice-card">
+            <div class="lesson-section-header"><i class="fas fa-pen-nib"></i><h4>Hiragana Read & Write</h4></div>
+            <p class="alphabet-helper">Nhìn chữ, đọc romaji, nghe mẫu rồi tự viết lại. Phần này không dùng AI.</p>
+            <div class="kana-card-grid">
+                ${cards.map(card => `
+                    <div class="kana-card">
+                        <strong>${escapeHtml(card.kana)}</strong>
+                        <span>${escapeHtml(card.romaji)}</span>
+                        <small>${escapeHtml(card.vietnamese || '')}</small>
+                        <em>${escapeHtml(card.example || '')} / ${escapeHtml(card.exampleReading || '')}</em>
+                        <button class="speak-btn" onclick="playSmartAudio('${escapeAttr(card.kana)}')"><i class="fas fa-volume-up"></i></button>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="alphabet-game">
+                <div class="alphabet-game-head">
+                    <strong>Game nhớ nhanh</strong>
+                    <button class="btn btn-secondary" onclick="resetAlphabetGame(this)"><i class="fas fa-rotate-right"></i> Chơi lại</button>
+                </div>
+                ${prompts.map(prompt => `
+                    <div class="kana-prompt">
+                        <div class="kana-symbol">${escapeHtml(prompt.kana)}</div>
+                        <div class="kana-choices">
+                            ${(prompt.choices || []).map(choice => `<button class="kana-choice" onclick="answerAlphabetChoice(this, '${escapeAttr(prompt.answer)}')">${escapeHtml(choice)}</button>`).join('')}
+                        </div>
+                        <em>${escapeHtml(prompt.hint || '')}</em>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="writing-practice">
+                <strong>Luyện viết</strong>
+                <div class="writing-grid">
+                    ${cards.map(card => `
+                        <div>
+                            <span>${escapeHtml(card.kana)}</span>
+                            <small>${escapeHtml(card.strokeHint || 'Viết 3 lần và đọc thành tiếng.')}</small>
+                        </div>
+                    `).join('')}
+                </div>
+                <ul>${(practice.writingTips || []).map(tip => `<li>${escapeHtml(tip)}</li>`).join('')}</ul>
+            </div>
+        </div>
+    `;
+}
+
+function answerAlphabetChoice(button, expected) {
+    const prompt = button.closest('.kana-prompt');
+    if (!prompt || prompt.classList.contains('answered')) return;
+    const selected = button.textContent.trim();
+    const isCorrect = selected === expected;
+    prompt.classList.add('answered');
+    prompt.querySelectorAll('.kana-choice').forEach(choice => {
+        const value = choice.textContent.trim();
+        if (value === expected) choice.classList.add('correct');
+        if (choice === button && !isCorrect) choice.classList.add('wrong');
+        choice.disabled = true;
+    });
+    const message = prompt.querySelector('em');
+    if (message) {
+        message.textContent = isCorrect
+            ? 'Đúng rồi. Đọc lại một lần nữa để nhớ lâu hơn.'
+            : `Chưa đúng. Âm này đọc là ${expected}. Thử viết lại 1 lần nhé.`;
+    }
+    console.log('[Japanese Alphabet Game]', { expected, selected, isCorrect });
+}
+
+function resetAlphabetGame(button) {
+    const game = button.closest('.alphabet-game');
+    if (!game) return;
+    game.querySelectorAll('.kana-prompt').forEach(prompt => {
+        prompt.classList.remove('answered');
+        prompt.querySelectorAll('.kana-choice').forEach(choice => {
+            choice.classList.remove('correct', 'wrong');
+            choice.disabled = false;
+        });
+        const message = prompt.querySelector('em');
+        if (message) message.textContent = 'Chọn cách đọc đúng.';
+    });
+    console.log('[Japanese Alphabet Game] reset');
+}
+
 function renderRoadmapContent(lesson) {
     const content = lesson.content || {};
     if (lesson.type === 'integrated') {
@@ -2273,6 +2359,7 @@ function renderRoadmapContent(lesson) {
                     </div>
                 `).join('')}</div>
             </div>
+            ${content.alphabetPractice ? renderAlphabetPractice(content.alphabetPractice) : ''}
             <div class="lesson-app-card">
                 <div class="lesson-section-header"><i class="fas fa-layer-group"></i><h4>Sentence Patterns</h4></div>
                 ${patterns.map(p => {
