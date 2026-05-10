@@ -3024,6 +3024,48 @@ body {
     line-height: 1.35;
 }
 
+.skill-focus-card {
+    display: grid;
+    gap: 10px;
+}
+
+.skill-passage {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.skill-question-list {
+    display: grid;
+    gap: 8px;
+    padding-left: 20px;
+}
+
+.skill-question-list em {
+    display: block;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.writing-sentence-bank {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #eff6ff;
+}
+
+.writing-sentence-bank p {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+}
+
 .jp-reading,
 .jp-example-reading {
     display: block;

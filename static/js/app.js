@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-056-primary-skill-balance";
+const APP_VERSION = "hybrid-roadmap-057-long-skill-lessons";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================
@@ -2331,6 +2331,16 @@ function renderAdvancedSkillExtras(content = {}) {
                 <p class="skill-passage">${escapeHtml(writingTask.prompt || '')}</p>
                 ${writingTask.promptTranslation ? `<p class="bilingual-vn">${escapeHtml(writingTask.promptTranslation)}</p>` : ''}
                 <ol>${(writingTask.outline || []).map((item, index) => `<li>${escapeHtml(item)}${outlineVi[index] ? `<span class="bilingual-vn">${escapeHtml(outlineVi[index])}</span>` : ''}</li>`).join('')}</ol>
+                ${(writingTask.sentenceStarters || []).length ? `
+                    <div class="writing-sentence-bank">
+                        <strong>Useful sentences</strong>
+                        <span class="bilingual-vn">Câu gợi ý có thể chọn để viết</span>
+                        ${(writingTask.sentenceStarters || []).map(item => {
+                            const starterText = learningText(item);
+                            return `<p>${escapeHtml(starterText)}${supportTranslationLine(item, starterText, 'bilingual-vn')}</p>`;
+                        }).join('')}
+                    </div>
+                ` : ''}
                 ${writingTask.sample ? `<p class="skill-passage"><strong>Sample:</strong> ${escapeHtml(writingTask.sample)}</p>` : ''}
                 ${writingTask.sampleTranslation ? `<p class="bilingual-vn">${escapeHtml(writingTask.sampleTranslation)}</p>` : ''}
                 ${(writingTask.checklist || []).length ? `<ul>${writingTask.checklist.map((item, index) => `<li>${escapeHtml(item)}${checklistVi[index] ? `<span class="bilingual-vn">${escapeHtml(checklistVi[index])}</span>` : ''}</li>`).join('')}</ul>` : ''}

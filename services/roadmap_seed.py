@@ -1400,6 +1400,103 @@ def _advanced_expand_grammar_rules(skill, topic_key, words, topic_vi=None):
     ]
 
 
+def _advanced_long_listening_passage(topic_key, display_topic, word_map):
+    passage_lines = [
+        "Today, a learner is practising English for {topic}.",
+        "The learner opens the lesson and listens to the teacher carefully.",
+        "The first important word in the lesson is {word1}.",
+        "The teacher gives a short example with {word1}.",
+        "Then the learner hears another useful word: {word2}.",
+        "The learner writes {word2} in a notebook.",
+        "After that, the teacher explains a detail about {word3}.",
+        "The learner listens again because the sentence is a little fast.",
+        "The teacher says that clear listening is more important than perfect translation.",
+        "The learner checks the main idea before answering the questions.",
+        "At the end, the learner repeats one sentence aloud.",
+        "This helps the learner remember the words and speak with more confidence.",
+    ]
+    translation_lines = [
+        "Hôm nay, một học viên luyện tiếng Anh về {topic}.",
+        "Học viên mở bài học và nghe giáo viên thật kỹ.",
+        "Từ quan trọng đầu tiên trong bài là {word1}.",
+        "Giáo viên đưa ra một ví dụ ngắn với {word1}.",
+        "Sau đó học viên nghe một từ hữu ích khác: {word2}.",
+        "Học viên viết {word2} vào vở.",
+        "Tiếp theo, giáo viên giải thích một chi tiết về {word3}.",
+        "Học viên nghe lại vì câu đó hơi nhanh.",
+        "Giáo viên nói rằng nghe được ý chính quan trọng hơn dịch hoàn hảo.",
+        "Học viên kiểm tra ý chính trước khi trả lời câu hỏi.",
+        "Cuối bài, học viên lặp lại một câu thành tiếng.",
+        "Điều này giúp học viên nhớ từ và nói tự tin hơn.",
+    ]
+    format_en = {"topic": topic_key, **word_map}
+    format_vi = {"topic": display_topic, **word_map}
+    return (
+        " ".join(line.format(**format_en) for line in passage_lines),
+        " ".join(line.format(**format_vi) for line in translation_lines),
+    )
+
+
+def _advanced_long_reading_passage(topic_key, display_topic, word_map):
+    passage_lines = [
+        "{topic} is a useful topic for daily communication.",
+        "Many learners meet this situation at school, at work, or when they travel.",
+        "Before reading, it is helpful to look at the title.",
+        "The title tells the learner what the text is mainly about.",
+        "In this text, the learner should notice the word {word1}.",
+        "The word {word1} often gives an important clue.",
+        "The learner should also find the word {word2}.",
+        "This word may appear near a key detail.",
+        "If the text has dates, places, or numbers, the learner should underline them.",
+        "The learner does not need to translate every sentence.",
+        "A good reader looks for the main idea first.",
+        "After that, the learner reads the questions and returns to the text for evidence.",
+        "This habit makes reading faster and more accurate.",
+    ]
+    translation_lines = [
+        "{topic} là một chủ đề hữu ích trong giao tiếp hằng ngày.",
+        "Nhiều người học gặp tình huống này ở trường, nơi làm việc hoặc khi đi du lịch.",
+        "Trước khi đọc, người học nên nhìn tiêu đề.",
+        "Tiêu đề cho biết bài đọc chủ yếu nói về điều gì.",
+        "Trong bài này, người học nên chú ý từ {word1}.",
+        "Từ {word1} thường cho một gợi ý quan trọng.",
+        "Người học cũng nên tìm từ {word2}.",
+        "Từ này có thể xuất hiện gần một chi tiết chính.",
+        "Nếu bài có ngày tháng, địa điểm hoặc con số, người học nên gạch dưới.",
+        "Người học không cần dịch từng câu.",
+        "Một người đọc tốt tìm ý chính trước.",
+        "Sau đó, người học đọc câu hỏi và quay lại bài để tìm bằng chứng.",
+        "Thói quen này giúp đọc nhanh và chính xác hơn.",
+    ]
+    format_en = {"topic": topic_key, **word_map}
+    format_vi = {"topic": display_topic, **word_map}
+    return (
+        " ".join(line.format(**format_en) for line in passage_lines),
+        " ".join(line.format(**format_vi) for line in translation_lines),
+    )
+
+
+def _advanced_writing_sentence_bank(topic_key, display_topic, word_map):
+    starters = [
+        ("I want to write about {topic}.", "Tôi muốn viết về {topic}."),
+        ("This topic is useful for my daily English.", "Chủ đề này hữu ích cho tiếng Anh hằng ngày của tôi."),
+        ("The first important word is {word1}.", "Từ quan trọng đầu tiên là {word1}."),
+        ("I can use {word1} in a simple sentence.", "Tôi có thể dùng {word1} trong một câu đơn giản."),
+        ("Another useful word is {word2}.", "Một từ hữu ích khác là {word2}."),
+        ("For example, I need to check {word2}.", "Ví dụ, tôi cần kiểm tra {word2}."),
+        ("I also want to remember {word3}.", "Tôi cũng muốn nhớ {word3}."),
+        ("This will help me speak more clearly.", "Điều này sẽ giúp tôi nói rõ hơn."),
+        ("Next time, I will practise this topic again.", "Lần sau, tôi sẽ luyện lại chủ đề này."),
+        ("In short, {topic} is important for me.", "Tóm lại, {topic} quan trọng với tôi."),
+    ]
+    format_en = {"topic": topic_key, **word_map}
+    format_vi = {"topic": display_topic, **word_map}
+    return [
+        {"text": text.format(**format_en), "translation": translation.format(**format_vi)}
+        for text, translation in starters
+    ]
+
+
 def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
     word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
     display_topic = topic_vi or topic_key
@@ -1424,48 +1521,38 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
             },
         }
     if skill == "listening":
-        passage = (
-            "A student asks for help with {topic}. The teacher says the first important detail is {word1}. "
-            "The student also needs to check {word2}. In the end, the teacher asks the student to listen again."
-        ).format(topic=topic_key, **word_map)
+        passage, passage_translation = _advanced_long_listening_passage(topic_key, display_topic, word_map)
         return {
             "skillFocus": "listening",
             "listeningTask": {
                 "title": "Long listening",
                 "translation": "Bài nghe dài",
                 "passage": passage,
-                "passageTranslation": (
-                    "Một học viên nhờ giúp về {topic}. Giáo viên nói chi tiết quan trọng đầu tiên là {word1}. "
-                    "Học viên cũng cần kiểm tra {word2}. Cuối cùng, giáo viên yêu cầu học viên nghe lại."
-                ).format(topic=display_topic, **word_map),
+                "passageTranslation": passage_translation,
                 "questions": [
                     {"question": "What is the listening mainly about?", "translation": "Bài nghe chủ yếu nói về gì?", "answer": topic_key},
                     {"question": "Which detail is mentioned first?", "translation": "Chi tiết nào được nhắc đến đầu tiên?", "answer": word_map.get("word1", "")},
                     {"question": "What does the student need to check?", "translation": "Học viên cần kiểm tra điều gì?", "answer": word_map.get("word2", "")},
                     {"question": "What should the student do at the end?", "translation": "Cuối cùng học viên nên làm gì?", "answer": "listen again"},
+                    {"question": "What is more important than perfect translation?", "translation": "Điều gì quan trọng hơn dịch hoàn hảo?", "answer": "clear listening"},
                 ],
             },
         }
     if skill == "reading":
-        passage = (
-            "{topic} is a common situation in daily English. A learner should read the title first, then find key words such as {word1} and {word2}. "
-            "These details help the learner choose the best answer without translating every word."
-        ).format(topic=topic_key, **word_map)
+        passage, passage_translation = _advanced_long_reading_passage(topic_key, display_topic, word_map)
         return {
             "skillFocus": "reading",
             "readingTask": {
                 "title": "Reading text",
                 "translation": "Bài đọc",
                 "passage": passage,
-                "passageTranslation": (
-                    "{topic} là một tình huống thường gặp trong tiếng Anh hằng ngày. Người học nên đọc tiêu đề trước, "
-                    "sau đó tìm từ khóa như {word1} và {word2}. Những chi tiết này giúp chọn câu trả lời đúng mà không cần dịch từng từ."
-                ).format(topic=display_topic, **word_map),
+                "passageTranslation": passage_translation,
                 "questions": [
                     {"question": "What should the learner read first?", "translation": "Người học nên đọc gì trước?", "answer": "the title"},
                     {"question": "Name one key word from the text.", "translation": "Nêu một từ khóa trong bài đọc.", "answer": word_map.get("word1", "")},
                     {"question": "Why are repeated words useful?", "translation": "Vì sao từ lặp lại hữu ích?", "answer": "They show the main idea."},
                     {"question": "Should the learner translate every word?", "translation": "Người học có nên dịch từng từ không?", "answer": "No"},
+                    {"question": "What should the learner return to the text for?", "translation": "Người học quay lại bài đọc để tìm gì?", "answer": "evidence"},
                 ],
             },
         }
@@ -1491,6 +1578,7 @@ def _advanced_skill_extra(mode, topic_key, words, topic_vi=None):
                 ],
                 "sample": "I want to improve my English for {topic}. First, I will learn the word {word1}. Then I will use {word2} in one sentence. I will practise again tomorrow.".format(topic=topic_key, **word_map),
                 "sampleTranslation": "Tôi muốn cải thiện tiếng Anh cho chủ đề {topic}. Đầu tiên, tôi sẽ học từ {word1}. Sau đó tôi sẽ dùng {word2} trong một câu. Tôi sẽ luyện lại vào ngày mai.".format(topic=display_topic, **word_map),
+                "sentenceStarters": _advanced_writing_sentence_bank(topic_key, display_topic, word_map),
                 "checklist": [
                     "I wrote 4 short sentences.",
                     "I used 2 words from this lesson.",
