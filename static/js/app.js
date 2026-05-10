@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-053-contextual-vocab-examples";
+const APP_VERSION = "hybrid-roadmap-054-diverse-unit-lessons";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================

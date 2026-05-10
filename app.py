@@ -4,7 +4,7 @@ Backend API cho ứng dụng học tiếng Anh
 """
 
 # VERSION - để track deploy
-APP_VERSION = "hybrid-roadmap-053-contextual-vocab-examples"
+APP_VERSION = "hybrid-roadmap-054-diverse-unit-lessons"
 
 from flask import Flask, request, jsonify, render_template, session, redirect
 from flask_cors import CORS

@@ -1040,22 +1040,174 @@ def _advanced_vocab_example(word, meaning, topic_key):
         f"Chúng ta dùng '{clean_word}' khi nói về {clean_topic}.",
     )
 
+ADVANCED_LESSON_MODES = [
+    {
+        "suffix": "",
+        "unitFocus": "Core vocabulary and key information.",
+        "wordOffsets": [0, 1, 2, 3],
+        "patterns": [
+            "I need information about {topic}.",
+            "The key detail is {word1}.",
+            "Please check the details carefully.",
+        ],
+        "grammar": [
+            "Use clear nouns to name the topic.",
+            "Use polite requests when you need information.",
+        ],
+        "dialogue": [
+            ("A", "Excuse me, I need information about {topic}."),
+            ("B", "Sure. Which detail do you need?"),
+            ("A", "I need to check {word1} and {word2}."),
+        ],
+        "speaking": [
+            "I need information about {topic}.",
+            "Please check {word1} carefully.",
+            "The key detail is {word2}.",
+        ],
+        "quiz": ("Choose the best information request.", "I need information about this."),
+    },
+    {
+        "suffix": "Situation",
+        "unitFocus": "Real-life situation practice.",
+        "wordOffsets": [4, 5, 6, 7],
+        "patterns": [
+            "I have a question about {word1}.",
+            "Could you help me with {topic}?",
+            "What should I do next?",
+        ],
+        "grammar": [
+            "Use could you to ask for help politely.",
+            "Use short follow-up questions in real situations.",
+        ],
+        "dialogue": [
+            ("A", "Could you help me with {topic}?"),
+            ("B", "Of course. What happened?"),
+            ("A", "I have a question about {word1}."),
+        ],
+        "speaking": [
+            "Could you help me with {topic}?",
+            "I have a question about {word1}.",
+            "What should I do next?",
+        ],
+        "quiz": ("Choose the polite help request.", "Could you help me?"),
+    },
+    {
+        "suffix": "Details",
+        "unitFocus": "Forms, details, and confirmation.",
+        "wordOffsets": [1, 3, 5, 7],
+        "patterns": [
+            "Please confirm the {word1}.",
+            "I need to write the details clearly.",
+            "Can you check this for me?",
+        ],
+        "grammar": [
+            "Use please plus base verb for polite instructions.",
+            "Use can you to ask someone to check details.",
+        ],
+        "dialogue": [
+            ("A", "Can you check this for me?"),
+            ("B", "Yes. Please confirm the {word1}."),
+            ("A", "I will write the details clearly."),
+        ],
+        "speaking": [
+            "Please confirm the {word1}.",
+            "I need to write the details clearly.",
+            "Can you check this for me?",
+        ],
+        "quiz": ("Choose the confirmation phrase.", "Please confirm the details."),
+    },
+    {
+        "suffix": "Speaking Task",
+        "unitFocus": "Speaking in short turns.",
+        "wordOffsets": [0, 2, 4, 6],
+        "patterns": [
+            "Let me explain {topic} step by step.",
+            "My first point is about {word1}.",
+            "Can I ask a follow-up question?",
+        ],
+        "grammar": [
+            "Use first/next to organize spoken answers.",
+            "Use follow-up questions to continue a conversation.",
+        ],
+        "dialogue": [
+            ("A", "Let me explain {topic} step by step."),
+            ("B", "Good. What is your first point?"),
+            ("A", "My first point is about {word1}."),
+        ],
+        "speaking": [
+            "Let me explain {topic} step by step.",
+            "My first point is about {word1}.",
+            "Can I ask a follow-up question?",
+        ],
+        "quiz": ("Choose a speaking organizer.", "My first point is"),
+    },
+    {
+        "suffix": "Review Challenge",
+        "unitFocus": "Review and active recall.",
+        "wordOffsets": [2, 5, 0, 7],
+        "patterns": [
+            "Today I reviewed {topic}.",
+            "I can use {word1} and {word2}.",
+            "I will practise this again tomorrow.",
+        ],
+        "grammar": [
+            "Use reviewed for finished practice.",
+            "Use will to make a simple learning plan.",
+        ],
+        "dialogue": [
+            ("A", "What did you review today?"),
+            ("B", "Today I reviewed {topic}."),
+            ("A", "Great. Use {word1} in one sentence."),
+        ],
+        "speaking": [
+            "Today I reviewed {topic}.",
+            "I can use {word1} and {word2}.",
+            "I will practise this again tomorrow.",
+        ],
+        "quiz": ("Choose a review sentence.", "Today I reviewed this topic."),
+    },
+]
+
+
+def _advanced_lesson_title(topic, mode):
+    suffix = mode.get("suffix", "")
+    return topic if not suffix else f"{topic} {suffix}"
+
+
+def _advanced_mode_words(pool, idx):
+    mode = ADVANCED_LESSON_MODES[idx % len(ADVANCED_LESSON_MODES)]
+    unit_shift = (idx // len(ADVANCED_LESSON_MODES)) % max(len(pool), 1)
+    return [pool[(unit_shift + offset) % len(pool)] for offset in mode["wordOffsets"]]
+
+
+def _advanced_format_lines(lines, topic_key, words):
+    word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
+    return [line.format(topic=topic_key, **word_map) for line in lines]
+
+
+def _advanced_format_dialogue(lines, topic_key, words):
+    word_map = {f"word{pos + 1}": word for pos, (word, _meaning) in enumerate(words)}
+    return [(speaker, text.format(topic=topic_key, **word_map)) for speaker, text in lines]
+
 
 def _advanced_topic_spec(level_id, topic, idx):
     profile = LEVEL_CONTENT_PROFILES[level_id]
     topic_key = topic.lower()
     pool = profile["words"]
-    selected_words = [(topic_key, topic_key)] + [pool[(idx + offset) % len(pool)] for offset in range(4)]
+    mode = ADVANCED_LESSON_MODES[idx % len(ADVANCED_LESSON_MODES)]
+    mode_words = _advanced_mode_words(pool, idx)
+    selected_words = [(topic_key, topic_key)] + mode_words
     words = []
     for word, meaning in selected_words:
         example, example_translation = _advanced_vocab_example(word, meaning, topic_key)
         words.append((word, meaning, example, "", meaning, "", example_translation))
-    patterns = [pattern.format(topic=topic_key) for pattern in profile["patterns"]]
-    grammar = list(profile["grammar"])
-    dialogue = [(speaker, text.format(topic=topic_key)) for speaker, text in profile["dialogue"]]
-    speaking = [text.format(topic=topic_key) for text in profile["speaking"]]
-    quiz_prompt, quiz_answer = profile["quiz"]
-    return (topic, topic, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
+    patterns = _advanced_format_lines(mode["patterns"], topic_key, mode_words)
+    grammar = list(mode["grammar"]) + list(profile["grammar"][:1])
+    dialogue = _advanced_format_dialogue(mode["dialogue"], topic_key, mode_words)
+    speaking = _advanced_format_lines(mode["speaking"], topic_key, mode_words)
+    quiz_prompt, quiz_answer = mode["quiz"]
+    title = _advanced_lesson_title(topic, mode)
+    return (topic, title, words, patterns, grammar, dialogue, speaking, f"{quiz_prompt}||{quiz_answer}")
 
 
 for level in ROADMAP_LEVELS:
