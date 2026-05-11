@@ -2,7 +2,7 @@
  * Ms. Smile English - Main JavaScript Application
  * Xử lý tất cả chức năng frontend
  */
-const APP_VERSION = "hybrid-roadmap-057-long-skill-lessons";
+const APP_VERSION = "hybrid-roadmap-058-all-units-skill-extras";
 console.log('[APP_VERSION]', APP_VERSION);
 
 // ==========================================

@@ -2391,6 +2391,233 @@ for level_id, topics in JAPANESE_LEVEL_TOPICS.items():
     ])
 
 
+SKILL_SEQUENCE = ["vocabulary", "grammar", "listening", "reading", "writing"]
+
+
+def _entry_text(entry, *keys, fallback=""):
+    if isinstance(entry, dict):
+        for key in keys:
+            value = entry.get(key)
+            if value:
+                return str(value)
+        return fallback
+    if isinstance(entry, (list, tuple)) and entry:
+        return str(entry[0])
+    return str(entry or fallback)
+
+
+def _lesson_words_for_skill(content, topic):
+    vocab = content.get("vocabulary") or []
+    words = []
+    for item in vocab[:5]:
+        word = _entry_text(item, "word", "text", fallback=topic)
+        meaning = _entry_text(item, "meaning", "translation", fallback=word)
+        words.append((word, meaning))
+    while len(words) < 3:
+        words.append((topic, topic))
+    return words[:5]
+
+
+def _lesson_topic_vi(content, topic):
+    vocab = content.get("vocabulary") or []
+    if vocab:
+        return _entry_text(vocab[0], "meaning", "translation", fallback=topic)
+    return topic
+
+
+def _merge_missing_skill_extra(content, extra):
+    for key, value in extra.items():
+        if key == "skillFocus":
+            content[key] = value
+        elif not content.get(key):
+            content[key] = value
+
+
+def _english_skill_extra(skill, lesson, content):
+    if skill == "vocabulary":
+        return {"skillFocus": "vocabulary"}
+    topic = str(lesson.get("topic") or lesson.get("title") or "this topic").lower()
+    topic_vi = _lesson_topic_vi(content, topic)
+    words = _lesson_words_for_skill(content, topic)
+    return _advanced_skill_extra({"skill": skill}, topic, words, topic_vi)
+
+
+def _jp_reading(item, fallback=""):
+    if isinstance(item, dict):
+        return item.get("reading") or item.get("exampleReading") or item.get("romaji") or fallback
+    if isinstance(item, (list, tuple)) and len(item) > 3:
+        return item[3]
+    return fallback
+
+
+def _japanese_skill_extra(skill, lesson, content):
+    topic = str(lesson.get("topic") or lesson.get("title") or "Japanese")
+    vocab = content.get("vocabulary") or []
+    primary = vocab[0] if vocab else {"word": topic, "meaning": topic, "reading": topic}
+    second = vocab[1] if len(vocab) > 1 else primary
+    third = vocab[2] if len(vocab) > 2 else second
+
+    word1 = _entry_text(primary, "word", "text", fallback=topic)
+    word2 = _entry_text(second, "word", "text", fallback=topic)
+    word3 = _entry_text(third, "word", "text", fallback=topic)
+    read1 = _jp_reading(primary, word1)
+    read2 = _jp_reading(second, word2)
+    read3 = _jp_reading(third, word3)
+    mean1 = _entry_text(primary, "meaning", "translation", fallback=word1)
+    mean2 = _entry_text(second, "meaning", "translation", fallback=word2)
+    mean3 = _entry_text(third, "meaning", "translation", fallback=word3)
+
+    if skill == "vocabulary":
+        return {"skillFocus": "vocabulary"}
+
+    if skill == "grammar":
+        return {
+            "skillFocus": "grammar",
+            "grammarPractice": {
+                "title": "Grammar practice",
+                "translation": "Luyện mẫu câu tiếng Nhật",
+                "examples": [
+                    {"text": f"{word1} を よみます。", "translation": f"Tôi đọc {mean1}."},
+                    {"text": f"{word2} を かきます。", "translation": f"Tôi viết {mean2}."},
+                    {"text": f"{word3} を べんきょうします。", "translation": f"Tôi học {mean3}."},
+                ],
+                "tasks": [
+                    "Đọc mẫu câu, sau đó thay bằng một từ mới trong bài.",
+                    "Viết lại câu với từ vựng thứ hai.",
+                    "Nói chậm từng cụm: từ vựng + を + động từ.",
+                    "Tự tạo một câu ngắn với từ em nhớ nhất.",
+                ],
+            },
+        }
+
+    jp_lines = [
+        f"きょうは {topic} を べんきょうします。",
+        f"さいしょに {word1} を よみます。",
+        f"{word1} の よみかたは {read1} です。",
+        f"つぎに {word2} を ききます。",
+        f"{word2} の いみは {mean2} です。",
+        f"それから {word3} を かきます。",
+        f"{word3} を こえに だして よみます。",
+        "ゆっくり よむと おぼえやすいです。",
+        "まちがえても だいじょうぶです。",
+        "もういちど きいて まねします。",
+        "さいごに みじかい ぶんを つくります。",
+        "まいにち すこしずつ れんしゅうします。",
+    ]
+    vi_lines = [
+        f"Hôm nay mình học chủ đề {topic}.",
+        f"Đầu tiên mình đọc {mean1}.",
+        f"Cách đọc của {word1} là {read1}.",
+        f"Tiếp theo mình nghe {mean2}.",
+        f"Nghĩa của {word2} là {mean2}.",
+        f"Sau đó mình viết {mean3}.",
+        f"Mình đọc to {word3}.",
+        "Đọc chậm sẽ dễ nhớ hơn.",
+        "Sai cũng không sao.",
+        "Mình nghe lại và nói theo.",
+        "Cuối cùng mình tạo một câu ngắn.",
+        "Mỗi ngày luyện một chút.",
+    ]
+
+    if skill == "listening":
+        return {
+            "skillFocus": "listening",
+            "listeningTask": {
+                "title": "Japanese listening",
+                "translation": "Bài nghe tiếng Nhật",
+                "passage": " ".join(jp_lines),
+                "passageTranslation": " ".join(vi_lines),
+                "questions": [
+                    {"question": "What is today's topic?", "translation": "Hôm nay học chủ đề gì?", "answer": topic},
+                    {"question": "Which word is read first?", "translation": "Từ nào được đọc đầu tiên?", "answer": word1},
+                    {"question": "What should you do after listening?", "translation": "Sau khi nghe nên làm gì?", "answer": "listen again and repeat"},
+                    {"question": "Is making mistakes okay?", "translation": "Nói sai có sao không?", "answer": "No"},
+                ],
+            },
+        }
+
+    if skill == "reading":
+        return {
+            "skillFocus": "reading",
+            "readingTask": {
+                "title": "Japanese reading",
+                "translation": "Bài đọc tiếng Nhật",
+                "passage": " ".join(jp_lines),
+                "passageTranslation": " ".join(vi_lines),
+                "questions": [
+                    {"question": "Find the word for the first vocabulary item.", "translation": "Tìm từ vựng đầu tiên trong bài.", "answer": word1},
+                    {"question": "Find one action word.", "translation": "Tìm một động từ/hành động.", "answer": "よみます"},
+                    {"question": "What helps memory?", "translation": "Điều gì giúp dễ nhớ?", "answer": "reading slowly"},
+                    {"question": "What should you make at the end?", "translation": "Cuối bài nên tạo gì?", "answer": "a short sentence"},
+                ],
+            },
+        }
+
+    if skill == "writing":
+        return {
+            "skillFocus": "writing",
+            "writingTask": {
+                "title": "Writing guide",
+                "translation": "Gợi ý viết tiếng Nhật",
+                "prompt": f"Write 4 short Japanese sentences about {topic}. Use {word1}, {word2}, and {word3}.",
+                "promptTranslation": f"Viết 4 câu tiếng Nhật ngắn về {topic}. Dùng {mean1}, {mean2}, và {mean3}.",
+                "outline": [
+                    "Sentence 1: write what you study today.",
+                    "Sentence 2: write one word you can read.",
+                    "Sentence 3: write one word you can listen to.",
+                    "Sentence 4: write what you will practise again.",
+                ],
+                "outlineTranslation": [
+                    "Câu 1: viết hôm nay em học gì.",
+                    "Câu 2: viết một từ em đọc được.",
+                    "Câu 3: viết một từ em nghe được.",
+                    "Câu 4: viết em sẽ luyện lại điều gì.",
+                ],
+                "sentenceStarters": [
+                    {"text": f"きょうは {topic} を べんきょうします。", "translation": f"Hôm nay tôi học {topic}."},
+                    {"text": f"{word1} を よみます。", "translation": f"Tôi đọc {mean1}."},
+                    {"text": f"{word2} を ききます。", "translation": f"Tôi nghe {mean2}."},
+                    {"text": f"{word3} を かきます。", "translation": f"Tôi viết {mean3}."},
+                    {"text": "もういちど れんしゅうします。", "translation": "Tôi sẽ luyện lại một lần nữa."},
+                    {"text": "ゆっくり よみます。", "translation": "Tôi đọc chậm."},
+                    {"text": "まいにち すこし れんしゅうします。", "translation": "Mỗi ngày tôi luyện một chút."},
+                    {"text": "これは だいじです。", "translation": "Điều này quan trọng."},
+                ],
+                "sample": f"きょうは {topic} を べんきょうします。 {word1} を よみます。 {word2} を ききます。 もういちど れんしゅうします。",
+                "sampleTranslation": f"Hôm nay tôi học {topic}. Tôi đọc {mean1}. Tôi nghe {mean2}. Tôi luyện lại một lần nữa.",
+                "checklist": [
+                    "I wrote 4 short sentences.",
+                    "I used at least 2 lesson words.",
+                    "I read each sentence aloud.",
+                ],
+                "checklistTranslation": [
+                    "Tôi đã viết 4 câu ngắn.",
+                    "Tôi đã dùng ít nhất 2 từ trong bài.",
+                    "Tôi đã đọc to từng câu.",
+                ],
+            },
+        }
+
+    return {"skillFocus": skill}
+
+
+def _enrich_skill_lessons_for_all_units():
+    for unit in ROADMAP_UNITS:
+        for index, lesson in enumerate(unit.get("lessons", [])):
+            if lesson.get("type") != "integrated":
+                continue
+            content = lesson.setdefault("content", {})
+            skill = content.get("skillFocus") or SKILL_SEQUENCE[index % len(SKILL_SEQUENCE)]
+            if lesson.get("levelId", "").startswith("jp_"):
+                extra = _japanese_skill_extra(skill, lesson, content)
+            else:
+                extra = _english_skill_extra(skill, lesson, content)
+            _merge_missing_skill_extra(content, extra)
+
+
+_enrich_skill_lessons_for_all_units()
+
+
 PLACEMENT_QUESTIONS = [
     {"id": "q1", "skill": "vocabulary", "question": "Choose the greeting.", "options": ["Hello", "Desk", "Blue", "Run"], "answer": "Hello"},
     {"id": "q2", "skill": "grammar", "question": "I ___ a student.", "options": ["am", "is", "are", "be"], "answer": "am"},
